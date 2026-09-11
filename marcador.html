@@ -506,6 +506,25 @@ function contar(campo){
   validos().forEach(g=>{ const v=g[campo]; if(v) m[v]=(m[v]||0)+1; });
   return Object.entries(m).sort((a,b)=>b[1]-a[1]);
 }
+function obterAvatarHtml(nome, tam=30, timeIdx=null){
+  if(!nome) return '';
+  let foto = null;
+  let tCor = '#eab308';
+  if(S.times){
+    for(let i=0; i<S.times.length; i++){
+      const t = S.times[i];
+      if(t && t.fotos && t.fotos[nome]){ foto = t.fotos[nome]; tCor = t.cor||tCor; break; }
+      if(t && t.jogadores && t.jogadores.includes(nome)){ tCor = t.cor||tCor; }
+    }
+  }
+  if(foto){
+    return `<span style="display:inline-block;width:${tam}px;height:${tam}px;border-radius:50%;overflow:hidden;border:2px solid ${tCor};vertical-align:middle;box-shadow:0 2px 4px rgba(0,0,0,0.3)"><img src="${foto}" style="width:100%;height:100%;object-fit:cover;display:block"></span>`;
+  }
+  const pts = nome.trim().split(/\s+/);
+  const ini = (pts.length>=2 ? pts[0][0]+pts[pts.length-1][0] : nome.slice(0,2)).toUpperCase();
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${tam}px;height:${tam}px;border-radius:50%;border:2px solid ${tCor};background:#162030;color:#fff;font-weight:800;font-size:${Math.round(tam*0.38)}px;vertical-align:middle;box-shadow:0 2px 4px rgba(0,0,0,0.3)">${ini}</span>`;
+}
+
 function renderResumo(){
   const v = validos();
   const a = v.filter(g=>g.time===0).length, b = v.filter(g=>g.time===1).length;
@@ -521,6 +540,7 @@ function renderResumo(){
   const pod=(el,dados,rot)=>{
     $(el).innerHTML = dados.slice(0,3).map((d,i)=>
       `<div class="pod"><div class="p">${medalhas[i]}</div>
+       <div style="margin:6px auto 4px;display:flex;justify-content:center">${obterAvatarHtml(d[0], 52)}</div>
        <div class="nm">${d[0]}</div><div class="v">${d[1]} ${rot}</div></div>`).join('')
       || `<div class="pod" style="grid-column:1/-1"><div class="hint">sem dados</div></div>`;
   };
@@ -529,7 +549,7 @@ function renderResumo(){
 
   const tabela=(el,dados,rot)=>{
     $(el).innerHTML = '<tr><th>Jogador</th><th style="text-align:right">'+rot+'</th></tr>' +
-      (dados.map(d=>`<tr><td>${d[0]}</td><td class="n">${d[1]}</td></tr>`).join('')
+      (dados.map(d=>`<tr><td><div style="display:flex;align-items:center;gap:8px">${obterAvatarHtml(d[0], 26)} <span>${d[0]}</span></div></td><td class="n">${d[1]}</td></tr>`).join('')
        || '<tr><td colspan="2" class="hint">sem dados</td></tr>');
   };
   tabela('#tbGols', contar('autor'), 'Gols');
@@ -556,7 +576,8 @@ function renderResumo(){
         const t=S.times[g.time];
         return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td>
           <td><span class="teamtag" style="background:${t.cor}">${t.nome}</span></td>
-          <td><b>⚽ GOL: ${g.autor}</b></td><td>${g.assist||'—'}</td></tr>`;
+          <td><div style="display:flex;align-items:center;gap:8px">${obterAvatarHtml(g.autor, 26, g.time)} <span>⚽ <b>GOL: ${g.autor}</b></span></div></td>
+          <td>${g.assist ? '<div style="display:flex;align-items:center;gap:6px">' + obterAvatarHtml(g.assist, 22, g.time) + ' <span>' + g.assist + '</span></div>' : '—'}</td></tr>`;
       } else {
         return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td>
           <td><span class="fonte f-audio">lance</span></td>

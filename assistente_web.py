@@ -1262,6 +1262,150 @@ def api_remover_foto_jogador(body: RemoverFotoJogadorPayload):
     return {"ok": True}
 
 
+# --------------------------------------------------------------- fundo e ajustes das cartelas
+
+class CapturarFundoPayload(BaseModel):
+    video: Optional[str] = None
+    tempo_s: float = 0.0
+
+
+@app.post("/api/cartelas/fundo/capturar")
+def api_capturar_fundo_cartela(body: CapturarFundoPayload):
+    video = _resolver_video(body.video) if body.video else None
+    if not video and os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                p = json.load(f)
+            video = p.get("meta", {}).get("video")
+        except Exception:
+            pass
+    if not video:
+        raise HTTPException(400, "Vídeo da partida não especificado")
+    
+    video = _resolver_video(video)
+    frame = _capturar_frame(video, body.tempo_s)
+    if frame is None:
+        raise HTTPException(400, "Não consegui capturar um frame neste instante do vídeo")
+    
+    return {"ok": True, "preview": _png_base64(frame), "tempo_s": body.tempo_s}
+
+
+class AjustarFundoPayload(BaseModel):
+    video: Optional[str] = None
+    tempo_s: float = 0.0
+    brilho: float = 0.55
+    saturacao: float = 1.15
+    contraste: float = 1.15
+    desfoque: float = 6.0
+    vinheta: float = 50.0
+    aplicar_video_clipes: bool = False
+
+
+@app.post("/api/cartelas/fundo/salvar")
+def api_salvar_fundo_cartela(body: AjustarFundoPayload):
+    from PIL import Image, ImageEnhance, ImageFilter
+    video = _resolver_video(body.video) if body.video else None
+    if not video and os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                p = json.load(f)
+            video = p.get("meta", {}).get("video")
+        except Exception:
+            pass
+    if not video:
+        raise HTTPException(400, "Vídeo da partida não especificado")
+    
+    video = _resolver_video(video)
+    frame = _capturar_frame(video, body.tempo_s)
+    if frame is None:
+        raise HTTPException(400, "Não consegui ler o frame do vídeo")
+    
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(rgb).resize((1920, 1080), Image.Resampling.LANCZOS)
+    
+    if body.brilho != 1.0:
+        img = ImageEnhance.Brightness(img).enhance(body.brilho)
+    if body.saturacao != 1.0:
+        img = ImageEnhance.Color(img).enhance(body.saturacao)
+    if body.contraste != 1.0:
+        img = ImageEnhance.Contrast(img).enhance(body.contraste)
+    if body.desfoque > 0:
+        img = img.filter(ImageFilter.GaussianBlur(radius=body.desfoque))
+    if body.vinheta > 0:
+        alpha = int(255 * min(max(body.vinheta / 100.0, 0.0), 1.0))
+        overlay = Image.new("RGBA", (1920, 1080), (11, 15, 23, alpha))
+        img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+    
+    caminho_raiz = os.path.join(PROJECT_DIR, "fundo_cartela.png")
+    caminho_web = os.path.join(WEB_DIR, "fundo_cartela.png")
+    img.save(caminho_raiz, "PNG")
+    img.save(caminho_web, "PNG")
+    
+    if os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                p = json.load(f)
+            if "meta" not in p:
+                p["meta"] = {}
+            p["meta"]["fundo_cartela"] = "fundo_cartela.png"
+            p["meta"]["fundo_config"] = body.dict()
+            with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
+                json.dump(p, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+    
+    return {"ok": True, "url": f"/web/fundo_cartela.png?t={int(time.time()*1000)}"}
+
+
+@app.post("/api/cartelas/fundo/restaurar")
+def api_restaurar_fundo_cartela():
+    for cand in [os.path.join(PROJECT_DIR, "fundo_cartela.png"), os.path.join(WEB_DIR, "fundo_cartela.png")]:
+        if os.path.exists(cand):
+            try:
+                os.remove(cand)
+            except Exception:
+                pass
+    if os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                p = json.load(f)
+            if "meta" in p:
+                p["meta"].pop("fundo_cartela", None)
+                p["meta"].pop("fundo_config", None)
+            with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
+                json.dump(p, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+    return {"ok": True}
+
+
+@app.get("/api/cartelas/preview/{tipo}")
+def api_preview_cartela(tipo: str):
+    import io
+    from PIL import Image
+    import montar_video
+    if not os.path.exists(PARTIDA_JSON):
+        raise HTTPException(400, "partida.json não encontrado")
+    with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+        d = json.load(f)
+    
+    if tipo == "abertura":
+        img = montar_video.cartela_abertura(d)
+    elif tipo == "fim_de_jogo":
+        img = montar_video.cartela_fim_de_jogo(d)
+    elif tipo == "destaques":
+        img = montar_video.cartela_destaques(d)
+    elif tipo == "cronologia":
+        img = montar_video.cartela_cronologia(d)
+    else:
+        raise HTTPException(400, f"Tipo de cartela desconhecido: {tipo}")
+    
+    prev = img.resize((960, 540), Image.Resampling.BILINEAR)
+    buf = io.BytesIO()
+    prev.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
+
+
 # --------------------------------------------------------------- montagem final
 
 class IniciarMontagem(BaseModel):
@@ -1289,6 +1433,25 @@ def api_iniciar_montagem(body: IniciarMontagem):
         cmd.append("--sem_abertura")
     if body.sem_fechamento:
         cmd.append("--sem_fechamento")
+    
+    fc = {}
+    if os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                fc = json.load(f).get("meta", {}).get("fundo_config", {})
+        except Exception:
+            pass
+
+    if os.path.isfile(os.path.join(PROJECT_DIR, "fundo_cartela.png")):
+        cmd.extend(["--fundo", "fundo_cartela.png"])
+    if fc.get("aplicar_video_clipes"):
+        if fc.get("brilho") is not None:
+            cmd.extend(["--brilho", str(fc["brilho"])])
+        if fc.get("saturacao") is not None:
+            cmd.extend(["--saturacao", str(fc["saturacao"])])
+        if fc.get("contraste") is not None:
+            cmd.extend(["--contraste", str(fc["contraste"])])
+
     return {"job_id": _iniciar_job(cmd)}
 
 

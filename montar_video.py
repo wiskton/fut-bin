@@ -256,6 +256,37 @@ def desenhar_tv_watermark(img, d_, pos=None, tamanho=(85, 85)):
     d.text((x + 27, tag_y), "AO VIVO", font=fonte(11, True), fill=(240, 244, 248, 230))
 
 
+def criar_fundo_base(d_=None, fundo_custom=None):
+    """
+    Retorna a imagem base (1920x1080) para as cartelas do vídeo.
+    Se houver um frame ajustado salvo (fundo_cartela.png) ou configurado em d_['meta']['fundo_cartela'],
+    carrega e utiliza como plano de fundo cinematográfico de transmissão esportiva.
+    Caso contrário, devolve uma imagem sólida com a cor FUNDO.
+    """
+    caminho = fundo_custom
+    if not caminho and d_ and isinstance(d_.get("_fundo_custom"), str):
+        caminho = d_["_fundo_custom"]
+    if not caminho and d_ and isinstance(d_.get("meta"), dict):
+        caminho = d_["meta"].get("fundo_cartela")
+    if not caminho or not os.path.isfile(caminho):
+        for cand in ["fundo_cartela.png", "web/fundo_cartela.png"]:
+            if os.path.isfile(cand):
+                caminho = cand
+                break
+    if caminho and os.path.isfile(caminho):
+        try:
+            bg = Image.open(caminho).convert("RGBA")
+            if bg.size != (L, A):
+                bg = bg.resize((L, A), Image.Resampling.LANCZOS)
+            # Overlay translúcido suave para assegurar excelente contraste dos textos e placas
+            overlay = Image.new("RGBA", (L, A), (11, 15, 23, 100))
+            bg = Image.alpha_composite(bg, overlay)
+            return bg.convert("RGB")
+        except Exception as e:
+            print(f"Aviso ao carregar imagem de fundo ({caminho}): {e}")
+    return Image.new("RGB", (L, A), FUNDO)
+
+
 def _tempo_em_segundos(ev):
     if not ev or not isinstance(ev, dict):
         return 0.0
@@ -426,7 +457,7 @@ def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb, img_base=N
 
 
 def cartela_abertura(d_):
-    img = Image.new("RGB", (L, A), FUNDO)
+    img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     meta, times = d_["meta"], d_["times"]
     ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
@@ -701,7 +732,7 @@ def cartela_fim_de_jogo(d_):
     Placar final profissional estilo transmissão esportiva pós-jogo (SporTV / Premiere).
     Mostra o placar oficial e a lista de todos os gols de cada time.
     """
-    img = Image.new("RGB", (L, A), FUNDO)
+    img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     meta, times = d_["meta"], d_["times"]
     ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
@@ -798,7 +829,7 @@ def cartela_fim_de_jogo(d_):
 
 
 def cartela_cronologia(d_):
-    img = Image.new("RGB", (L, A), FUNDO)
+    img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, L, 6], fill=VERDE)
 
@@ -870,7 +901,7 @@ def cartela_cronologia(d_):
 
 
 def cartela_destaques(d_):
-    img = Image.new("RGB", (L, A), FUNDO)
+    img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, L, 6], fill=VERDE)
 
@@ -954,7 +985,7 @@ def seg_de_imagem(img_path, dur, saida, fade=0.5):
           "-c:a", "aac", "-b:a", "160k", "-shortest", saida])
 
 
-def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4):
+def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None):
     dur = float(subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "csv=p=0", clipe], capture_output=True, text=True).stdout.strip() or 6)
@@ -962,8 +993,23 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4):
     ini = 0.5
     fim = max(dur - 0.4, ini + 2.0)
 
+    filtro_cor = ""
+    if ajuste_cor and isinstance(ajuste_cor, dict):
+        eq_items = []
+        if ajuste_cor.get("brilho") is not None:
+            b = float(ajuste_cor["brilho"]) - 1.0
+            eq_items.append(f"brightness={b:.2f}")
+        if ajuste_cor.get("contraste") is not None:
+            c = float(ajuste_cor["contraste"])
+            eq_items.append(f"contrast={c:.2f}")
+        if ajuste_cor.get("saturacao") is not None:
+            s = float(ajuste_cor["saturacao"])
+            eq_items.append(f"saturation={s:.2f}")
+        if eq_items:
+            filtro_cor = ",eq=" + ":".join(eq_items)
+
     vf = (f"scale={L}:{A}:force_original_aspect_ratio=decrease,"
-          f"pad={L}:{A}:(ow-iw)/2:(oh-ih)/2,fps={FPS},format=yuv420p")
+          f"pad={L}:{A}:(ow-iw)/2:(oh-ih)/2,fps={FPS}{filtro_cor},format=yuv420p")
     filtro = (f"[0:v]{vf}[v0];"
               f"[1:v]format=rgba,fade=t=in:st={ini}:d=0.35:alpha=1,"
               f"fade=t=out:st={fim - 0.35}:d=0.35:alpha=1[ov];"
@@ -1035,10 +1081,26 @@ def main():
     ap.add_argument("--sem_audio", action="store_true")
     ap.add_argument("--sem_abertura", action="store_true")
     ap.add_argument("--sem_fechamento", action="store_true")
+    ap.add_argument("--fundo", help="Caminho da imagem de fundo para as cartelas")
+    ap.add_argument("--brilho", type=float, default=None, help="Ajuste de brilho dos clipes (1.0 = normal)")
+    ap.add_argument("--saturacao", type=float, default=None, help="Ajuste de saturacao dos clipes (1.0 = normal)")
+    ap.add_argument("--contraste", type=float, default=None, help="Ajuste de contraste dos clipes (1.0 = normal)")
     args = ap.parse_args()
 
     with open(args.partida, encoding="utf-8-sig") as f:
         d = json.load(f)
+
+    if args.fundo:
+        d["_fundo_custom"] = args.fundo
+
+    ajuste_cor = None
+    fc = d.get("meta", {}).get("fundo_config", {}) if isinstance(d.get("meta"), dict) else {}
+    if fc.get("aplicar_video_clipes") or args.brilho is not None or args.saturacao is not None or args.contraste is not None:
+        ajuste_cor = {
+            "brilho": args.brilho if args.brilho is not None else fc.get("brilho", 1.0),
+            "saturacao": args.saturacao if args.saturacao is not None else fc.get("saturacao", 1.0),
+            "contraste": args.contraste if args.contraste is not None else fc.get("contraste", 1.0),
+        }
 
     por_indice = {g["indice"]: ("gol", g) for g in d.get("gols", [])}
     por_indice.update({l["indice"]: ("lance", l) for l in d.get("lances", [])})
@@ -1102,7 +1164,7 @@ def main():
             rot = ev.get("autor") or ev.get("lance") or "lance"
             status_placar = f"[{placar_a} × {placar_b}]"
             print(f"  [{n:02d}/{len(roteiro)}] {ev.get('tempo','')} {status_placar} {tipo}: {rot}")
-            seg_de_clipe(clipe, png, s, args.sem_audio)
+            seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor)
             partes.append(s)
             if tipo == "gol":
                 partes_gols.append(s)

@@ -257,9 +257,16 @@
                   background:#ef4444;color:#fff;border:1px solid #ffffff;font-size:11px;
                   line-height:1;display:flex;align-items:center;justify-content:center;
                   cursor:pointer;padding:0;font-weight:900;box-shadow:0 2px 4px rgba(0,0,0,0.4)}
-  .fut-avatar-del:hover{background:#dc2626;transform:scale(1.15)}
-  .fut-avatar-icon{font-size:14px;opacity:0.75;line-height:1}
-  .fut-avatar-wrap.vazio:hover .fut-avatar-icon{opacity:1}
+  /* Avatares no Resumo e Transmissão */
+  .resumo-avatar-wrap{border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;
+                      justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,0.5);flex-shrink:0;
+                      transition:transform 0.15s ease}
+  .resumo-avatar-wrap:hover{transform:scale(1.1)}
+  .resumo-avatar-img{width:100%;height:100%;object-fit:cover;display:block}
+  .resumo-player-cell{display:flex;align-items:center;gap:10px}
+  .btnTabPreview{font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--txt);transition:all 0.15s ease}
+  .btnTabPreview.active{background:var(--accent);color:#080b11;font-weight:800;border-color:var(--accent);box-shadow:0 0 10px rgba(0,255,135,0.4)}
+  .btnPequeno{font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer}
 </style>
 
 <header>
@@ -705,6 +712,146 @@
       <div>
         <div style="font-weight:900; font-size:14px; color:#ffd700; letter-spacing:0.8px; text-transform:uppercase">Copa Fut-Bin Championship · Logo Oficial Ativada</div>
         <div class="hint" style="margin:4px 0 0; font-size:12px; line-height:1.4">Esta logo será renderizada com destaque na <b>cartela de abertura</b>, como <b>marca d'água de transmissão ao vivo</b> no canto superior dos clipes e na <b>cartela final de estatísticas e placar pós-jogo</b>. <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Trocar logo no Passo 5</a>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="border-top:2px solid var(--accent)" id="cardFundoCartelas">
+    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px">
+      <div>
+        <h2 style="margin:0; font-size:18px; display:flex; align-items:center; gap:8px">
+          <span>🎬</span> Imagem de Fundo das Cartelas do Vídeo
+        </h2>
+        <div class="hint" style="margin-top:4px">
+          Escolha um frame da partida e ajuste saturação, brilho, contraste e desfoque para gerar as imagens das cartelas com visual profissional de transmissão esportiva.
+        </div>
+      </div>
+      <div class="row" style="gap:8px">
+        <button type="button" class="ghost" id="btnRestaurarFundoPadrao" title="Restaurar padrão escuro clássico">Restaurar Padrão</button>
+        <button type="button" class="act" id="btnSalvarFundoCartela" style="font-weight:700">✓ Aplicar Frame</button>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 360px 1fr; gap:20px; align-items:start">
+      <!-- Coluna de Controles -->
+      <div style="background:var(--panel2); padding:16px; border-radius:10px; border:1px solid var(--line)">
+        <!-- 1. Instante do Vídeo -->
+        <div style="margin-bottom:14px">
+          <label style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--txt)">
+            1. Escolher Frame do Vídeo
+          </label>
+          <div class="row" style="gap:8px; margin-top:6px">
+            <input type="text" id="tempoFundoInput" value="02:30" placeholder="MM:SS" style="width:90px; text-align:center; font-family:monospace; font-weight:700">
+            <button type="button" class="ghost" id="btnCapturarFrameFundo" style="flex:1">Capturar Frame</button>
+          </div>
+          <input type="range" id="rangeTempoFundo" min="0" max="3600" step="1" value="150" style="width:100%; margin-top:8px">
+          
+          <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:8px">
+            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(60)">⏱ 01:00</button>
+            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(300)">⏱ 05:00</button>
+            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(900)">⏱ 15:00</button>
+            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(1500)">⏱ 25:00</button>
+            <button type="button" class="ghost btnPequeno" id="btnFrameGolDestaque">⚽ Frame Gol</button>
+          </div>
+        </div>
+
+        <hr style="border:0; border-top:1px solid var(--line); margin:14px 0">
+
+        <!-- 2. Ajustes de Imagem -->
+        <div>
+          <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+            <label style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px">
+              2. Saturação, Brilho & Estilo
+            </label>
+            <div style="display:flex; gap:4px">
+              <span class="hint" style="font-size:11px">Presets:</span>
+              <a href="javascript:void(0)" onclick="aplicarPresetFundo('sportv')" style="font-size:11px; color:var(--accent); text-decoration:underline">SporTV</a> ·
+              <a href="javascript:void(0)" onclick="aplicarPresetFundo('vivido')" style="font-size:11px; color:var(--accent); text-decoration:underline">Vívido</a> ·
+              <a href="javascript:void(0)" onclick="aplicarPresetFundo('cinema')" style="font-size:11px; color:var(--accent); text-decoration:underline">Cinema</a>
+            </div>
+          </div>
+
+          <!-- Brilho -->
+          <div style="margin-top:10px">
+            <div class="row" style="justify-content:space-between; font-size:12px">
+              <span>Brilho</span>
+              <span id="lblFundoBrilho" style="font-weight:700">55%</span>
+            </div>
+            <input type="range" id="fundoBrilho" min="15" max="150" value="55" style="width:100%">
+          </div>
+
+          <!-- Saturação -->
+          <div style="margin-top:8px">
+            <div class="row" style="justify-content:space-between; font-size:12px">
+              <span>Saturação</span>
+              <span id="lblFundoSaturacao" style="font-weight:700">115%</span>
+            </div>
+            <input type="range" id="fundoSaturacao" min="0" max="200" value="115" style="width:100%">
+          </div>
+
+          <!-- Contraste -->
+          <div style="margin-top:8px">
+            <div class="row" style="justify-content:space-between; font-size:12px">
+              <span>Contraste</span>
+              <span id="lblFundoContraste" style="font-weight:700">115%</span>
+            </div>
+            <input type="range" id="fundoContraste" min="50" max="180" value="115" style="width:100%">
+          </div>
+
+          <!-- Desfoque -->
+          <div style="margin-top:8px">
+            <div class="row" style="justify-content:space-between; font-size:12px">
+              <span>Desfoque (Blur TV)</span>
+              <span id="lblFundoDesfoque" style="font-weight:700">6 px</span>
+            </div>
+            <input type="range" id="fundoDesfoque" min="0" max="25" value="6" style="width:100%">
+          </div>
+
+          <!-- Vinheta -->
+          <div style="margin-top:8px">
+            <div class="row" style="justify-content:space-between; font-size:12px">
+              <span>Escurecimento / Vinheta TV</span>
+              <span id="lblFundoVinheta" style="font-weight:700">50%</span>
+            </div>
+            <input type="range" id="fundoVinheta" min="0" max="90" value="50" style="width:100%">
+          </div>
+
+          <div style="margin-top:14px; padding-top:10px; border-top:1px solid var(--line)">
+            <label class="row" style="font-size:12px; cursor:pointer">
+              <input type="checkbox" id="chkAplicarClipes" style="width:auto">
+              <span>Aplicar saturação e brilho também aos clipes de vídeo</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coluna de Prévia ao Vivo -->
+      <div>
+        <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+          <div class="row" style="gap:6px; flex-wrap:wrap">
+            <button type="button" class="btnTabPreview active" id="tabPrevFundo" onclick="trocarAbaPreviewFundo('frame')">🖼 Frame Ajustado</button>
+            <button type="button" class="btnTabPreview" id="tabPrevAbertura" onclick="trocarAbaPreviewFundo('abertura')">🏟 Cartela Abertura</button>
+            <button type="button" class="btnTabPreview" id="tabPrevFim" onclick="trocarAbaPreviewFundo('fim_de_jogo')">🏁 Placar Final</button>
+            <button type="button" class="btnTabPreview" id="tabPrevDestaques" onclick="trocarAbaPreviewFundo('destaques')">⭐ Destaques</button>
+          </div>
+          <span id="statusSalvoFundo" style="font-size:12px; font-weight:700; color:var(--accent); display:none">✓ Aplicado com Sucesso!</span>
+        </div>
+
+        <div style="position:relative; width:100%; aspect-ratio:16/9; background:#080b11; border-radius:10px; overflow:hidden; border:1px solid var(--line); box-shadow:0 6px 20px rgba(0,0,0,0.6)">
+          <img id="imgFundoPreview" src="/web/fundo_cartela.png" style="width:100%; height:100%; object-fit:cover; display:block" onerror="this.src='/web/icon.png'">
+          <div id="overlayFundoPreview" style="position:absolute; inset:0; background:rgba(11,15,23,0.5); pointer-events:none"></div>
+          
+          <img id="imgCartelaRenderPreview" src="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:none; z-index:2">
+          
+          <div id="loadingFundoPreview" style="position:absolute; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:5">
+            <span style="color:#fff; font-weight:700; font-size:14px">⏳ Renderizando prévia...</span>
+          </div>
+        </div>
+        
+        <div class="hint" style="margin-top:8px; display:flex; justify-content:space-between">
+          <span>Resolução das imagens: <b>1920 × 1080 (Full HD Broadcast)</b></span>
+          <span id="frameTimestampInfo">Instante do vídeo: 02:30</span>
+        </div>
       </div>
     </div>
   </div>
@@ -3316,6 +3463,251 @@ document.addEventListener('keydown', e=>{
 });
 
 /* ------------------------------------------------------------ passo 7: resumo e montagem */
+function obterFotoJogador(nome, timeIdx = null){
+  if(!nome) return null;
+  const nNorm = nome.trim().toLowerCase();
+  if(timeIdx !== null && S.times[timeIdx] && S.times[timeIdx].fotos){
+    for(const [k, v] of Object.entries(S.times[timeIdx].fotos)){
+      if(k.trim().toLowerCase() === nNorm && v) return v;
+    }
+  }
+  for(let i = 0; i < S.times.length; i++){
+    const t = S.times[i];
+    if(t && t.fotos){
+      for(const [k, v] of Object.entries(t.fotos)){
+        if(k.trim().toLowerCase() === nNorm && v) return v;
+      }
+    }
+  }
+  return null;
+}
+
+function obterTimeJogador(nome){
+  if(!nome) return null;
+  const nNorm = nome.trim().toLowerCase();
+  for(let i = 0; i < S.times.length; i++){
+    const t = S.times[i];
+    if(t && t.jogadores){
+      if(t.jogadores.some(j => j.trim().toLowerCase() === nNorm)) return { timeIdx: i, ...t };
+    }
+  }
+  return null;
+}
+
+function obterAvatarJogadorHtml(nome, tamanho = 32, timeIdx = null){
+  if(!nome) return '';
+  const foto = obterFotoJogador(nome, timeIdx);
+  const timeInfo = obterTimeJogador(nome);
+  const tCor = timeInfo ? timeInfo.cor : (timeIdx !== null && S.times[timeIdx] ? S.times[timeIdx].cor : '#eab308');
+  const nomeEsc = nome.replace(/"/g, '&quot;');
+  
+  if(foto){
+    return `<div class="resumo-avatar-wrap" style="width:${tamanho}px; height:${tamanho}px; border:2px solid ${tCor}" title="${nomeEsc}">
+      <img src="${foto}" class="resumo-avatar-img" alt="${nomeEsc}">
+    </div>`;
+  }
+  
+  const partes = nome.trim().split(/\s+/);
+  const iniciais = (partes.length >= 2 ? (partes[0][0] + partes[partes.length - 1][0]) : nome.slice(0, 2)).toUpperCase();
+  const fontSize = Math.max(10, Math.round(tamanho * 0.38));
+  return `<div class="resumo-avatar-wrap" style="width:${tamanho}px; height:${tamanho}px; border:2px solid ${tCor}; background:linear-gradient(135deg, #182233, #0b101a); font-weight:800; font-size:${fontSize}px; color:#ffffff; text-shadow:0 1px 2px rgba(0,0,0,0.8)" title="${nomeEsc}">
+    ${iniciais}
+  </div>`;
+}
+
+let abaPreviewAtual = 'frame';
+let tempoFundoSegundos = 150;
+
+function atualizarFiltrosCssFundo(){
+  const b = parseFloat($('#fundoBrilho').value) || 55;
+  const s = parseFloat($('#fundoSaturacao').value) || 115;
+  const c = parseFloat($('#fundoContraste').value) || 115;
+  const d = parseFloat($('#fundoDesfoque').value) || 6;
+  const v = parseFloat($('#fundoVinheta').value) || 50;
+
+  $('#lblFundoBrilho').textContent = `${b}%`;
+  $('#lblFundoSaturacao').textContent = `${s}%`;
+  $('#lblFundoContraste').textContent = `${c}%`;
+  $('#lblFundoDesfoque').textContent = `${d} px`;
+  $('#lblFundoVinheta').textContent = `${v}%`;
+
+  const img = $('#imgFundoPreview');
+  if(img){
+    img.style.filter = `brightness(${b / 100}) saturate(${s / 100}) contrast(${c / 100}) blur(${d}px)`;
+  }
+  const ov = $('#overlayFundoPreview');
+  if(ov){
+    ov.style.background = `rgba(11, 15, 23, ${v / 100})`;
+  }
+}
+
+async function capturarFrameFundo(tempo_s){
+  const loadEl = $('#loadingFundoPreview');
+  if(loadEl) loadEl.style.display = 'flex';
+  try {
+    const video = S.meta && S.meta.video ? S.meta.video : null;
+    const r = await fetch('/api/cartelas/fundo/capturar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({video, tempo_s: parseFloat(tempo_s) || 0})
+    });
+    if(!r.ok){
+      alert('Não foi possível capturar frame neste instante do vídeo.');
+      return;
+    }
+    const data = await r.json();
+    if(data.ok && data.preview){
+      $('#imgFundoPreview').src = data.preview;
+      tempoFundoSegundos = data.tempo_s;
+      $('#rangeTempoFundo').value = Math.round(data.tempo_s);
+      $('#tempoFundoInput').value = fmtTempo(Math.round(data.tempo_s));
+      $('#frameTimestampInfo').textContent = `Instante do vídeo: ${fmtTempo(Math.round(data.tempo_s))}`;
+      if(abaPreviewAtual !== 'frame'){
+        await salvarFundoCartela(true);
+      }
+    }
+  } catch(e) {
+    console.error('Erro ao capturar frame:', e);
+  } finally {
+    if(loadEl) loadEl.style.display = 'none';
+  }
+}
+
+async function salvarFundoCartela(silencioso = false){
+  const loadEl = $('#loadingFundoPreview');
+  if(loadEl) loadEl.style.display = 'flex';
+  try {
+    const video = S.meta && S.meta.video ? S.meta.video : null;
+    const payload = {
+      video,
+      tempo_s: tempoFundoSegundos,
+      brilho: (parseFloat($('#fundoBrilho').value) || 55) / 100,
+      saturacao: (parseFloat($('#fundoSaturacao').value) || 115) / 100,
+      contraste: (parseFloat($('#fundoContraste').value) || 115) / 100,
+      desfoque: parseFloat($('#fundoDesfoque').value) || 6,
+      vinheta: parseFloat($('#fundoVinheta').value) || 50,
+      aplicar_video_clipes: $('#chkAplicarClipes').checked
+    };
+    const r = await fetch('/api/cartelas/fundo/salvar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!r.ok){
+      if(!silencioso) alert('Erro ao salvar fundo das cartelas.');
+      return;
+    }
+    const data = await r.json();
+    if(data.ok){
+      const st = $('#statusSalvoFundo');
+      if(st){
+        st.style.display = 'inline-block';
+        setTimeout(() => { st.style.display = 'none'; }, 3000);
+      }
+      if(abaPreviewAtual !== 'frame'){
+        await renderizarPreviewCartela(abaPreviewAtual);
+      }
+    }
+  } catch(e) {
+    console.error('Erro ao salvar fundo:', e);
+  } finally {
+    if(loadEl) loadEl.style.display = 'none';
+  }
+}
+
+async function restaurarFundoPadrao(){
+  if(!confirm('Restaurar imagem de fundo padrão das cartelas?')) return;
+  const loadEl = $('#loadingFundoPreview');
+  if(loadEl) loadEl.style.display = 'flex';
+  try {
+    await fetch('/api/cartelas/fundo/restaurar', {method: 'POST'});
+    aplicarPresetFundo('padrao');
+    $('#imgFundoPreview').src = '/web/icon.png';
+    $('#imgCartelaRenderPreview').style.display = 'none';
+    $('#imgFundoPreview').style.display = 'block';
+    $('#overlayFundoPreview').style.display = 'block';
+    alert('Fundo restaurado para o padrão original de transmissão.');
+  } catch(e) {
+    console.error(e);
+  } finally {
+    if(loadEl) loadEl.style.display = 'none';
+  }
+}
+
+function aplicarPresetFundo(tipo){
+  if(tipo === 'sportv'){
+    $('#fundoBrilho').value = 55;
+    $('#fundoSaturacao').value = 115;
+    $('#fundoContraste').value = 115;
+    $('#fundoDesfoque').value = 6;
+    $('#fundoVinheta').value = 50;
+  } else if(tipo === 'vivido'){
+    $('#fundoBrilho').value = 60;
+    $('#fundoSaturacao').value = 140;
+    $('#fundoContraste').value = 125;
+    $('#fundoDesfoque').value = 4;
+    $('#fundoVinheta').value = 40;
+  } else if(tipo === 'cinema'){
+    $('#fundoBrilho').value = 45;
+    $('#fundoSaturacao').value = 80;
+    $('#fundoContraste').value = 130;
+    $('#fundoDesfoque').value = 8;
+    $('#fundoVinheta').value = 65;
+  } else if(tipo === 'padrao'){
+    $('#fundoBrilho').value = 100;
+    $('#fundoSaturacao').value = 100;
+    $('#fundoContraste').value = 100;
+    $('#fundoDesfoque').value = 0;
+    $('#fundoVinheta').value = 80;
+  }
+  atualizarFiltrosCssFundo();
+}
+
+function carregarFramePredefinido(tempo_s){
+  capturarFrameFundo(tempo_s);
+}
+
+async function renderizarPreviewCartela(tipo){
+  const loadEl = $('#loadingFundoPreview');
+  if(loadEl) loadEl.style.display = 'flex';
+  try {
+    const prevImg = $('#imgCartelaRenderPreview');
+    prevImg.src = `/api/cartelas/preview/${tipo}?t=${Date.now()}`;
+    prevImg.onload = () => {
+      prevImg.style.display = 'block';
+      $('#imgFundoPreview').style.display = 'none';
+      $('#overlayFundoPreview').style.display = 'none';
+      if(loadEl) loadEl.style.display = 'none';
+    };
+    prevImg.onerror = () => {
+      if(loadEl) loadEl.style.display = 'none';
+      alert('Não foi possível renderizar a prévia desta cartela.');
+    };
+  } catch(e) {
+    if(loadEl) loadEl.style.display = 'none';
+  }
+}
+
+async function trocarAbaPreviewFundo(aba){
+  abaPreviewAtual = aba;
+  ['tabPrevFundo', 'tabPrevAbertura', 'tabPrevFim', 'tabPrevDestaques'].forEach(id => {
+    const btn = $('#' + id);
+    if(btn) btn.classList.remove('active');
+  });
+  if(aba === 'frame'){
+    $('#tabPrevFundo').classList.add('active');
+    $('#imgCartelaRenderPreview').style.display = 'none';
+    $('#imgFundoPreview').style.display = 'block';
+    $('#overlayFundoPreview').style.display = 'block';
+  } else {
+    if(aba === 'abertura') $('#tabPrevAbertura').classList.add('active');
+    else if(aba === 'fim_de_jogo') $('#tabPrevFim').classList.add('active');
+    else if(aba === 'destaques') $('#tabPrevDestaques').classList.add('active');
+    await salvarFundoCartela(true);
+    await renderizarPreviewCartela(aba);
+  }
+}
+
 function renderResumo(){
   const v = validos();
   const gm = golsMarcados();
@@ -3371,16 +3763,36 @@ function renderResumo(){
 
   const medalhas=['🥇','🥈','🥉'];
   const pod=(el,dados,rot)=>{
-    $(el).innerHTML = dados.slice(0,3).map(d=>`<div class="pod"><div class="p">${medalhas[dados.indexOf(d)]}</div>
-      <div class="nm">${d[0]}</div><div class="v">${d[1]} ${rot}</div></div>`).join('')
-      || `<div class="pod" style="grid-column:1/-1"><div class="hint">sem dados</div></div>`;
+    $(el).innerHTML = dados.slice(0,3).map((d, i)=>{
+      const nm = d[0], qtd = d[1];
+      const avHtml = obterAvatarJogadorHtml(nm, 54);
+      return `
+        <div class="pod">
+          <div class="p">${medalhas[i]}</div>
+          <div style="margin:8px auto 6px; display:flex; justify-content:center">${avHtml}</div>
+          <div class="nm">${nm}</div>
+          <div class="v">${qtd} ${rot}</div>
+        </div>
+      `;
+    }).join('') || `<div class="pod" style="grid-column:1/-1"><div class="hint">sem dados</div></div>`;
   };
-  pod('#podGols', contar('autor'), 'gols'); pod('#podAssist', contar('assist'), 'assist.');
+  pod('#podGols', contar('autor'), 'gols');
+  pod('#podAssist', contar('assist'), 'assist.');
+
   const tabela=(el,dados,rot)=>{
     $(el).innerHTML = '<tr><th>Jogador</th><th style="text-align:right">'+rot+'</th></tr>' +
-      (dados.map(d=>`<tr><td>${d[0]}</td><td class="n">${d[1]}</td></tr>`).join('') || '<tr><td colspan="2" class="hint">sem dados</td></tr>');
+      (dados.map(d=>{
+        const nm = d[0], qtd = d[1];
+        const avHtml = obterAvatarJogadorHtml(nm, 28);
+        return `<tr>
+          <td><div class="resumo-player-cell">${avHtml} <span style="font-weight:600">${nm}</span></div></td>
+          <td class="n" style="font-weight:800">${qtd}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="2" class="hint">sem dados</td></tr>');
   };
-  tabela('#tbGols', contar('autor'), 'Gols'); tabela('#tbAssist', contar('assist'), 'Assist.');
+  tabela('#tbGols', contar('autor'), 'Gols');
+  tabela('#tbAssist', contar('assist'), 'Assist.');
+
   const todosCrono = [
     ...v.map(g => ({...g, tipoEvento: 'gol'})),
     ...l.map(g => ({...g, tipoEvento: 'lance'}))
@@ -3395,15 +3807,109 @@ function renderResumo(){
         const t = S.times[g.time];
         const cor = t ? t.cor : 'var(--accent)';
         const nomeTime = t ? t.nome : 'Time';
-        return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td><td><span class="teamtag" style="background:${cor};color:${corTextoParaFundo(cor)}">${nomeTime}</span></td>
-          <td><b>⚽ GOL: ${g.autor}</b></td><td>${g.assist ? 'assistência: ' + g.assist : '—'}</td></tr>`;
+        const avAutor = g.autor ? obterAvatarJogadorHtml(g.autor, 28, g.time) : '';
+        const avAssist = g.assist ? obterAvatarJogadorHtml(g.assist, 24, g.time) : '';
+        return `<tr>
+          <td><b>${idx + 1}</b></td>
+          <td><b>${g.tempo}</b></td>
+          <td><span class="teamtag" style="background:${cor};color:${corTextoParaFundo(cor)}">${nomeTime}</span></td>
+          <td>
+            <div style="display:flex; align-items:center; gap:8px">
+              ${avAutor}
+              <span>⚽ <b>GOL: ${g.autor}</b></span>
+            </div>
+          </td>
+          <td>
+            ${g.assist ? `<div style="display:flex; align-items:center; gap:6px">${avAssist} <span>assistência: <b>${g.assist}</b></span></div>` : '—'}
+          </td>
+        </tr>`;
       } else {
         const t = (g.time !== null && g.time !== undefined && S.times[g.time]) ? S.times[g.time] : null;
         const timeTag = t ? `<span class="teamtag" style="background:${t.cor};color:${corTextoParaFundo(t.cor)}">${t.nome}</span>` : '<span class="hint">lance</span>';
-        return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td><td>${timeTag}</td>
-          <td colspan="2">${g.lance || 'Melhor momento'}${g.destaque ? ' — <b>' + g.destaque + '</b>' : ''}</td></tr>`;
+        const autorOuLance = g.autor || g.destaque;
+        const avDestaque = autorOuLance ? obterAvatarJogadorHtml(autorOuLance, 26, g.time) : '';
+        return `<tr>
+          <td><b>${idx + 1}</b></td>
+          <td><b>${g.tempo}</b></td>
+          <td>${timeTag}</td>
+          <td colspan="2">
+            <div style="display:flex; align-items:center; gap:8px">
+              ${avDestaque}
+              <span>${g.lance || 'Melhor momento'}${g.destaque ? ' — <b>' + g.destaque + '</b>' : ''}</span>
+            </div>
+          </td>
+        </tr>`;
       }
     }).join('') || '<tr><td colspan="5" class="hint">nenhum gol ou lance marcado ainda</td></tr>');
+
+  // Inicialização e event listeners do controle de fundo das cartelas
+  if(!window._fundoCartelasInitDone){
+    window._fundoCartelasInitDone = true;
+
+    $('#rangeTempoFundo').oninput = function(){
+      tempoFundoSegundos = parseFloat(this.value) || 0;
+      $('#tempoFundoInput').value = fmtTempo(Math.round(tempoFundoSegundos));
+      $('#frameTimestampInfo').textContent = `Instante do vídeo: ${fmtTempo(Math.round(tempoFundoSegundos))}`;
+    };
+    $('#rangeTempoFundo').onchange = function(){
+      capturarFrameFundo(this.value);
+    };
+
+    $('#tempoFundoInput').onchange = function(){
+      const t = parseTempo(this.value);
+      if(t !== null && !isNaN(t)){
+        capturarFrameFundo(t);
+      }
+    };
+
+    $('#btnCapturarFrameFundo').onclick = function(){
+      const t = parseTempo($('#tempoFundoInput').value);
+      capturarFrameFundo(t !== null ? t : tempoFundoSegundos);
+    };
+
+    ['fundoBrilho', 'fundoSaturacao', 'fundoContraste', 'fundoDesfoque', 'fundoVinheta'].forEach(id => {
+      $('#' + id).oninput = atualizarFiltrosCssFundo;
+      $('#' + id).onchange = () => {
+        if(abaPreviewAtual !== 'frame') salvarFundoCartela(true);
+      };
+    });
+
+    $('#btnSalvarFundoCartela').onclick = () => salvarFundoCartela(false);
+    $('#btnRestaurarFundoPadrao').onclick = restaurarFundoPadrao;
+
+    // Se houver config salva de fundo em meta
+    if(S.meta && S.meta.fundo_config){
+      const fc = S.meta.fundo_config;
+      if(fc.brilho != null) $('#fundoBrilho').value = Math.round(fc.brilho * 100);
+      if(fc.saturacao != null) $('#fundoSaturacao').value = Math.round(fc.saturacao * 100);
+      if(fc.contraste != null) $('#fundoContraste').value = Math.round(fc.contraste * 100);
+      if(fc.desfoque != null) $('#fundoDesfoque').value = fc.desfoque;
+      if(fc.vinheta != null) $('#fundoVinheta').value = fc.vinheta;
+      if(fc.aplicar_video_clipes != null) $('#chkAplicarClipes').checked = fc.aplicar_video_clipes;
+      if(fc.tempo_s != null){
+        tempoFundoSegundos = fc.tempo_s;
+        $('#tempoFundoInput').value = fmtTempo(Math.round(fc.tempo_s));
+        $('#rangeTempoFundo').value = Math.round(fc.tempo_s);
+      }
+    }
+  }
+
+  // Atualiza duração máxima do slider se tivermos vídeo
+  if(S.meta && S.meta.duracao_s){
+    $('#rangeTempoFundo').max = Math.max(10, Math.round(S.meta.duracao_s));
+  }
+
+  // Atalho para o 1º gol marcado
+  const pGol = validos()[0];
+  if(pGol){
+    const tGol = obterTempoSegundosClipe(pGol);
+    if(tGol > 0){
+      $('#btnFrameGolDestaque').textContent = `⚽ Gol 1 (${fmtTempo(tGol)})`;
+      $('#btnFrameGolDestaque').onclick = () => carregarFramePredefinido(tGol);
+    }
+  }
+
+  atualizarFiltrosCssFundo();
 }
 
 function renderResultadosVideosFinais(){
@@ -3429,6 +3935,7 @@ function renderResultadosVideosFinais(){
 
 $('#btnMontar').onclick = async ()=>{
   await salvarPartida();
+  try { await salvarFundoCartela(true); } catch(e){}
   $('#btnMontar').disabled = true;
 
   const todosOrdenados = [...validos(), ...lances()].sort((a, b) => {
