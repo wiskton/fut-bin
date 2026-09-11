@@ -503,11 +503,11 @@
     <div class="grid2">
       <div>
         <label>Data</label><input type="date" id="mData">
-        <label>Competição / rodada</label><input id="mComp" placeholder="Mendes Cup 2026 · Rodada 8">
+        <label>Rodada</label><input id="mComp" placeholder="Ex.: Rodada 3">
       </div>
       <div>
         <label>Local</label><input id="mLocal" placeholder="Sport Ball">
-        <label>Nome da pelada</label><input id="mPelada" value="Mensal FC">
+        <label>Nome do torneio</label><input id="mPelada" placeholder="Ex.: Will Cup" value="Will Cup">
       </div>
     </div>
   </div>
@@ -796,7 +796,7 @@ let ESTADO = {
   atual: 0,
   indiceAtual: null,     // Indice do clipe atualmente selecionado (evita desalinhamento)
 };
-let S = { meta:{data:'',comp:'',local:'',pelada:'Mensal FC'},
+let S = { meta:{data:'',comp:'',local:'',pelada:'Will Cup'},
   times:[{nome:'Time Amarelo',cor:'#eab308',jogadores:[]},{nome:'Time Azul',cor:'#2563eb',jogadores:[]}] };
 let rascunho = {tipo:null,time:null,autor:null,assist:null,lance:null,destaque:null};
 const TIPOS_LANCE = ['Defesaça','Chute na trave','Quase gol','Drible','Bola perdida','Confusão'];
@@ -1297,7 +1297,7 @@ function definirCorTime(timeIdx, corHex){
 }
 function escreverSetup(){
   $('#mData').value=S.meta.data||''; $('#mComp').value=S.meta.comp||'';
-  $('#mLocal').value=S.meta.local||''; $('#mPelada').value=S.meta.pelada||'Mensal FC';
+  $('#mLocal').value=S.meta.local||''; $('#mPelada').value=S.meta.pelada||'Will Cup';
   if(S.meta.placar_jogo && Array.isArray(S.meta.placar_jogo)){
     $('#placarJogoA').value = S.meta.placar_jogo[0] != null ? S.meta.placar_jogo[0] : '';
     $('#placarJogoB').value = S.meta.placar_jogo[1] != null ? S.meta.placar_jogo[1] : '';

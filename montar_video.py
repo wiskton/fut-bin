@@ -293,8 +293,9 @@ def cartela_abertura(d_):
         img.paste(logo_ab, (60, 25), logo_ab)
         img.paste(logo_ab, (L - 60 - logo_ab.width, 25), logo_ab)
 
-    centralizado(d, 40, meta.get("pelada", "FUTEBOL").upper(), fonte(42), VERDE)
-    sub = " · ".join(x for x in [meta.get("comp"), meta.get("data"), meta.get("local")] if x)
+    nome_torneio = (meta.get("pelada") or meta.get("torneio") or "COPA FUT-BIN").upper()
+    centralizado(d, 40, nome_torneio, fonte(42), VERDE)
+    sub = " · ".join(x for x in [meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
     if sub:
         centralizado(d, 95, sub, fonte(24, False), FRACO)
 
@@ -482,7 +483,7 @@ def cartela_fim_de_jogo(d_):
         img.paste(logo_fim, (L - 60 - logo_fim.width, 25), logo_fim)
 
     centralizado(d, 40, "FIM DE JOGO · PLACAR FINAL", fonte(40), VERDE)
-    sub = " · ".join(x for x in [meta.get("pelada"), meta.get("comp"), meta.get("data"), meta.get("local")] if x)
+    sub = " · ".join(x for x in [meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
     if sub:
         centralizado(d, 95, sub, fonte(24, False), FRACO)
 
@@ -600,7 +601,7 @@ def cartela_destaques(d_):
             d.text((x0 + 60, y + 24), str(k + 1), font=fonte(26), fill=FUNDO, anchor="mm")
             d.text((x0 + 110, y + 4), item["jogador"], font=fonte(36), fill=TEXTO)
             d.text((x0 + 600, y + 8), str(item[campo]), font=fonte(34), fill=cor, anchor="ra")
-    centralizado(d, 900, d_["meta"].get("pelada", ""), fonte(34), VERDE)
+    centralizado(d, 900, d_["meta"].get("pelada") or d_["meta"].get("torneio") or "", fonte(34), VERDE)
     return img
 
 
