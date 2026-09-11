@@ -5,160 +5,257 @@
 <link rel="shortcut icon" href="/favicon.ico">
 <style>
   :root{
-    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3440;
-    --txt:#e6edf3; --dim:#8b96a5; --accent:#22c55e; --accent2:#16a34a;
-    --a:#3b82f6; --b:#f59e0b; --warn:#ef4444;
+    --bg:#070a10; --panel:#0e1520; --panel2:#141f2e; --panel-card:linear-gradient(145deg, #152233 0%, #0c1420 100%);
+    --line:#202f44; --line-bright:#2d4260; --txt:#f0f6fc; --dim:#8ea0b8;
+    --accent:#00ff87; /* FIFA EA FC Volt Green */
+    --accent2:#00df74; --accent-glow:rgba(0,255,135,0.35);
+    --cyan:#00f0ff; --cyan-glow:rgba(0,240,255,0.35);
+    --gold:#e5b95c; --gold-light:#ffd700; --gold-glow:rgba(255,215,0,0.35);
+    --gold-grad:linear-gradient(135deg, #ffe066 0%, #d4af37 50%, #996515 100%);
+    --a:#eab308; /* Time Amarelo */
+    --b:#2563eb; /* Time Azul */
+    --warn:#ff3366;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);
-       font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-  header{display:flex;align-items:center;gap:14px;padding:14px 20px;
-         background:linear-gradient(90deg,#0f1c14,#0d1117);border-bottom:1px solid var(--line);
+  body{margin:0;background:radial-gradient(circle at 50% 0%, #152438 0%, #090e16 55%, #05070b 100%);
+       background-attachment:fixed;color:var(--txt);
+       font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}
+  
+  header{display:flex;align-items:center;gap:16px;padding:12px 24px;
+         background:linear-gradient(90deg,#09131e 0%,#0e1928 50%,#070d15 100%);
+         border-bottom:1px solid rgba(255,215,0,0.25);
+         box-shadow:0 4px 20px rgba(0,0,0,0.5),inset 0 -1px 0 rgba(0,255,135,0.2);
          flex-wrap:wrap}
-  header h1{margin:0;font-size:17px;letter-spacing:.4px}
-  .ball{width:26px;height:26px;border-radius:50%;background:var(--accent);
-        display:grid;place-items:center;font-size:14px}
+  .fut-brand{display:flex;align-items:center;gap:12px;cursor:pointer}
+  .fut-logo{height:46px;width:auto;filter:drop-shadow(0 0 10px rgba(255,215,0,0.5));transition:transform 0.25s ease}
+  .fut-brand:hover .fut-logo{transform:scale(1.06) rotate(-2deg)}
+  .fut-title-wrap{display:flex;flex-direction:column}
+  .fut-title{margin:0;font-size:18px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;
+             background:linear-gradient(135deg, #ffffff 0%, #ffd700 60%, #ffae00 100%);
+             -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+             display:flex;align-items:center;gap:8px}
+  .fut-badge-tag{background:linear-gradient(135deg, #00ff87, #00f0ff);color:#04140a;font-size:10px;
+                 font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:0.8px;
+                 -webkit-text-fill-color:#04140a;box-shadow:0 0 10px rgba(0,255,135,0.4)}
+  .fut-subtitle{font-size:10px;font-weight:700;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+
   nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-  nav button{background:transparent;border:1px solid var(--line);color:var(--dim);
-             padding:7px 12px;border-radius:7px;cursor:pointer;font-size:12px}
-  nav button.on{background:var(--accent);border-color:var(--accent);color:#04140a;font-weight:600}
-  nav button.pronto:not(.on){border-color:var(--accent);color:var(--accent)}
-  main{max-width:1120px;margin:0 auto;padding:20px}
+  nav button{background:rgba(19,28,42,0.7);border:1px solid var(--line);color:var(--dim);
+             padding:8px 13px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;
+             letter-spacing:0.4px;transition:all 0.2s cubic-bezier(0.2,0.8,0.2,1)}
+  nav button:hover{background:rgba(32,46,66,0.9);color:#fff;border-color:rgba(255,215,0,0.4);transform:translateY(-1px)}
+  nav button.on{background:linear-gradient(135deg, #00ff87 0%, #00f0ff 100%);border-color:#00ff87;
+                color:#05130b;font-weight:800;box-shadow:0 0 16px rgba(0,255,135,0.45);transform:translateY(-1px)}
+  nav button.pronto:not(.on){border-color:rgba(0,255,135,0.5);color:#a7f3d0}
+
+  main{max-width:1160px;margin:0 auto;padding:22px}
   section{display:none} section.on{display:block}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
-        padding:16px;margin-bottom:14px}
-  .card h2{margin:0 0 12px;font-size:14px;text-transform:uppercase;
-           letter-spacing:.8px;color:var(--dim);font-weight:600}
+
+  .card{background:linear-gradient(165deg, #101724 0%, #0a0f18 100%);
+        border:1px solid var(--line);border-top:2px solid rgba(255,215,0,0.6);
+        border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 6px 20px rgba(0,0,0,0.45);
+        position:relative}
+  .card h2{margin:0 0 14px;font-size:13px;text-transform:uppercase;letter-spacing:1px;
+           color:#ffd700;font-weight:800;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:'◈';color:var(--accent);font-size:14px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.grid2{grid-template-columns:1fr}}
-  label{display:block;font-size:12px;color:var(--dim);margin:9px 0 4px}
-  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);
-    color:var(--txt);padding:9px 11px;border-radius:7px;font:inherit}
+
+  label{display:block;font-size:12px;color:var(--dim);margin:9px 0 4px;font-weight:600}
+  input,textarea,select{width:100%;background:rgba(16,24,36,0.85);border:1px solid var(--line);
+    color:var(--txt);padding:10px 12px;border-radius:6px;font:inherit;
+    transition:border-color 0.2s,box-shadow 0.2s}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 10px rgba(0,255,135,0.25)}
   textarea{min-height:120px;resize:vertical;font-family:ui-monospace,monospace;font-size:13px}
   input[type=color]{padding:3px;height:38px;cursor:pointer}
   input[type=checkbox]{width:auto}
-  button.act{background:var(--accent);border:0;color:#04140a;padding:10px 18px;
-    border-radius:8px;cursor:pointer;font-weight:600;font-size:13px}
-  button.act:hover{background:var(--accent2)}
-  button.act:disabled{opacity:.4;cursor:not-allowed}
-  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt);
-    padding:9px 15px;border-radius:8px;cursor:pointer;font-size:13px}
-  button.ghost:hover{border-color:var(--accent)}
-  button.warnb{background:transparent;border:1px solid var(--warn);color:#fca5a5;
-    padding:6px 11px;border-radius:7px;cursor:pointer;font-size:12px}
+
+  button.act{background:linear-gradient(135deg, #00ff87 0%, #00d284 100%);border:0;color:#04140a;
+    padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:800;font-size:13px;
+    letter-spacing:0.4px;text-transform:uppercase;transition:all 0.2s cubic-bezier(0.2,0.8,0.2,1);
+    box-shadow:0 4px 14px rgba(0,255,135,0.3)}
+  button.act:hover{background:linear-gradient(135deg, #22ff99 0%, #00ff87 100%);
+    transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,255,135,0.45)}
+  button.act:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+
+  button.ghost{background:rgba(19,28,42,0.6);border:1px solid var(--line);color:var(--txt);
+    padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;
+    transition:all 0.2s ease}
+  button.ghost:hover{border-color:var(--accent);background:rgba(30,44,66,0.8);color:#fff;
+    transform:translateY(-1px)}
+
+  button.warnb{background:rgba(255,51,102,0.12);border:1px solid var(--warn);color:#fca5a5;
+    padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;
+    transition:all 0.2s ease}
+  button.warnb:hover{background:var(--warn);color:#fff}
+
+  button.amberb{background:rgba(245,158,11,0.12);border:1px solid var(--gold-light);color:#fde047;
+    padding:9px 15px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700}
+  button.amberb.sel{background:linear-gradient(135deg,#f59e0b,#d97706);color:#04140a;font-weight:800}
+
   .row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
   .hint{font-size:12px;color:var(--dim);margin-top:7px}
   .bad{color:var(--warn)} .ok{color:var(--accent)}
 
-  video,img.quadro{width:100%;border-radius:9px;background:#000;display:block}
+  video,img.quadro{width:100%;border-radius:9px;background:#000;display:block;border:1px solid var(--line)}
   .quadro-wrap{position:relative;max-width:900px}
   .quadro-wrap canvas{position:absolute;left:0;top:0;cursor:crosshair}
 
-  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-  .evcard{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px}
+  /* FUT Event Cards */
+  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:14px}
+  .evcard{background:linear-gradient(160deg, #141f2d 0%, #0c131c 100%);
+          border:1px solid var(--line);border-top:3px solid rgba(255,215,0,0.6);
+          border-radius:10px;padding:10px;position:relative;
+          transition:all 0.25s cubic-bezier(0.2,0.8,0.2,1);box-shadow:0 4px 14px rgba(0,0,0,0.4)}
+  .evcard:hover{transform:translateY(-4px);box-shadow:0 10px 24px rgba(0,0,0,0.6),0 0 14px rgba(0,255,135,0.25);border-color:rgba(0,255,135,0.4)}
   .evcard.fora{opacity:.4}
-  .evcard.status-gol{border-color:var(--accent)}
-  .evcard.status-lance{border-color:var(--b)}
-  .evcard.status-defesaca{border-color:#38bdf8}
-  .evcard.status-trave{border-color:#fbbf24}
-  .evcard.status-quase_gol{border-color:#f97316}
-  .evcard.status-drible{border-color:#a855f7}
-  .evcard.status-bola_perdida{border-color:#f43f5e}
-  .evcard.status-confusao{border-color:#ec4899}
-  .evcard .badge-ok{display:none;align-items:center;gap:4px;font-weight:600}
+  .evcard.status-gol{border-color:#00ff87;border-top-color:#00ff87;box-shadow:0 0 14px rgba(0,255,135,0.25)}
+  .evcard.status-lance{border-color:#00f0ff;border-top-color:#00f0ff;box-shadow:0 0 14px rgba(0,240,255,0.25)}
+  .evcard.status-defesaca{border-color:#38bdf8;border-top-color:#38bdf8}
+  .evcard.status-trave{border-color:#fbbf24;border-top-color:#fbbf24}
+  .evcard.status-quase_gol{border-color:#f97316;border-top-color:#f97316}
+  .evcard.status-drible{border-color:#a855f7;border-top-color:#a855f7}
+  .evcard.status-bola_perdida{border-color:#f43f5e;border-top-color:#f43f5e}
+  .evcard.status-confusao{border-color:#ec4899;border-top-color:#ec4899}
+  .evcard .badge-ok{display:none;align-items:center;gap:4px;font-weight:700}
   .evcard[class*="status-"] .badge-ok{display:flex}
-  .thumb-wrap .check{position:absolute;top:6px;right:6px;min-width:22px;height:22px;padding:0 6px;
-    border-radius:11px;background:var(--accent);color:#04140a;display:none;align-items:center;
-    justify-content:center;font-size:12px;font-weight:700}
+  .thumb-wrap .check{position:absolute;top:6px;right:6px;min-width:24px;height:24px;padding:0 6px;
+    border-radius:12px;background:var(--accent);color:#04140a;display:none;align-items:center;
+    justify-content:center;font-size:12px;font-weight:800;box-shadow:0 0 8px rgba(0,255,135,0.5)}
   .evcard[class*="status-"] .thumb-wrap .check{display:flex}
-  button.amberb{background:transparent;border:1px solid var(--b);color:var(--b);
-    padding:9px 15px;border-radius:8px;cursor:pointer;font-size:13px}
-  button.amberb.sel{background:var(--b);color:#2b1a02;font-weight:600}
-  button.act.sel{background:var(--accent2)}
-  .btnTipoClipe{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease}
+
+  .btnTipoClipe{background:rgba(20,30,45,0.8);border:1px solid var(--line);color:var(--txt);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease}
   .btnTipoClipe:hover{border-color:var(--accent);transform:translateY(-1px)}
-  .btnTipoClipe.sel{font-weight:700;box-shadow:0 0 8px rgba(0,0,0,0.35)}
-  .evcard .imgs{display:flex;gap:4px;margin:6px 0}
-  .evcard .imgs img{width:50%;border-radius:5px;image-rendering:pixelated;background:#000}
-  .evcard .topo{display:flex;justify-content:space-between;align-items:center;font-size:12px}
-  .evcard input[type=text]{padding:5px 7px;font-size:12px;margin-top:4px}
-  .nudge{display:flex;gap:4px;margin-top:6px}
-  .nudge button{flex:1;padding:4px;font-size:11px;background:var(--panel);border:1px solid var(--line);
-    color:var(--dim);border-radius:5px;cursor:pointer}
-  .nudge button:hover{border-color:var(--accent);color:var(--txt)}
+  .btnTipoClipe.sel{box-shadow:0 0 12px rgba(0,255,135,0.35)}
 
-  .thumb-wrap{position:relative;margin-top:6px;cursor:pointer;border-radius:6px;overflow:hidden}
+  .thumb-wrap{position:relative;margin-top:6px;cursor:pointer;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.06)}
   .thumb-wrap video{pointer-events:none}
-  .thumb-wrap .play{position:absolute;inset:0;display:grid;place-items:center;
-    background:rgba(0,0,0,.25)}
+  .thumb-wrap .play{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.35)}
   .thumb-wrap .play::after{content:'▶';width:44px;height:44px;border-radius:50%;
-    background:rgba(0,0,0,.55);color:#fff;font-size:16px;display:grid;place-items:center}
-  .thumb-wrap:hover .play::after{background:var(--accent);color:#04140a}
+    background:rgba(0,0,0,.65);color:#fff;font-size:16px;display:grid;place-items:center;
+    border:1px solid rgba(255,255,255,0.2);box-shadow:0 0 12px rgba(0,0,0,0.5)}
+  .thumb-wrap:hover .play::after{background:var(--accent);color:#04140a;border-color:var(--accent)}
 
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:1000;
-    display:flex;align-items:center;justify-content:center;padding:24px}
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:1000;
+    display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(6px)}
   .modal-overlay[hidden]{display:none}
-  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:16px;max-width:920px;width:100%;max-height:92vh;overflow:auto}
+  .modal-box{background:linear-gradient(165deg, #121927 0%, #0b1019 100%);
+    border:1px solid var(--line);border-top:3px solid #ffd700;border-radius:12px;
+    padding:18px;max-width:940px;width:100%;max-height:92vh;overflow:auto;
+    box-shadow:0 12px 36px rgba(0,0,0,0.7)}
   .modal-box video{max-height:70vh;width:100%;border-radius:9px}
 
-  .log{background:#000;border:1px solid var(--line);border-radius:8px;padding:10px;
+  .log{background:#04070a;border:1px solid var(--line);border-radius:8px;padding:12px;
     font-family:ui-monospace,monospace;font-size:12px;max-height:220px;overflow:auto;
-    white-space:pre-wrap;color:#9fe0a8}
-  .spinner{display:inline-block;width:13px;height:13px;border-radius:50%;
+    white-space:pre-wrap;color:#a3e635}
+  .spinner{display:inline-block;width:14px;height:14px;border-radius:50%;
     border:2px solid var(--line);border-top-color:var(--accent);
     animation:girar 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
   @keyframes girar{to{transform:rotate(360deg)}}
 
   .golnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-  .chip{min-width:52px;width:auto;padding:0 9px;height:32px;border-radius:7px;border:1px solid var(--line);
-    background:var(--panel2);color:var(--dim);cursor:pointer;font-size:12px;font-weight:700;
+  .chip{min-width:54px;width:auto;padding:0 10px;height:34px;border-radius:6px;border:1px solid var(--line);
+    background:rgba(20,30,44,0.8);color:var(--dim);cursor:pointer;font-size:12px;font-weight:700;
     display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;transition:all 0.15s ease}
-  .chip:hover{border-color:var(--accent)}
-  .chip.done{background:rgba(34,197,94,0.18);border-color:var(--accent);color:var(--accent)}
-  .chip.pending-gol{background:rgba(245,158,11,0.18);border-color:var(--b);color:var(--b)}
-  .chip.cur{outline:2px solid var(--txt);outline-offset:2px}
+  .chip:hover{border-color:var(--accent);color:#fff}
+  .chip.done{background:rgba(0,255,135,0.16);border-color:var(--accent);color:var(--accent)}
+  .chip.pending-gol{background:rgba(245,158,11,0.18);border-color:var(--gold-light);color:#fde047}
+  .chip.cur{outline:2px solid #ffd700;outline-offset:2px}
   .chip.skip{background:#3a1d1d;border-color:var(--warn);color:#fca5a5}
-  .chip.lance{background:rgba(56,189,248,0.18);border-color:#38bdf8;color:#38bdf8}
+  .chip.lance{background:rgba(0,240,255,0.16);border-color:var(--cyan);color:var(--cyan)}
+
   .work{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
   @media(max-width:900px){.work{grid-template-columns:1fr}}
-  .pick{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
-  .pick button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
-    padding:8px 13px;border-radius:20px;cursor:pointer;font-size:13px}
-  .pick button:hover{border-color:var(--accent)}
-  .pick button.sel{background:var(--accent);border-color:var(--accent);color:#04140a;font-weight:600}
-  .teamtag{display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;color:#04140a}
 
-  .btnVel{padding:4px 9px;font-size:12px;font-weight:600}
+  .pick{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+  .pick button{background:rgba(18,26,38,0.85);border:1px solid var(--line);color:var(--txt);
+    padding:8px 14px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.15s ease}
+  .pick button:hover{border-color:var(--accent);color:#fff}
+  .pick button.sel{background:linear-gradient(135deg, #00ff87, #00df74);border-color:#00ff87;color:#04140a;font-weight:800;box-shadow:0 0 10px rgba(0,255,135,0.35)}
+
+  .teamtag{display:inline-block;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:800;letter-spacing:0.4px;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+
+  .btnVel{padding:4px 10px;font-size:12px;font-weight:700}
   .btnVel.sel{background:var(--accent);color:#04140a;border-color:var(--accent)}
 
-  .item-video{padding:10px 14px;border-radius:8px;border:1px solid var(--line);margin-bottom:6px;cursor:pointer;background:var(--panel2);display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease}
-  .item-video:hover{border-color:var(--accent);background:#13261a}
+  .item-video{padding:12px 16px;border-radius:8px;border:1px solid var(--line);margin-bottom:6px;cursor:pointer;
+    background:linear-gradient(150deg, #131c2a 0%, #0c1219 100%);
+    display:flex;justify-content:space-between;align-items:center;transition:all 0.2s ease}
+  .item-video:hover{border-color:var(--accent);background:rgba(0,255,135,0.06);transform:translateX(3px)}
   .item-video b{display:block;font-size:13px;color:var(--txt)}
   .item-video .sub{font-size:11px;color:var(--dim);margin-top:2px}
 
-  .video-card-selecionado{border:1px solid var(--accent);background:rgba(34,197,94,0.08);border-radius:9px;padding:14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-  .placar-badge{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px;font-weight:700;color:var(--accent)}
-  .btnDescartarCard{position:absolute;top:6px;left:6px;padding:3px 7px;font-size:11px;z-index:2;border-radius:6px;background:rgba(239,68,68,0.85);color:#fff;border:0;cursor:pointer}
+  .video-card-selecionado{border:1px solid var(--accent);background:rgba(0,255,135,0.08);border-radius:10px;padding:16px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;box-shadow:0 0 16px rgba(0,255,135,0.15)}
+  .placar-badge{background:rgba(10,15,22,0.9);border:1px solid var(--line);border-radius:4px;padding:2px 7px;font-size:11px;font-weight:800;color:var(--accent);font-family:ui-monospace,monospace}
+  .btnDescartarCard{position:absolute;top:6px;left:6px;padding:3px 8px;font-size:11px;z-index:2;border-radius:6px;background:rgba(239,68,68,0.9);color:#fff;border:0;cursor:pointer;font-weight:700}
   .btnDescartarCard:hover{background:var(--warn)}
-  .btnNavFlutuante{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.65);border:1px solid var(--line);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s ease;z-index:10}
-  .btnNavFlutuante:hover{background:var(--accent);color:#04140a;border-color:var(--accent)}
+  .btnNavFlutuante{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;background:rgba(5,10,18,0.8);border:1px solid var(--line);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s ease;z-index:10;backdrop-filter:blur(4px)}
+  .btnNavFlutuante:hover{background:var(--accent);color:#04140a;border-color:var(--accent);box-shadow:0 0 12px rgba(0,255,135,0.5)}
   .btnNavFlutuante:disabled{opacity:0.2;cursor:not-allowed;pointer-events:none}
 
   table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
-  th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.8px;font-weight:800}
   td.n{text-align:right;font-variant-numeric:tabular-nums}
-  .podium{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
-  .pod{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:14px;text-align:center}
-  .pod .p{font-size:20px}.pod .nm{font-weight:600;margin:4px 0 2px}
-  .pod .v{color:var(--accent);font-size:13px}
-  .score{font-size:34px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;margin:6px 0 2px}
+
+  /* FUT Trophy Cards */
+  .podium{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+  .pod{background:linear-gradient(150deg, #152233 0%, #0c1420 100%);
+       border:1px solid var(--line);border-top:3px solid #ffd700;
+       border-radius:10px;padding:16px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.4);
+       transition:transform 0.2s ease}
+  .pod:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(0,0,0,0.6)}
+  .pod .p{font-size:24px;filter:drop-shadow(0 0 6px rgba(255,215,0,0.4))}
+  .pod .nm{font-weight:800;font-size:15px;margin:6px 0 2px;color:#fff}
+  .pod .v{color:var(--accent);font-size:14px;font-weight:700}
+  .score{font-size:42px;font-weight:900;text-align:center;font-variant-numeric:tabular-nums;
+         font-family:ui-monospace,monospace;letter-spacing:2px;color:#ffffff;
+         text-shadow:0 0 20px rgba(0,255,135,0.4);margin:8px 0 4px}
+
+  /* FUT Tactical Roster & Player Cards */
+  .fut-roster-box{background:linear-gradient(160deg, #0e1622 0%, #080d14 100%);
+                  border:1px solid var(--line);border-top:2px solid rgba(0,240,255,0.5);
+                  border-radius:10px;padding:12px;margin-top:10px}
+  .fut-roster-header{display:flex;justify-content:space-between;align-items:center;
+                     margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .fut-roster-title{font-size:11px;font-weight:800;color:#00f0ff;letter-spacing:0.8px}
+  .fut-roster-count{font-size:10px;font-weight:700;background:rgba(255,255,255,0.06);
+                    padding:2px 6px;border-radius:4px;color:var(--dim)}
+  .fut-roster-list{display:flex;flex-direction:column;gap:5px}
+  .fut-player-row{display:flex;align-items:center;justify-content:space-between;gap:8px;
+                  padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.02);
+                  border:1px solid rgba(255,255,255,0.04);transition:all 0.15s ease}
+  .fut-player-row:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,215,0,0.3)}
+  .fut-player-info{display:flex;align-items:center;gap:10px;min-width:0}
+  .fut-player-badge{width:34px;height:24px;display:flex;align-items:center;justify-content:center;
+                    font-size:10px;font-weight:900;letter-spacing:0.5px;border-radius:4px;border:1px solid}
+  .fut-player-badge.pos-goleiro{background:rgba(234,179,8,0.2);border-color:#eab308;color:#facc15}
+  .fut-player-badge.pos-zagueiro{background:rgba(59,130,246,0.2);border-color:#3b82f6;color:#93c5fd}
+  .fut-player-badge.pos-meio{background:rgba(16,185,129,0.2);border-color:#10b981;color:#6ee7b7}
+  .fut-player-badge.pos-atacante{background:rgba(244,63,94,0.2);border-color:#f43f5e;color:#fda4af}
+  .fut-player-name{font-weight:700;font-size:13px;color:var(--txt);white-space:nowrap;
+                   overflow:hidden;text-overflow:ellipsis}
+  .fut-pos-buttons{display:flex;gap:4px;flex-shrink:0}
+  .fut-btn-pos{padding:3px 8px;font-size:10px;font-weight:800;border-radius:4px;
+               border:1px solid var(--line);background:rgba(20,30,45,0.8);color:var(--dim);
+               cursor:pointer;transition:all 0.15s ease}
+  .fut-btn-pos:hover{color:#fff;border-color:rgba(255,255,255,0.3)}
+  .fut-btn-pos.sel.pos-goleiro{background:#eab308;border-color:#eab308;color:#04140a;box-shadow:0 0 8px rgba(234,179,8,0.5)}
+  .fut-btn-pos.sel.pos-zagueiro{background:#2563eb;border-color:#2563eb;color:#fff;box-shadow:0 0 8px rgba(37,99,235,0.5)}
+  .fut-btn-pos.sel.pos-meio{background:#10b981;border-color:#10b981;color:#04140a;box-shadow:0 0 8px rgba(16,185,129,0.5)}
+  .fut-btn-pos.sel.pos-atacante{background:#f43f5e;border-color:#f43f5e;color:#fff;box-shadow:0 0 8px rgba(244,63,94,0.5)}
 </style>
 
 <header>
-  <div class="ball">⚽</div>
-  <h1>fut-bin · Assistente</h1>
+  <div class="fut-brand">
+    <img src="/web/logo_campeonato.png" class="fut-logo" alt="Logo Campeonato">
+    <div class="fut-title-wrap">
+      <h1 class="fut-title">fut-bin <span class="fut-badge-tag">CHAMPIONSHIP</span></h1>
+      <span class="fut-subtitle">ASSISTENTE & TRANSMISSÃO ESTILO FIFA</span>
+    </div>
+  </div>
   <nav id="nav"></nav>
 </header>
 
@@ -419,12 +516,12 @@
     <p class="hint">Informe o placar final do jogo (gols de cada time). Na tela de resumo, o assistente irá comparar com os gols encontrados nos clipes para apontar quantos gols faltam encontrar no vídeo.</p>
     <div class="row" style="align-items:center; justify-content:center; gap:16px; margin-top:8px">
       <div style="text-align:center; min-width:140px">
-        <label id="lblPlacarA" style="font-weight:600; font-size:13px; color:var(--a); margin-bottom:4px">Time A</label>
+        <label id="lblPlacarA" style="font-weight:700; font-size:13px; color:var(--a); margin-bottom:4px">Time Amarelo</label>
         <input type="number" id="placarJogoA" min="0" placeholder="0" style="text-align:center; font-size:22px; font-weight:700; width:90px; margin:0 auto">
       </div>
       <span style="font-size:24px; font-weight:700; color:var(--dim)">×</span>
       <div style="text-align:center; min-width:140px">
-        <label id="lblPlacarB" style="font-weight:600; font-size:13px; color:var(--b); margin-bottom:4px">Time B</label>
+        <label id="lblPlacarB" style="font-weight:700; font-size:13px; color:var(--b); margin-bottom:4px">Time Azul</label>
         <input type="number" id="placarJogoB" min="0" placeholder="0" style="text-align:center; font-size:22px; font-weight:700; width:90px; margin:0 auto">
       </div>
     </div>
@@ -433,33 +530,35 @@
   <div class="card">
     <h2>Times e elenco</h2>
     <p class="hint">Cadastre o elenco de cada time aqui - é essa lista que aparece no próximo passo
-      pra escolher quem fez o gol e quem deu a assistência.</p>
+      pra escolher quem fez o gol e quem deu a assistência. Altere os nomes dos times digitando nos campos abaixo.</p>
     <div class="row" style="margin-bottom:12px; justify-content:space-between; align-items:center; background:var(--panel2); padding:10px 14px; border-radius:8px; border:1px solid var(--line); flex-wrap:wrap; gap:8px">
       <div class="row" style="gap:10px; align-items:center">
         <span style="font-weight:700; font-size:13px">Cores dos Times:</span>
-        <span id="previewTagA" class="teamtag" style="background:#eab308; color:#04140a">Time A</span>
+        <span id="previewTagA" class="teamtag" style="background:#eab308; color:#04140a">Time Amarelo</span>
         <span style="color:var(--dim)">vs</span>
-        <span id="previewTagB" class="teamtag" style="background:#3b82f6; color:#fff">Time B</span>
+        <span id="previewTagB" class="teamtag" style="background:#2563eb; color:#fff">Time Azul</span>
       </div>
       <button type="button" class="act" id="btnInverterCores" style="font-size:12px; padding:6px 12px">⇄ Inverter cores (Amarelo ↔ Azul)</button>
     </div>
     <div class="grid2">
       <div>
+        <label style="font-weight:700; color:var(--a)">Nome e Cor do Time 1</label>
         <div class="row" style="align-items:center; gap:6px">
-          <input id="tA" value="Time A" style="flex:1">
-          <input type="color" id="cA" value="#eab308" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time A">
+          <input id="tA" value="Time Amarelo" style="flex:1" placeholder="Ex.: Time Amarelo">
+          <input type="color" id="cA" value="#eab308" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time 1">
         </div>
         <label style="margin-top:10px">Elenco (um por linha)</label>
-        <textarea id="pA" placeholder="Boy&#10;Scott&#10;Mendes"></textarea>
+        <textarea id="pA" placeholder="Douglas&#10;Nill&#10;Lucas&#10;Will&#10;Wesley&#10;Jhow"></textarea>
         <div id="posElencoA" style="margin-top:10px"></div>
       </div>
       <div>
+        <label style="font-weight:700; color:var(--b)">Nome e Cor do Time 2</label>
         <div class="row" style="align-items:center; gap:6px">
-          <input id="tB" value="Time B" style="flex:1">
-          <input type="color" id="cB" value="#3b82f6" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time B">
+          <input id="tB" value="Time Azul" style="flex:1" placeholder="Ex.: Time Azul">
+          <input type="color" id="cB" value="#2563eb" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time 2">
         </div>
         <label style="margin-top:10px">Elenco (um por linha)</label>
-        <textarea id="pB" placeholder="Lemão&#10;Will&#10;Caio"></textarea>
+        <textarea id="pB" placeholder="Arthur&#10;Marcão&#10;Igor&#10;Nandrey&#10;Zé&#10;Luiz"></textarea>
         <div id="posElencoB" style="margin-top:10px"></div>
       </div>
     </div>
@@ -559,6 +658,17 @@
     <div class="card"><h2>Assistências</h2><table id="tbAssist"></table></div>
   </div>
   <div class="card"><h2>Cronologia</h2><table id="tbCrono"></table></div>
+
+  <div class="card" style="border-top:2px solid #ffd700">
+    <h2>Identidade Visual do Torneio</h2>
+    <div style="display:flex; align-items:center; gap:16px; background:var(--panel2); padding:14px 18px; border-radius:10px; border:1px solid rgba(255,215,0,0.3)">
+      <img src="/web/logo_campeonato.png" alt="Logo Campeonato" style="height:60px; width:auto; filter:drop-shadow(0 0 10px rgba(255,215,0,0.6))">
+      <div>
+        <div style="font-weight:900; font-size:14px; color:#ffd700; letter-spacing:0.8px; text-transform:uppercase">Copa Fut-Bin Championship · Logo Oficial Ativada</div>
+        <div class="hint" style="margin:4px 0 0; font-size:12px; line-height:1.4">Esta logo será renderizada com destaque na <b>cartela de abertura</b>, como <b>marca d'água de transmissão ao vivo</b> no canto superior dos clipes e na <b>cartela final de estatísticas e placar pós-jogo</b>.</div>
+      </div>
+    </div>
+  </div>
 
   <div class="card">
     <h2>Montar vídeo final</h2>
@@ -687,19 +797,19 @@ let ESTADO = {
   indiceAtual: null,     // Indice do clipe atualmente selecionado (evita desalinhamento)
 };
 let S = { meta:{data:'',comp:'',local:'',pelada:'Mensal FC'},
-  times:[{nome:'Time A',cor:'#eab308',jogadores:[]},{nome:'Time B',cor:'#3b82f6',jogadores:[]}] };
+  times:[{nome:'Time Amarelo',cor:'#eab308',jogadores:[]},{nome:'Time Azul',cor:'#2563eb',jogadores:[]}] };
 let rascunho = {tipo:null,time:null,autor:null,assist:null,lance:null,destaque:null};
 const TIPOS_LANCE = ['Defesaça','Chute na trave','Quase gol','Drible','Bola perdida','Confusão'];
 const TIPOS_CLIPE = [
-  { id: 'gol', rotulo: 'Gol', icon: '⚽', cor: 'var(--accent)', bg: 'rgba(34,197,94,0.18)', border: '#22c55e', isGol: true, hotkey: 'g' },
-  { id: 'lance', rotulo: 'Outro lance', icon: '🎬', cor: '#38bdf8', bg: 'rgba(56,189,248,0.18)', border: '#38bdf8', lanceNome: 'Outro lance', isGol: false, hotkey: 'o' },
+  { id: 'gol', rotulo: 'Gol', icon: '⚽', cor: 'var(--accent)', bg: 'rgba(0,255,135,0.18)', border: '#00ff87', isGol: true, hotkey: 'g' },
+  { id: 'lance', rotulo: 'Outro lance', icon: '🎬', cor: '#00f0ff', bg: 'rgba(0,240,255,0.18)', border: '#00f0ff', lanceNome: 'Outro lance', isGol: false, hotkey: 'o' },
 ];
 
 const POSICOES_JOGADORES = [
   { id: 'goleiro', rotulo: 'Goleiro', sigla: 'GOL', icon: '🧤', cor: '#eab308' },
-  { id: 'zagueiro', rotulo: 'Zagueiro', sigla: 'ZAG', icon: '🛡️', cor: '#3b82f6' },
-  { id: 'meio', rotulo: 'Meio', sigla: 'MEI', icon: '⚙️', cor: '#22c55e' },
-  { id: 'atacante', rotulo: 'Atacante', sigla: 'ATA', icon: '⚽', cor: '#ef4444' },
+  { id: 'zagueiro', rotulo: 'Zagueiro', sigla: 'ZAG', icon: '🛡️', cor: '#2563eb' },
+  { id: 'meio', rotulo: 'Meio', sigla: 'MEI', icon: '⚙️', cor: '#10b981' },
+  { id: 'atacante', rotulo: 'Atacante', sigla: 'ATA', icon: '⚽', cor: '#f43f5e' },
 ];
 
 function obterPosicaoJogador(timeIdx, nome){
@@ -746,22 +856,25 @@ function renderPosicoesElenco(timeIdx){
     el.innerHTML = '<div class="hint" style="font-size:12px">Digite os nomes acima para definir as posições.</div>';
     return;
   }
-  let html = '<div style="background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px; margin-top:6px">';
-  html += `<div style="font-size:11px; font-weight:700; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">Posições em campo (${t.nome}):</div>`;
-  html += '<div style="display:flex; flex-direction:column; gap:6px">';
+  let html = '<div class="fut-roster-box">';
+  html += `<div class="fut-roster-header"><span class="fut-roster-title">DISPOSIÇÃO TÁTICA · ${(t.nome||'TIME').toUpperCase()}</span><span class="fut-roster-count">${t.jogadores.length} ATLETAS</span></div>`;
+  html += '<div class="fut-roster-list">';
   t.jogadores.forEach(nome => {
     const posAtual = obterPosicaoJogador(timeIdx, nome);
-    html += `<div class="row" style="align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05)">`;
-    html += `<span style="font-weight:600; font-size:13px">${nome}</span>`;
-    html += `<div class="row" style="gap:4px">`;
+    const posObj = POSICOES_JOGADORES.find(p => p.id === posAtual) || POSICOES_JOGADORES[2];
+    html += `<div class="fut-player-row">`;
+    html += `  <div class="fut-player-info">`;
+    html += `    <div class="fut-player-badge pos-${posAtual}">${posObj.sigla}</div>`;
+    html += `    <span class="fut-player-name">${nome}</span>`;
+    html += `  </div>`;
+    html += `  <div class="fut-pos-buttons">`;
     POSICOES_JOGADORES.forEach(p => {
       const ativa = (posAtual === p.id);
-      const bg = ativa ? p.cor : 'transparent';
-      const corTexto = ativa ? (p.id === 'goleiro' ? '#04140a' : '#ffffff') : 'var(--dim)';
-      const borda = ativa ? p.cor : 'var(--line)';
-      html += `<button type="button" class="ghost" style="padding:2px 8px; font-size:11px; font-weight:700; border-radius:4px; border:1px solid ${borda}; background:${bg}; color:${corTexto}" onclick="definirPosicaoJogador(${timeIdx}, '${nome.replace(/'/g, "\\'")}', '${p.id}')" title="${p.rotulo}">${p.sigla}</button>`;
+      const cls = ativa ? `fut-btn-pos sel pos-${p.id}` : 'fut-btn-pos';
+      html += `<button type="button" class="${cls}" onclick="definirPosicaoJogador(${timeIdx}, '${nome.replace(/'/g, "\\'")}', '${p.id}')" title="${p.rotulo}">${p.sigla}</button>`;
     });
-    html += `</div></div>`;
+    html += `  </div>`;
+    html += `</div>`;
   });
   html += '</div></div>';
   el.innerHTML = html;
@@ -1122,27 +1235,27 @@ function lerSetup(){
   const jB = lista($('#pB').value);
   const posA = S.times[0]?.posicoes || {};
   const posB = S.times[1]?.posicoes || {};
-  S.times[0] = {nome:$('#tA').value||'Time A', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA};
-  S.times[1] = {nome:$('#tB').value||'Time B', cor:$('#cB').value||'#3b82f6', jogadores:jB, posicoes:posB};
+  S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA};
+  S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB};
   atualizarEstilosTimes();
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
 }
 function atualizarEstilosTimes(){
   const corA = S.times[0]?.cor || '#eab308';
-  const corB = S.times[1]?.cor || '#3b82f6';
+  const corB = S.times[1]?.cor || '#2563eb';
   const txtA = corTextoParaFundo(corA);
   const txtB = corTextoParaFundo(corB);
 
   const tagA = $('#previewTagA');
   if(tagA){
-    tagA.textContent = S.times[0]?.nome || 'Time A';
+    tagA.textContent = S.times[0]?.nome || 'Time Amarelo';
     tagA.style.background = corA;
     tagA.style.color = txtA;
   }
   const tagB = $('#previewTagB');
   if(tagB){
-    tagB.textContent = S.times[1]?.nome || 'Time B';
+    tagB.textContent = S.times[1]?.nome || 'Time Azul';
     tagB.style.background = corB;
     tagB.style.color = txtB;
   }
@@ -1151,17 +1264,17 @@ function atualizarEstilosTimes(){
 function atualizarLabelsPlacar(){
   const lA = $('#lblPlacarA'), lB = $('#lblPlacarB');
   if(lA && S.times[0]) {
-    lA.textContent = S.times[0].nome || 'Time A';
+    lA.textContent = S.times[0].nome || 'Time Amarelo';
     lA.style.color = S.times[0].cor || '#eab308';
   }
   if(lB && S.times[1]) {
-    lB.textContent = S.times[1].nome || 'Time B';
-    lB.style.color = S.times[1].cor || '#3b82f6';
+    lB.textContent = S.times[1].nome || 'Time Azul';
+    lB.style.color = S.times[1].cor || '#2563eb';
   }
 }
 function inverterCoresDosTimes(){
   const corA = S.times[0]?.cor || '#eab308';
-  const corB = S.times[1]?.cor || '#3b82f6';
+  const corB = S.times[1]?.cor || '#2563eb';
   S.times[0].cor = corB;
   S.times[1].cor = corA;
   const cA = $('#cA'), cB = $('#cB');
@@ -1189,9 +1302,9 @@ function escreverSetup(){
     $('#placarJogoA').value = S.meta.placar_jogo[0] != null ? S.meta.placar_jogo[0] : '';
     $('#placarJogoB').value = S.meta.placar_jogo[1] != null ? S.meta.placar_jogo[1] : '';
   }
-  $('#tA').value=S.times[0].nome; $('#cA').value=S.times[0].cor||'#eab308';
+  $('#tA').value=S.times[0].nome||'Time Amarelo'; $('#cA').value=S.times[0].cor||'#eab308';
   $('#pA').value=(S.times[0].jogadores || []).join('\n');
-  $('#tB').value=S.times[1].nome; $('#cB').value=S.times[1].cor||'#3b82f6';
+  $('#tB').value=S.times[1].nome||'Time Azul'; $('#cB').value=S.times[1].cor||'#2563eb';
   $('#pB').value=(S.times[1].jogadores || []).join('\n');
   if(!S.times[0].posicoes) S.times[0].posicoes = {};
   if(!S.times[1].posicoes) S.times[1].posicoes = {};
@@ -2741,8 +2854,8 @@ function atualizarAnaliseGolsMarcacao(){
   const detalheEl = $('#analiseGolsDetalhada');
   if(!topoEl && !detalheEl) return;
 
-  const timeA = S.times[0] || {nome: 'Time A', cor: '#3b82f6'};
-  const timeB = S.times[1] || {nome: 'Time B', cor: '#f59e0b'};
+  const timeA = S.times[0] || {nome: 'Time Amarelo', cor: '#eab308'};
+  const timeB = S.times[1] || {nome: 'Time Azul', cor: '#2563eb'};
 
   const v = validos();
   const golsA = v.filter(g => g.time === 0).length;

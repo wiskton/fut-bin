@@ -86,6 +86,33 @@ def centralizado(d, y, txt, f, cor):
     return larg
 
 
+def obter_logo_campeonato(d_=None, tamanho=None):
+    """Carrega a logo do campeonato a partir de partida.json ou dos arquivos do projeto."""
+    caminhos = []
+    if d_ and isinstance(d_, dict):
+        meta = d_.get("meta") or {}
+        if meta.get("logo"):
+            caminhos.append(meta["logo"])
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    caminhos.extend([
+        os.path.join(base_dir, "logo_campeonato.png"),
+        os.path.join(base_dir, "web", "logo_campeonato.png"),
+        os.path.join(base_dir, "logo.png"),
+        os.path.join(base_dir, "web", "icon.png"),
+    ])
+    for c in caminhos:
+        if c and os.path.isfile(c):
+            try:
+                img = Image.open(c).convert("RGBA")
+                if tamanho:
+                    img = img.copy()
+                    img.thumbnail(tamanho, Image.Resampling.LANCZOS)
+                return img
+            except Exception:
+                pass
+    return None
+
+
 def _tempo_em_segundos(ev):
     if not ev or not isinstance(ev, dict):
         return 0.0
@@ -259,6 +286,13 @@ def cartela_abertura(d_):
     ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
 
     d.rectangle([0, 0, L, 8], fill=VERDE)
+
+    # Logo do campeonato na abertura
+    logo_ab = obter_logo_campeonato(d_, tamanho=(130, 130))
+    if logo_ab:
+        img.paste(logo_ab, (60, 25), logo_ab)
+        img.paste(logo_ab, (L - 60 - logo_ab.width, 25), logo_ab)
+
     centralizado(d, 40, meta.get("pelada", "FUTEBOL").upper(), fonte(42), VERDE)
     sub = " · ".join(x for x in [meta.get("comp"), meta.get("data"), meta.get("local")] if x)
     if sub:
@@ -306,13 +340,20 @@ def cartela_abertura(d_):
 
 # --------------------------------------------------------------- placar eletrônico & lance
 
-def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None):
+def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
     """
     Faixa inferior de lance/gol + Placar Eletrônico estilo SporTV no canto superior esquerdo.
     Atualiza dinamicamente conforme os gols são marcados!
     """
     img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
+
+    # Logo do campeonato no canto superior direito (watermark de transmissão estilo TV)
+    logo_tv = obter_logo_campeonato(d_, tamanho=(105, 105))
+    if logo_tv:
+        if logo_tv.mode != "RGBA":
+            logo_tv = logo_tv.convert("RGBA")
+        img.paste(logo_tv, (L - 75 - logo_tv.width, 35), logo_tv)
 
     # ==================== 1. PLACAR ELETRÔNICO ESTILO SPORTV ====================
     pb_x0 = 70
@@ -433,6 +474,13 @@ def cartela_fim_de_jogo(d_):
     ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
 
     d.rectangle([0, 0, L, 8], fill=VERDE)
+
+    # Logo do campeonato no topo do placar final
+    logo_fim = obter_logo_campeonato(d_, tamanho=(110, 110))
+    if logo_fim:
+        img.paste(logo_fim, (60, 25), logo_fim)
+        img.paste(logo_fim, (L - 60 - logo_fim.width, 25), logo_fim)
+
     centralizado(d, 40, "FIM DE JOGO · PLACAR FINAL", fonte(40), VERDE)
     sub = " · ".join(x for x in [meta.get("pelada"), meta.get("comp"), meta.get("data"), meta.get("local")] if x)
     if sub:
@@ -498,6 +546,12 @@ def cartela_cronologia(d_):
     img = Image.new("RGB", (L, A), FUNDO)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, L, 8], fill=VERDE)
+
+    logo_cr = obter_logo_campeonato(d_, tamanho=(100, 100))
+    if logo_cr:
+        img.paste(logo_cr, (60, 25), logo_cr)
+        img.paste(logo_cr, (L - 60 - logo_cr.width, 25), logo_cr)
+
     centralizado(d, 60, "COMO FOI O JOGO · CRONOLOGIA", fonte(44), VERDE)
 
     # Ordena os gols por tempo cronológico
@@ -524,6 +578,12 @@ def cartela_destaques(d_):
     img = Image.new("RGB", (L, A), FUNDO)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, L, 8], fill=VERDE)
+
+    logo_des = obter_logo_campeonato(d_, tamanho=(100, 100))
+    if logo_des:
+        img.paste(logo_des, (60, 25), logo_des)
+        img.paste(logo_des, (L - 60 - logo_des.width, 25), logo_des)
+
     centralizado(d, 60, "DESTAQUES DA PARTIDA", fonte(44), VERDE)
 
     medalha = [(255, 200, 60), (190, 195, 205), (190, 130, 80)]
@@ -706,7 +766,7 @@ def main():
 
             png = os.path.join(tmp, f"ov{n:03d}.png")
             cartela_lance(ev, d["times"], tipo, placar_a, placar_b,
-                          gol_neste_clipe=gol_neste_clipe, time_gol=time_gol).save(png)
+                          gol_neste_clipe=gol_neste_clipe, time_gol=time_gol, d_=d).save(png)
 
             s = os.path.join(tmp, f"s{n:03d}.mp4")
             rot = ev.get("autor") or ev.get("lance") or "lance"
