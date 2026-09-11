@@ -1296,7 +1296,7 @@ class AjustarFundoPayload(BaseModel):
     brilho: float = 0.55
     saturacao: float = 1.15
     contraste: float = 1.15
-    desfoque: float = 6.0
+    desfoque: float = 0.0
     vinheta: float = 50.0
     aplicar_video_clipes: bool = False
 

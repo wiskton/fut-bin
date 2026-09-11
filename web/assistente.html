@@ -802,9 +802,9 @@
           <div style="margin-top:8px">
             <div class="row" style="justify-content:space-between; font-size:12px">
               <span>Desfoque (Blur TV)</span>
-              <span id="lblFundoDesfoque" style="font-weight:700">6 px</span>
+              <span id="lblFundoDesfoque" style="font-weight:700">0 px (sem desfoque)</span>
             </div>
-            <input type="range" id="fundoDesfoque" min="0" max="25" value="6" style="width:100%">
+            <input type="range" id="fundoDesfoque" min="0" max="25" value="0" style="width:100%">
           </div>
 
           <!-- Vinheta -->
@@ -3522,13 +3522,13 @@ function atualizarFiltrosCssFundo(){
   const b = parseFloat($('#fundoBrilho').value) || 55;
   const s = parseFloat($('#fundoSaturacao').value) || 115;
   const c = parseFloat($('#fundoContraste').value) || 115;
-  const d = parseFloat($('#fundoDesfoque').value) || 6;
+  const d = parseFloat($('#fundoDesfoque').value) || 0;
   const v = parseFloat($('#fundoVinheta').value) || 50;
 
   $('#lblFundoBrilho').textContent = `${b}%`;
   $('#lblFundoSaturacao').textContent = `${s}%`;
   $('#lblFundoContraste').textContent = `${c}%`;
-  $('#lblFundoDesfoque').textContent = `${d} px`;
+  $('#lblFundoDesfoque').textContent = d === 0 ? '0 px (nítido)' : `${d} px`;
   $('#lblFundoVinheta').textContent = `${v}%`;
 
   const img = $('#imgFundoPreview');
@@ -3584,7 +3584,7 @@ async function salvarFundoCartela(silencioso = false){
       brilho: (parseFloat($('#fundoBrilho').value) || 55) / 100,
       saturacao: (parseFloat($('#fundoSaturacao').value) || 115) / 100,
       contraste: (parseFloat($('#fundoContraste').value) || 115) / 100,
-      desfoque: parseFloat($('#fundoDesfoque').value) || 6,
+      desfoque: parseFloat($('#fundoDesfoque').value) || 0,
       vinheta: parseFloat($('#fundoVinheta').value) || 50,
       aplicar_video_clipes: $('#chkAplicarClipes').checked
     };
@@ -3639,19 +3639,19 @@ function aplicarPresetFundo(tipo){
     $('#fundoBrilho').value = 55;
     $('#fundoSaturacao').value = 115;
     $('#fundoContraste').value = 115;
-    $('#fundoDesfoque').value = 6;
+    $('#fundoDesfoque').value = 0;
     $('#fundoVinheta').value = 50;
   } else if(tipo === 'vivido'){
     $('#fundoBrilho').value = 60;
     $('#fundoSaturacao').value = 140;
     $('#fundoContraste').value = 125;
-    $('#fundoDesfoque').value = 4;
+    $('#fundoDesfoque').value = 0;
     $('#fundoVinheta').value = 40;
   } else if(tipo === 'cinema'){
     $('#fundoBrilho').value = 45;
     $('#fundoSaturacao').value = 80;
     $('#fundoContraste').value = 130;
-    $('#fundoDesfoque').value = 8;
+    $('#fundoDesfoque').value = 0;
     $('#fundoVinheta').value = 65;
   } else if(tipo === 'padrao'){
     $('#fundoBrilho').value = 100;
