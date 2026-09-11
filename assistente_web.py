@@ -40,6 +40,9 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 from detectar_gols import ANTES_S, DEPOIS_S
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1271,6 +1274,7 @@ class CapturarFundoPayload(BaseModel):
 
 @app.post("/api/cartelas/fundo/capturar")
 def api_capturar_fundo_cartela(body: CapturarFundoPayload):
+    from PIL import Image
     video = _resolver_video(body.video) if body.video else None
     if not video and os.path.exists(PARTIDA_JSON):
         try:
@@ -1287,17 +1291,30 @@ def api_capturar_fundo_cartela(body: CapturarFundoPayload):
     if frame is None:
         raise HTTPException(400, "Não consegui capturar um frame neste instante do vídeo")
     
-    return {"ok": True, "preview": _png_base64(frame), "tempo_s": body.tempo_s}
+    try:
+        rgb_raw = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_raw = Image.fromarray(rgb_raw).resize((1920, 1080), Image.Resampling.LANCZOS)
+        img_raw.save(os.path.join(PROJECT_DIR, "fundo_raw.png"), "PNG")
+        img_raw.save(os.path.join(WEB_DIR, "fundo_raw.png"), "PNG")
+    except Exception as e:
+        print(f"Aviso ao salvar fundo_raw: {e}")
+
+    return {
+        "ok": True,
+        "preview": _png_base64(frame),
+        "raw_url": f"/web/fundo_raw.png?t={int(time.time()*1000)}",
+        "tempo_s": body.tempo_s
+    }
 
 
 class AjustarFundoPayload(BaseModel):
     video: Optional[str] = None
     tempo_s: float = 0.0
-    brilho: float = 0.55
-    saturacao: float = 1.15
-    contraste: float = 1.15
+    brilho: float = 1.25
+    saturacao: float = 1.45
+    contraste: float = 1.12
     desfoque: float = 0.0
-    vinheta: float = 50.0
+    vinheta: float = 0.0
     aplicar_video_clipes: bool = False
 
 
@@ -1321,7 +1338,13 @@ def api_salvar_fundo_cartela(body: AjustarFundoPayload):
         raise HTTPException(400, "Não consegui ler o frame do vídeo")
     
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    img = Image.fromarray(rgb).resize((1920, 1080), Image.Resampling.LANCZOS)
+    raw_pil = Image.fromarray(rgb).resize((1920, 1080), Image.Resampling.LANCZOS)
+    try:
+        raw_pil.save(os.path.join(PROJECT_DIR, "fundo_raw.png"), "PNG")
+        raw_pil.save(os.path.join(WEB_DIR, "fundo_raw.png"), "PNG")
+    except Exception:
+        pass
+    img = raw_pil.copy()
     
     if body.brilho != 1.0:
         img = ImageEnhance.Brightness(img).enhance(body.brilho)

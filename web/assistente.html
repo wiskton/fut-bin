@@ -759,50 +759,64 @@
 
         <!-- 2. Ajustes de Imagem -->
         <div>
-          <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
-            <label style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px">
-              2. Saturação, Brilho & Estilo
-            </label>
-            <div style="display:flex; gap:4px">
-              <span class="hint" style="font-size:11px">Presets:</span>
-              <a href="javascript:void(0)" onclick="aplicarPresetFundo('sportv')" style="font-size:11px; color:var(--accent); text-decoration:underline">SporTV</a> ·
-              <a href="javascript:void(0)" onclick="aplicarPresetFundo('vivido')" style="font-size:11px; color:var(--accent); text-decoration:underline">Vívido</a> ·
-              <a href="javascript:void(0)" onclick="aplicarPresetFundo('cinema')" style="font-size:11px; color:var(--accent); text-decoration:underline">Cinema</a>
-            </div>
+          <label style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:8px">
+            2. Presets de Cores e Iluminação
+          </label>
+          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; margin-bottom:14px">
+            <button type="button" class="ghost btnPresetCard active" data-preset="claro_vivido" onclick="aplicarPresetFundo('claro_vivido')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px; border-color:var(--accent)">
+              <span style="font-weight:700; color:var(--accent)">🌟 Claro & Vívido</span>
+              <span style="color:var(--txt-dim); font-size:10px">Cores vivas e bem claro (Recomendado)</span>
+            </button>
+            <button type="button" class="ghost btnPresetCard" data-preset="super_claro" onclick="aplicarPresetFundo('super_claro')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px">
+              <span style="font-weight:700; color:#fde047">☀️ Super Iluminado</span>
+              <span style="color:var(--txt-dim); font-size:10px">Jogos à noite / quadras escuras</span>
+            </button>
+            <button type="button" class="ghost btnPresetCard" data-preset="fifa" onclick="aplicarPresetFundo('fifa')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px">
+              <span style="font-weight:700; color:#38bdf8">🎮 Estilo FIFA / Game</span>
+              <span style="color:var(--txt-dim); font-size:10px">Saturação alta e gramado vivo</span>
+            </button>
+            <button type="button" class="ghost btnPresetCard" data-preset="tv" onclick="aplicarPresetFundo('tv')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px">
+              <span style="font-weight:700; color:#4ade80">📺 Transmissão TV</span>
+              <span style="color:var(--txt-dim); font-size:10px">Visual balanceado SporTV / HD</span>
+            </button>
+            <button type="button" class="ghost btnPresetCard" data-preset="original" onclick="aplicarPresetFundo('original')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px; grid-column: span 2">
+              <span style="font-weight:700">🔄 Original da Câmera (100% Puro)</span>
+              <span style="color:var(--txt-dim); font-size:10px">Sem filtros e sem escurecimento</span>
+            </button>
           </div>
 
           <!-- Brilho -->
           <div style="margin-top:10px">
             <div class="row" style="justify-content:space-between; font-size:12px">
               <span>Brilho</span>
-              <span id="lblFundoBrilho" style="font-weight:700">55%</span>
+              <span id="lblFundoBrilho" style="font-weight:700; color:var(--accent)">125%</span>
             </div>
-            <input type="range" id="fundoBrilho" min="15" max="150" value="55" style="width:100%">
+            <input type="range" id="fundoBrilho" min="20" max="250" value="125" step="5" style="width:100%">
           </div>
 
           <!-- Saturação -->
           <div style="margin-top:8px">
             <div class="row" style="justify-content:space-between; font-size:12px">
               <span>Saturação</span>
-              <span id="lblFundoSaturacao" style="font-weight:700">115%</span>
+              <span id="lblFundoSaturacao" style="font-weight:700; color:var(--accent)">145%</span>
             </div>
-            <input type="range" id="fundoSaturacao" min="0" max="200" value="115" style="width:100%">
+            <input type="range" id="fundoSaturacao" min="0" max="250" value="145" step="5" style="width:100%">
           </div>
 
           <!-- Contraste -->
           <div style="margin-top:8px">
             <div class="row" style="justify-content:space-between; font-size:12px">
               <span>Contraste</span>
-              <span id="lblFundoContraste" style="font-weight:700">115%</span>
+              <span id="lblFundoContraste" style="font-weight:700">112%</span>
             </div>
-            <input type="range" id="fundoContraste" min="50" max="180" value="115" style="width:100%">
+            <input type="range" id="fundoContraste" min="50" max="200" value="112" step="2" style="width:100%">
           </div>
 
           <!-- Desfoque -->
           <div style="margin-top:8px">
             <div class="row" style="justify-content:space-between; font-size:12px">
               <span>Desfoque (Blur TV)</span>
-              <span id="lblFundoDesfoque" style="font-weight:700">0 px (sem desfoque)</span>
+              <span id="lblFundoDesfoque" style="font-weight:700">0 px (nítido)</span>
             </div>
             <input type="range" id="fundoDesfoque" min="0" max="25" value="0" style="width:100%">
           </div>
@@ -810,10 +824,10 @@
           <!-- Vinheta -->
           <div style="margin-top:8px">
             <div class="row" style="justify-content:space-between; font-size:12px">
-              <span>Escurecimento / Vinheta TV</span>
-              <span id="lblFundoVinheta" style="font-weight:700">50%</span>
+              <span>Vinheta / Escurecimento</span>
+              <span id="lblFundoVinheta" style="font-weight:700">0% (desativada)</span>
             </div>
-            <input type="range" id="fundoVinheta" min="0" max="90" value="50" style="width:100%">
+            <input type="range" id="fundoVinheta" min="0" max="90" value="0" step="5" style="width:100%">
           </div>
 
           <div style="margin-top:14px; padding-top:10px; border-top:1px solid var(--line)">
@@ -839,8 +853,8 @@
         </div>
 
         <div style="position:relative; width:100%; aspect-ratio:16/9; background:#080b11; border-radius:10px; overflow:hidden; border:1px solid var(--line); box-shadow:0 6px 20px rgba(0,0,0,0.6)">
-          <img id="imgFundoPreview" src="/web/fundo_cartela.png" style="width:100%; height:100%; object-fit:cover; display:block" onerror="this.src='/web/icon.png'">
-          <div id="overlayFundoPreview" style="position:absolute; inset:0; background:rgba(11,15,23,0.5); pointer-events:none"></div>
+          <img id="imgFundoPreview" src="/web/fundo_raw.png" style="width:100%; height:100%; object-fit:cover; display:block" onerror="this.src='/web/fundo_cartela.png'">
+          <div id="overlayFundoPreview" style="position:absolute; inset:0; background:transparent; pointer-events:none"></div>
           
           <img id="imgCartelaRenderPreview" src="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:none; z-index:2">
           
@@ -3520,17 +3534,17 @@ let abaPreviewAtual = 'frame';
 let tempoFundoSegundos = 150;
 
 function atualizarFiltrosCssFundo(){
-  const b = parseFloat($('#fundoBrilho').value) || 55;
-  const s = parseFloat($('#fundoSaturacao').value) || 115;
-  const c = parseFloat($('#fundoContraste').value) || 115;
+  const b = parseFloat($('#fundoBrilho').value) || 125;
+  const s = parseFloat($('#fundoSaturacao').value) || 145;
+  const c = parseFloat($('#fundoContraste').value) || 112;
   const d = parseFloat($('#fundoDesfoque').value) || 0;
-  const v = parseFloat($('#fundoVinheta').value) || 50;
+  const v = parseFloat($('#fundoVinheta').value) || 0;
 
   $('#lblFundoBrilho').textContent = `${b}%`;
   $('#lblFundoSaturacao').textContent = `${s}%`;
   $('#lblFundoContraste').textContent = `${c}%`;
   $('#lblFundoDesfoque').textContent = d === 0 ? '0 px (nítido)' : `${d} px`;
-  $('#lblFundoVinheta').textContent = `${v}%`;
+  $('#lblFundoVinheta').textContent = v === 0 ? '0% (desativada)' : `${v}%`;
 
   const img = $('#imgFundoPreview');
   if(img){
@@ -3538,7 +3552,7 @@ function atualizarFiltrosCssFundo(){
   }
   const ov = $('#overlayFundoPreview');
   if(ov){
-    ov.style.background = `rgba(11, 15, 23, ${v / 100})`;
+    ov.style.background = v > 0 ? `rgba(11, 15, 23, ${v / 100})` : 'transparent';
   }
 }
 
@@ -3557,8 +3571,8 @@ async function capturarFrameFundo(tempo_s){
       return;
     }
     const data = await r.json();
-    if(data.ok && data.preview){
-      $('#imgFundoPreview').src = data.preview;
+    if(data.ok && (data.raw_url || data.preview)){
+      $('#imgFundoPreview').src = data.raw_url || data.preview;
       tempoFundoSegundos = data.tempo_s;
       $('#rangeTempoFundo').value = Math.round(data.tempo_s);
       $('#tempoFundoInput').value = fmtTempo(Math.round(data.tempo_s));
@@ -3582,11 +3596,11 @@ async function salvarFundoCartela(silencioso = false){
     const payload = {
       video,
       tempo_s: tempoFundoSegundos,
-      brilho: (parseFloat($('#fundoBrilho').value) || 55) / 100,
-      saturacao: (parseFloat($('#fundoSaturacao').value) || 115) / 100,
-      contraste: (parseFloat($('#fundoContraste').value) || 115) / 100,
+      brilho: (parseFloat($('#fundoBrilho').value) || 125) / 100,
+      saturacao: (parseFloat($('#fundoSaturacao').value) || 145) / 100,
+      contraste: (parseFloat($('#fundoContraste').value) || 112) / 100,
       desfoque: parseFloat($('#fundoDesfoque').value) || 0,
-      vinheta: parseFloat($('#fundoVinheta').value) || 50,
+      vinheta: parseFloat($('#fundoVinheta').value) || 0,
       aplicar_video_clipes: $('#chkAplicarClipes').checked
     };
     const r = await fetch('/api/cartelas/fundo/salvar', {
@@ -3622,7 +3636,7 @@ async function restaurarFundoPadrao(){
   if(loadEl) loadEl.style.display = 'flex';
   try {
     await fetch('/api/cartelas/fundo/restaurar', {method: 'POST'});
-    aplicarPresetFundo('padrao');
+    aplicarPresetFundo('original');
     $('#imgFundoPreview').src = '/web/icon.png';
     $('#imgCartelaRenderPreview').style.display = 'none';
     $('#imgFundoPreview').style.display = 'block';
@@ -3636,32 +3650,36 @@ async function restaurarFundoPadrao(){
 }
 
 function aplicarPresetFundo(tipo){
-  if(tipo === 'sportv'){
-    $('#fundoBrilho').value = 55;
-    $('#fundoSaturacao').value = 115;
-    $('#fundoContraste').value = 115;
-    $('#fundoDesfoque').value = 0;
-    $('#fundoVinheta').value = 50;
-  } else if(tipo === 'vivido'){
-    $('#fundoBrilho').value = 60;
-    $('#fundoSaturacao').value = 140;
-    $('#fundoContraste').value = 125;
-    $('#fundoDesfoque').value = 0;
-    $('#fundoVinheta').value = 40;
+  let b = 125, s = 145, c = 112, d = 0, v = 0;
+  if(tipo === 'claro_vivido' || tipo === 'vivido'){
+    b = 125; s = 145; c = 112; d = 0; v = 0;
+  } else if(tipo === 'super_claro' || tipo === 'noturno'){
+    b = 145; s = 135; c = 115; d = 0; v = 0;
+  } else if(tipo === 'fifa'){
+    b = 118; s = 165; c = 120; d = 0; v = 0;
+  } else if(tipo === 'sportv' || tipo === 'tv'){
+    b = 110; s = 130; c = 108; d = 0; v = 5;
   } else if(tipo === 'cinema'){
-    $('#fundoBrilho').value = 45;
-    $('#fundoSaturacao').value = 80;
-    $('#fundoContraste').value = 130;
-    $('#fundoDesfoque').value = 0;
-    $('#fundoVinheta').value = 65;
-  } else if(tipo === 'padrao'){
-    $('#fundoBrilho').value = 100;
-    $('#fundoSaturacao').value = 100;
-    $('#fundoContraste').value = 100;
-    $('#fundoDesfoque').value = 0;
-    $('#fundoVinheta').value = 80;
+    b = 105; s = 90; c = 125; d = 0; v = 15;
+  } else if(tipo === 'padrao' || tipo === 'original'){
+    b = 100; s = 100; c = 100; d = 0; v = 0;
   }
+  $('#fundoBrilho').value = b;
+  $('#fundoSaturacao').value = s;
+  $('#fundoContraste').value = c;
+  $('#fundoDesfoque').value = d;
+  $('#fundoVinheta').value = v;
+
+  $$('.btnPresetCard').forEach(btn => {
+    const p = btn.getAttribute('data-preset');
+    const isAct = (p === tipo || (tipo === 'vivido' && p === 'claro_vivido') || (tipo === 'noturno' && p === 'super_claro') || (tipo === 'tv' && p === 'sportv') || (tipo === 'padrao' && p === 'original'));
+    btn.classList.toggle('active', isAct);
+    if(isAct) btn.style.borderColor = 'var(--accent)';
+    else btn.style.borderColor = 'var(--line)';
+  });
+
   atualizarFiltrosCssFundo();
+  salvarFundoCartela(true);
 }
 
 function carregarFramePredefinido(tempo_s){

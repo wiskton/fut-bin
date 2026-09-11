@@ -28,7 +28,8 @@ import tempfile
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 L, A = 1920, 1080
 FPS = 30
@@ -275,13 +276,10 @@ def criar_fundo_base(d_=None, fundo_custom=None):
                 break
     if caminho and os.path.isfile(caminho):
         try:
-            bg = Image.open(caminho).convert("RGBA")
+            bg = Image.open(caminho).convert("RGB")
             if bg.size != (L, A):
                 bg = bg.resize((L, A), Image.Resampling.LANCZOS)
-            # Overlay translúcido suave para assegurar excelente contraste dos textos e placas
-            overlay = Image.new("RGBA", (L, A), (11, 15, 23, 100))
-            bg = Image.alpha_composite(bg, overlay)
-            return bg.convert("RGB")
+            return bg
         except Exception as e:
             print(f"Aviso ao carregar imagem de fundo ({caminho}): {e}")
     return Image.new("RGB", (L, A), FUNDO)
