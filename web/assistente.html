@@ -4006,7 +4006,10 @@ $('#btnMontar').onclick = async ()=>{
 
 /* ------------------------------------------------------------ boot */
 (async ()=>{
-  montarNav(); irPara('s-video');
+  const urlParams = new URLSearchParams(window.location.search);
+  const pPasso = urlParams.get('passo') || (window.location.hash ? window.location.hash.substring(1) : null);
+  montarNav();
+  irPara((pPasso && $(`#${pPasso}`)) ? pPasso : 's-video');
   buscarVideos();
   explorar();
   const rp = await fetch('/api/placar'); const {rect} = await rp.json();

@@ -9,17 +9,45 @@ Tempo de trabalho manual por jogo: cerca de 40 minutos.
 
 ---
 
+## 📺 Visual das Telas — Estilo Transmissão de TV & FIFA Cardgame
+
+O vídeo final é montado automaticamente em **Full HD 1080p** com visual profissional de transmissão esportiva, logo oficial do campeonato, fotos dos jogadores e cores vivas:
+
+### 1. Abertura Oficial com Escalação Tática e Fotos
+Logo oficial do campeonato, confronto com cores personalizadas e campinho tático com avatares dos jogadores.
+![Abertura Oficial e Escalação Tática](docs/screenshots/01_abertura_escalacao.png)
+
+### 2. Placar Dinâmico e Faixa de Gol no Jogo (Compacta & Elegante)
+Durante a partida: placar eletrônico com tempo no topo esquerdo, logo oficial "AO VIVO" no topo direito e card flutuante compacto de celebração de gol (autor, mini-foto do assistente e time) sem poluir o campo.
+![Placar e Faixa de Gol no Jogo](docs/screenshots/02_placar_gol_jogo.png)
+
+### 3. Placar Final (Fim de Jogo)
+Placar final com todos os gols marcados, minutos de cada gol e assistências.
+![Placar Final](docs/screenshots/03_placar_final.png)
+
+### 4. Destaques da Partida (Artilheiros & Assistências)
+Ranking com os artilheiros do jogo e líderes em assistências com medalhas de ouro, prata e bronze.
+![Destaques da Partida](docs/screenshots/04_destaques_partida.png)
+
+### 5. Assistente Web — Estilo FIFA & Presets em 1 Clique
+Interface moderna no navegador com tema escuro esportivo, upload de logo do torneio, fotos dos jogadores e ajustes de imagem (saturação, brilho e presets como *Claro & Vívido*, *Estilo FIFA* e *Super Iluminado*).
+![Assistente Web - Dados da Partida e Logo](docs/screenshots/05_assistente_dados_partida.png)
+![Assistente Web - Ajuste de Imagem e Presets](docs/screenshots/06_assistente_ajuste_frame.png)
+
+---
+
 ## Índice
 
-0. [Assistente no navegador (recomendado)](#assistente-no-navegador-recomendado)
-1. [Como funciona](#como-funciona)
-2. [O que você precisa](#o-que-você-precisa)
-3. [Instalação](#instalação)
-4. [Fluxo completo (manual, avançado)](#fluxo-completo)
-5. [Os scripts, um a um](#os-scripts-um-a-um)
-6. [Como filmar para facilitar](#como-filmar-para-facilitar)
-7. [Problemas comuns](#problemas-comuns)
-8. [O que não funcionou e por quê](#o-que-não-funcionou-e-por-quê)
+0. [Visual das Telas (Exemplos)](#-visual-das-telas--estilo-transmissão-de-tv--fifa-cardgame)
+1. [Assistente no navegador (recomendado)](#assistente-no-navegador-recomendado)
+2. [Como funciona](#como-funciona)
+3. [O que você precisa](#o-que-você-precisa)
+4. [Instalação](#instalação)
+5. [Fluxo completo (manual, avançado)](#fluxo-completo)
+6. [Os scripts, um a um](#os-scripts-um-a-um)
+7. [Como filmar para facilitar](#como-filmar-para-facilitar)
+8. [Problemas comuns](#problemas-comuns)
+9. [O que não funcionou e por quê](#o-que-não-funcionou-e-por-quê)
 
 ---
 
