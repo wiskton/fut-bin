@@ -246,6 +246,20 @@
   .fut-btn-pos.sel.pos-zagueiro{background:#2563eb;border-color:#2563eb;color:#fff;box-shadow:0 0 8px rgba(37,99,235,0.5)}
   .fut-btn-pos.sel.pos-meio{background:#10b981;border-color:#10b981;color:#04140a;box-shadow:0 0 8px rgba(16,185,129,0.5)}
   .fut-btn-pos.sel.pos-atacante{background:#f43f5e;border-color:#f43f5e;color:#fff;box-shadow:0 0 8px rgba(244,63,94,0.5)}
+  /* Avatar de Jogador */
+  .fut-avatar-wrap{position:relative;width:34px;height:34px;border-radius:50%;flex-shrink:0;
+                   background:linear-gradient(135deg, rgba(255,255,255,0.08), rgba(0,0,0,0.5));
+                   border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;
+                   justify-content:center;cursor:pointer;transition:all 0.15s ease}
+  .fut-avatar-wrap:hover{border-color:#00f0ff;box-shadow:0 0 8px rgba(0,240,255,0.4);transform:scale(1.05)}
+  .fut-avatar-img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+  .fut-avatar-del{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;
+                  background:#ef4444;color:#fff;border:1px solid #ffffff;font-size:11px;
+                  line-height:1;display:flex;align-items:center;justify-content:center;
+                  cursor:pointer;padding:0;font-weight:900;box-shadow:0 2px 4px rgba(0,0,0,0.4)}
+  .fut-avatar-del:hover{background:#dc2626;transform:scale(1.15)}
+  .fut-avatar-icon{font-size:14px;opacity:0.75;line-height:1}
+  .fut-avatar-wrap.vazio:hover .fut-avatar-icon{opacity:1}
 </style>
 
 <header>
@@ -511,6 +525,31 @@
       </div>
     </div>
   </div>
+  <div class="card" style="border-top:2px solid #ffd700">
+    <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px">
+      <div style="flex:1; min-width:260px">
+        <h2 style="margin:0 0 6px 0; color:#ffd700; display:flex; align-items:center; gap:8px">
+          <span>🏆</span> Logo do Campeonato
+        </h2>
+        <p class="hint" style="margin:0">
+          Suba o escudo ou imagem oficial do campeonato. A logo será exibida na abertura, no placar eletrônico dos lances e nas cartelas finais.
+        </p>
+      </div>
+      <div class="row" style="align-items:center; gap:14px; flex-shrink:0">
+        <div style="position:relative; width:72px; height:72px; border-radius:12px; background:radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.5) 100%); border:1px solid rgba(255,215,0,0.4); display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.6)">
+          <img id="previewLogoCampeonato" src="/web/logo_campeonato.png" alt="Logo Campeonato" style="max-width:85%; max-height:85%; object-fit:contain" onerror="this.src='/web/icon.png'">
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <input type="file" id="fileLogoTorneio" accept="image/*" style="display:none">
+          <button type="button" class="act" id="btnUploadLogo" style="font-size:13px; font-weight:800; padding:8px 16px; background:linear-gradient(135deg, #ffd700 0%, #f59e0b 100%); color:#04140a; border:none; border-radius:6px; cursor:pointer; box-shadow:0 2px 8px rgba(245,158,11,0.4)">
+            📁 Subir Logo
+          </button>
+          <span class="hint" style="font-size:11px; text-align:center">PNG, JPG ou WEBP</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="fileFotoJogador" accept="image/*" style="display:none">
   <div class="card">
     <h2>Placar final do jogo</h2>
     <p class="hint">Informe o placar final do jogo (gols de cada time). Na tela de resumo, o assistente irá comparar com os gols encontrados nos clipes para apontar quantos gols faltam encontrar no vídeo.</p>
@@ -662,10 +701,10 @@
   <div class="card" style="border-top:2px solid #ffd700">
     <h2>Identidade Visual do Torneio</h2>
     <div style="display:flex; align-items:center; gap:16px; background:var(--panel2); padding:14px 18px; border-radius:10px; border:1px solid rgba(255,215,0,0.3)">
-      <img src="/web/logo_campeonato.png" alt="Logo Campeonato" style="height:60px; width:auto; filter:drop-shadow(0 0 10px rgba(255,215,0,0.6))">
+      <img id="previewLogoStep7" src="/web/logo_campeonato.png" alt="Logo Campeonato" style="height:60px; width:auto; filter:drop-shadow(0 0 10px rgba(255,215,0,0.6))" onerror="this.src='/web/icon.png'">
       <div>
         <div style="font-weight:900; font-size:14px; color:#ffd700; letter-spacing:0.8px; text-transform:uppercase">Copa Fut-Bin Championship · Logo Oficial Ativada</div>
-        <div class="hint" style="margin:4px 0 0; font-size:12px; line-height:1.4">Esta logo será renderizada com destaque na <b>cartela de abertura</b>, como <b>marca d'água de transmissão ao vivo</b> no canto superior dos clipes e na <b>cartela final de estatísticas e placar pós-jogo</b>.</div>
+        <div class="hint" style="margin:4px 0 0; font-size:12px; line-height:1.4">Esta logo será renderizada com destaque na <b>cartela de abertura</b>, como <b>marca d'água de transmissão ao vivo</b> no canto superior dos clipes e na <b>cartela final de estatísticas e placar pós-jogo</b>. <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Trocar logo no Passo 5</a>.</div>
       </div>
     </div>
   </div>
@@ -848,30 +887,72 @@ function autoDefinirPosicoes(){
   agendarSalvar();
 }
 
+let _uploadJogadorAlvo = null;
+function acionarUploadFoto(timeIdx, nome){
+  _uploadJogadorAlvo = { timeIdx, nome };
+  const input = $('#fileFotoJogador');
+  if(input){
+    input.value = '';
+    input.click();
+  }
+}
+
+async function removerFotoJogador(timeIdx, nome){
+  if(!confirm(`Remover foto de "${nome}"?`)) return;
+  try {
+    const res = await fetch('/api/remover_foto_jogador', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ jogador: nome, time_idx: timeIdx })
+    });
+    if(S.times[timeIdx] && S.times[timeIdx].fotos){
+      delete S.times[timeIdx].fotos[nome];
+    }
+    renderPosicoesElenco(timeIdx);
+    agendarSalvar();
+  } catch(e){
+    alert('Erro ao remover foto: ' + e.message);
+  }
+}
+
 function renderPosicoesElenco(timeIdx){
   const el = timeIdx === 0 ? $('#posElencoA') : $('#posElencoB');
   if(!el) return;
   const t = S.times[timeIdx];
   if(!t || !t.jogadores || !t.jogadores.length){
-    el.innerHTML = '<div class="hint" style="font-size:12px">Digite os nomes acima para definir as posições.</div>';
+    el.innerHTML = '<div class="hint" style="font-size:12px">Digite os nomes acima para definir as posições e fotos.</div>';
     return;
   }
   let html = '<div class="fut-roster-box">';
-  html += `<div class="fut-roster-header"><span class="fut-roster-title">DISPOSIÇÃO TÁTICA · ${(t.nome||'TIME').toUpperCase()}</span><span class="fut-roster-count">${t.jogadores.length} ATLETAS</span></div>`;
+  html += `<div class="fut-roster-header"><span class="fut-roster-title">DISPOSIÇÃO TÁTICA & FOTOS · ${(t.nome||'TIME').toUpperCase()}</span><span class="fut-roster-count">${t.jogadores.length} ATLETAS</span></div>`;
   html += '<div class="fut-roster-list">';
+  const fotosMap = t.fotos || {};
   t.jogadores.forEach(nome => {
     const posAtual = obterPosicaoJogador(timeIdx, nome);
     const posObj = POSICOES_JOGADORES.find(p => p.id === posAtual) || POSICOES_JOGADORES[2];
+    const fotoUrl = fotosMap[nome] || null;
+    const nomeEsc = nome.replace(/'/g, "\\'");
+
     html += `<div class="fut-player-row">`;
     html += `  <div class="fut-player-info">`;
+    if(fotoUrl){
+      html += `    <div class="fut-avatar-wrap" title="Clique para trocar foto de ${nome}" onclick="acionarUploadFoto(${timeIdx}, '${nomeEsc}')">`;
+      html += `      <img src="${fotoUrl}?t=${Date.now()}" class="fut-avatar-img" alt="${nome}">`;
+      html += `      <button type="button" class="fut-avatar-del" title="Remover foto" onclick="event.stopPropagation(); removerFotoJogador(${timeIdx}, '${nomeEsc}')">×</button>`;
+      html += `    </div>`;
+    } else {
+      html += `    <div class="fut-avatar-wrap vazio" title="Subir foto de ${nome}" onclick="acionarUploadFoto(${timeIdx}, '${nomeEsc}')">`;
+      html += `      <span class="fut-avatar-icon">📷</span>`;
+      html += `    </div>`;
+    }
     html += `    <div class="fut-player-badge pos-${posAtual}">${posObj.sigla}</div>`;
-    html += `    <span class="fut-player-name">${nome}</span>`;
+    html += `    <span class="fut-player-name" title="${nome}">${nome}</span>`;
     html += `  </div>`;
     html += `  <div class="fut-pos-buttons">`;
     POSICOES_JOGADORES.forEach(p => {
       const ativa = (posAtual === p.id);
       const cls = ativa ? `fut-btn-pos sel pos-${p.id}` : 'fut-btn-pos';
-      html += `<button type="button" class="${cls}" onclick="definirPosicaoJogador(${timeIdx}, '${nome.replace(/'/g, "\\'")}', '${p.id}')" title="${p.rotulo}">${p.sigla}</button>`;
+      html += `<button type="button" class="${cls}" onclick="definirPosicaoJogador(${timeIdx}, '${nomeEsc}', '${p.id}')" title="${p.rotulo}">${p.sigla}</button>`;
     });
     html += `  </div>`;
     html += `</div>`;
@@ -1000,6 +1081,7 @@ function estadoParaPartida(){
       cor: t.cor,
       jogadores: t.jogadores || [],
       posicoes: t.posicoes || {},
+      fotos: t.fotos || {},
     })),
     gols: v.map(g=>({indice:g.indice, tempo:g.tempo,
       tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
@@ -1235,8 +1317,10 @@ function lerSetup(){
   const jB = lista($('#pB').value);
   const posA = S.times[0]?.posicoes || {};
   const posB = S.times[1]?.posicoes || {};
-  S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA};
-  S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB};
+  const fotosA = S.times[0]?.fotos || {};
+  const fotosB = S.times[1]?.fotos || {};
+  S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA, fotos:fotosA};
+  S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB, fotos:fotosB};
   atualizarEstilosTimes();
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
@@ -1308,6 +1392,12 @@ function escreverSetup(){
   $('#pB').value=(S.times[1].jogadores || []).join('\n');
   if(!S.times[0].posicoes) S.times[0].posicoes = {};
   if(!S.times[1].posicoes) S.times[1].posicoes = {};
+  if(!S.times[0].fotos) S.times[0].fotos = {};
+  if(!S.times[1].fotos) S.times[1].fotos = {};
+  if(S.meta && S.meta.logo){
+    const logoEl = $('#previewLogoCampeonato');
+    if(logoEl) logoEl.src = S.meta.logo + '?t=' + Date.now();
+  }
   atualizarEstilosTimes();
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
@@ -1336,6 +1426,92 @@ $('#btnElenco').onclick = ()=>{
   lerSetup(); agendarSalvar();
   alert(nomes.length+' jogadores divididos. Ajuste a divisão entre os times.');
 };
+
+// Upload de Logo do Campeonato
+const btnUpLogo = $('#btnUploadLogo');
+const fileLogo = $('#fileLogoTorneio');
+if(btnUpLogo && fileLogo){
+  btnUpLogo.onclick = () => {
+    fileLogo.value = '';
+    fileLogo.click();
+  };
+  fileLogo.onchange = () => {
+    const file = fileLogo.files && fileLogo.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const b64 = e.target.result;
+      try {
+        btnUpLogo.disabled = true;
+        btnUpLogo.textContent = 'Enviando...';
+        const res = await fetch('/api/upload_logo', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ imagem_b64: b64 })
+        });
+        const d = await res.json();
+        if(res.ok && d.ok){
+          const bust = '?t=' + Date.now();
+          const novaUrl = d.url + bust;
+          const prev = $('#previewLogoCampeonato');
+          if(prev) prev.src = novaUrl;
+          $$('img.fut-logo').forEach(img => { img.src = novaUrl; });
+          const imgStep7 = $('#previewLogoStep7');
+          if(imgStep7) imgStep7.src = novaUrl;
+          if(!S.meta) S.meta = {};
+          S.meta.logo = d.url;
+          agendarSalvar();
+          alert('Logo do campeonato atualizada com sucesso!');
+        } else {
+          alert('Erro ao salvar logo: ' + (d.detail || 'desconhecido'));
+        }
+      } catch(err){
+        alert('Erro ao enviar logo: ' + err.message);
+      } finally {
+        btnUpLogo.disabled = false;
+        btnUpLogo.innerHTML = '📁 Subir Logo';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+}
+
+// Upload de Foto de Jogador
+const fileFoto = $('#fileFotoJogador');
+if(fileFoto){
+  fileFoto.onchange = () => {
+    const file = fileFoto.files && fileFoto.files[0];
+    if(!file || !_uploadJogadorAlvo) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const b64 = e.target.result;
+      const { timeIdx, nome } = _uploadJogadorAlvo;
+      try {
+        const res = await fetch('/api/upload_foto_jogador', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            jogador: nome,
+            time_idx: timeIdx,
+            imagem_b64: b64
+          })
+        });
+        const d = await res.json();
+        if(res.ok && d.ok){
+          if(!S.times[timeIdx].fotos) S.times[timeIdx].fotos = {};
+          S.times[timeIdx].fotos[nome] = d.url;
+          renderPosicoesElenco(timeIdx);
+          agendarSalvar();
+        } else {
+          alert('Erro ao subir foto: ' + (d.detail || 'desconhecido'));
+        }
+      } catch(err){
+        alert('Erro de rede ao subir foto: ' + err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+}
 $('#btnIrPlacar').onclick = ()=>{
   if(!ESTADO.video){ alert('Escolha um vídeo primeiro.'); return; }
   salvarPartida();

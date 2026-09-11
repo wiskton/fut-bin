@@ -20,10 +20,13 @@ ESTRUTURA:
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -89,11 +92,18 @@ def centralizado(d, y, txt, f, cor):
 def obter_logo_campeonato(d_=None, tamanho=None):
     """Carrega a logo do campeonato a partir de partida.json ou dos arquivos do projeto."""
     caminhos = []
+    base_dir = SCRIPT_DIR
     if d_ and isinstance(d_, dict):
         meta = d_.get("meta") or {}
         if meta.get("logo"):
-            caminhos.append(meta["logo"])
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+            p = str(meta["logo"]).strip()
+            if p.startswith("/web/"):
+                caminhos.append(os.path.join(base_dir, p.lstrip("/")))
+            elif p.startswith("/"):
+                caminhos.append(p)
+            else:
+                caminhos.append(os.path.join(base_dir, p))
+                caminhos.append(p)
     caminhos.extend([
         os.path.join(base_dir, "logo_campeonato.png"),
         os.path.join(base_dir, "web", "logo_campeonato.png"),
@@ -110,6 +120,56 @@ def obter_logo_campeonato(d_=None, tamanho=None):
                 return img
             except Exception:
                 pass
+    return None
+
+
+def obter_foto_jogador(nome, time_obj=None, tamanho=(50, 50)):
+    """
+    Carrega e formata a foto do jogador com recorte circular transparente (PNG).
+    Procura em time_obj['fotos'][nome], ou em web/fotos/{slug}.png, ou fotos/{slug}.png.
+    """
+    if not nome or not str(nome).strip():
+        return None
+    nome_str = str(nome).strip()
+    candidatos = []
+    if time_obj and isinstance(time_obj, dict):
+        fotos_map = time_obj.get("fotos", {})
+        if isinstance(fotos_map, dict) and fotos_map.get(nome_str):
+            p = fotos_map[nome_str]
+            if p.startswith("/web/"):
+                candidatos.append(os.path.join(SCRIPT_DIR, p.lstrip("/")))
+            elif p.startswith("/"):
+                candidatos.append(p)
+            else:
+                candidatos.append(os.path.join(SCRIPT_DIR, p))
+                candidatos.append(p)
+
+    slug = re.sub(r'[^a-zA-Z0-9_-]', '_', nome_str.lower())
+    candidatos.extend([
+        os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}.png"),
+        os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}.jpg"),
+        os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}.jpeg"),
+        os.path.join(SCRIPT_DIR, "fotos", f"{slug}.png"),
+        os.path.join(SCRIPT_DIR, "fotos", f"{slug}.jpg"),
+    ])
+
+    for c in candidatos:
+        if c and os.path.isfile(c):
+            try:
+                im = Image.open(c).convert("RGBA")
+                if tamanho:
+                    w, h = tamanho
+                    im = im.resize((w, h), Image.Resampling.LANCZOS)
+                    # Cria mascara circular com anti-aliasing
+                    mask = Image.new("L", (w, h), 0)
+                    mask_draw = ImageDraw.Draw(mask)
+                    mask_draw.ellipse((0, 0, w - 1, h - 1), fill=255)
+                    circular = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+                    circular.paste(im, (0, 0), mask)
+                    return circular
+                return im
+            except Exception:
+                continue
     return None
 
 
@@ -175,7 +235,7 @@ def preencher_padrao_se_necessario(j_list):
 
 # --------------------------------------------------------------- campo tático e abertura
 
-def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb):
+def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb, img_base=None, times=None):
     n_faixas = 10
     faixa_w = w / n_faixas
     c_grama1 = (20, 68, 38)
@@ -255,18 +315,27 @@ def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb):
     coords_a = posicionar_jogadores(time_a, True)
     coords_b = posicionar_jogadores(time_b, False)
 
-    for coords, cor, txt_cor in [(coords_a, ca, contraste_cor(ca)), (coords_b, cb, contraste_cor(cb))]:
+    grupos_times = [
+        (coords_a, ca, contraste_cor(ca), times[0] if times else None),
+        (coords_b, cb, contraste_cor(cb), times[1] if times and len(times) > 1 else None)
+    ]
+
+    for coords, cor, txt_cor, time_obj in grupos_times:
         for nome, cat, cx, cy in coords:
-            r = 17
+            r = 18
             draw.ellipse([cx - r - 2, cy - r + 2, cx + r + 2, cy + r + 4], fill=(10, 15, 20, 140))
             draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=cor, outline=(255, 255, 255), width=2)
 
-            sigla = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA"}.get(cat, "JOG")
-            f_sig = fonte(12, True)
-            bb_sig = draw.textbbox((0, 0), sigla, font=f_sig)
-            sw = bb_sig[2] - bb_sig[0]
-            sh = bb_sig[3] - bb_sig[1]
-            draw.text((cx - sw // 2, cy - sh // 2 - 1), sigla, font=f_sig, fill=txt_cor)
+            foto_j = obter_foto_jogador(nome, time_obj, tamanho=(r * 2 - 4, r * 2 - 4))
+            if foto_j and img_base:
+                img_base.paste(foto_j, (cx - r + 2, cy - r + 2), foto_j)
+            else:
+                sigla = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA"}.get(cat, "JOG")
+                f_sig = fonte(12, True)
+                bb_sig = draw.textbbox((0, 0), sigla, font=f_sig)
+                sw = bb_sig[2] - bb_sig[0]
+                sh = bb_sig[3] - bb_sig[1]
+                draw.text((cx - sw // 2, cy - sh // 2 - 1), sigla, font=f_sig, fill=txt_cor)
 
             f_nome = fonte(15, True)
             bb = draw.textbbox((0, 0), nome, font=f_nome)
@@ -314,7 +383,7 @@ def cartela_abertura(d_):
     campo_h = 750
     campo_x0 = (L - campo_w) // 2
     campo_y0 = 245
-    desenhar_campo_tatico(d, campo_x0, campo_y0, campo_w, campo_h, j_a, j_b, ca, cb)
+    desenhar_campo_tatico(d, campo_x0, campo_y0, campo_w, campo_h, j_a, j_b, ca, cb, img_base=img, times=times)
 
     # Painéis laterais com elenco e posições
     def desenhar_painel_elenco(x0, time_obj, jgs, cor):
@@ -329,7 +398,12 @@ def cartela_abertura(d_):
         tags = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA"}
         for nm, pos in jgs[:12]:
             tag = tags.get(pos, "MEI")
-            d.text((x0 + 16, y_item), nm, font=fonte(18, False), fill=TEXTO)
+            foto_j = obter_foto_jogador(nm, time_obj, tamanho=(26, 26))
+            if foto_j:
+                img.paste(foto_j, (x0 + 14, y_item - 3), foto_j)
+                d.text((x0 + 46, y_item), nm, font=fonte(18, False), fill=TEXTO)
+            else:
+                d.text((x0 + 16, y_item), nm, font=fonte(18, False), fill=TEXTO)
             d.text((x0 + w_p - 16, y_item + 2), f"[{tag}]", font=fonte(13, True), fill=FRACO, anchor="ra")
             y_item += 38
 
@@ -431,12 +505,20 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
         cor_time = hex_rgb(times[t_idx]["cor"])
         d.rectangle([110, y0 + 36, 122, y0 + 170], fill=cor_time + (255,))
 
+        autor_nome = ev.get("autor", "Gol")
+        foto_autor = obter_foto_jogador(autor_nome, times[t_idx], tamanho=(95, 95))
+        if foto_autor:
+            img.paste(foto_autor, (140, y0 + 55), foto_autor)
+            x_txt = 255
+        else:
+            x_txt = 150
+
         rotulo = f"GOL · {times[t_idx]['nome'].upper()}  ({placar_a} × {placar_b})"
-        d.text((150, y0 + 32), rotulo, font=fonte(28), fill=cor_time + (255,))
-        d.text((150, y0 + 72), ev.get("autor", "Gol"), font=fonte(64), fill=TEXTO + (255,))
+        d.text((x_txt, y0 + 32), rotulo, font=fonte(28), fill=cor_time + (255,))
+        d.text((x_txt, y0 + 72), autor_nome, font=fonte(64), fill=TEXTO + (255,))
 
         if ev.get("assist"):
-            d.text((150, y0 + 154), f"assistência: {ev['assist']}", font=fonte(28, False), fill=FRACO + (255,))
+            d.text((x_txt, y0 + 154), f"assistência: {ev['assist']}", font=fonte(28, False), fill=FRACO + (255,))
 
         d.text((L - 110, y0 + 72), ev.get("tempo", ""), font=fonte(56), fill=FRACO + (255,), anchor="ra")
         d.text((L - 110, y0 + 36), times[t_idx]["nome"], font=fonte(26), fill=cor_time + (255,), anchor="ra")
@@ -447,13 +529,20 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
 
         rotulo_lance = (ev.get("lance") or "MELHOR MOMENTO").upper()
         jogador = ev.get("destaque") or ev.get("autor")
+        foto_jog = obter_foto_jogador(jogador, times[ev["time"]] if tem_time else None, tamanho=(95, 95)) if jogador else None
+
+        if foto_jog:
+            img.paste(foto_jog, (140, y0 + 55), foto_jog)
+            x_txt = 255
+        else:
+            x_txt = 150
 
         if jogador:
-            d.text((150, y0 + 32), f"{rotulo_lance}  ({placar_a} × {placar_b})", font=fonte(28), fill=cor_lance + (255,))
-            d.text((150, y0 + 72), jogador, font=fonte(64), fill=TEXTO + (255,))
+            d.text((x_txt, y0 + 32), f"{rotulo_lance}  ({placar_a} × {placar_b})", font=fonte(28), fill=cor_lance + (255,))
+            d.text((x_txt, y0 + 72), jogador, font=fonte(64), fill=TEXTO + (255,))
         else:
-            d.text((150, y0 + 32), f"MELHOR MOMENTO  ({placar_a} × {placar_b})", font=fonte(28), fill=cor_lance + (255,))
-            d.text((150, y0 + 72), ev.get("lance") or "Lance", font=fonte(58), fill=TEXTO + (255,))
+            d.text((x_txt, y0 + 32), f"MELHOR MOMENTO  ({placar_a} × {placar_b})", font=fonte(28), fill=cor_lance + (255,))
+            d.text((x_txt, y0 + 72), ev.get("lance") or "Lance", font=fonte(58), fill=TEXTO + (255,))
 
         d.text((L - 110, y0 + 72), ev.get("tempo", ""), font=fonte(56), fill=FRACO + (255,), anchor="ra")
         if tem_time:
@@ -534,11 +623,11 @@ def cartela_fim_de_jogo(d_):
             autor = g.get("autor", "Gol")
             d.text((x0 + 110, y_item), autor, font=fonte(22, True), fill=TEXTO)
             if g.get("assist"):
-                d.text((x0 + 380, y_item + 2), f"assistência: {g['assist']}", font=fonte(18, False), fill=FRACO)
+                d.text((x0 + col_w - 24, y_item + 2), f"assist. {g['assist']}", font=fonte(16, False), fill=FRACO, anchor="ra")
             y_item += 42
 
     desenhar_coluna_gols(170, times[0], gols_a, ca)
-    desenhar_coluna_gols(L // 2 + 90, times[1], gols_b, cb)
+    desenhar_coluna_gols(L // 2 + 60, times[1], gols_b, cb)
 
     return img
 
@@ -599,7 +688,14 @@ def cartela_destaques(d_):
             cor = medalha[k] if k < 3 else FRACO
             d.ellipse([x0 + 36, y, x0 + 84, y + 48], fill=cor)
             d.text((x0 + 60, y + 24), str(k + 1), font=fonte(26), fill=FUNDO, anchor="mm")
-            d.text((x0 + 110, y + 4), item["jogador"], font=fonte(36), fill=TEXTO)
+
+            foto_j = obter_foto_jogador(item["jogador"], tamanho=(48, 48))
+            if foto_j:
+                img.paste(foto_j, (x0 + 96, y), foto_j)
+                d.text((x0 + 154, y + 4), item["jogador"], font=fonte(36), fill=TEXTO)
+            else:
+                d.text((x0 + 110, y + 4), item["jogador"], font=fonte(36), fill=TEXTO)
+
             d.text((x0 + 600, y + 8), str(item[campo]), font=fonte(34), fill=cor, anchor="ra")
     centralizado(d, 900, d_["meta"].get("pelada") or d_["meta"].get("torneio") or "", fonte(34), VERDE)
     return img

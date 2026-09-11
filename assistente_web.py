@@ -1141,6 +1141,127 @@ def api_salvar_partida(payload: dict = Body(...)):
     return {"ok": True}
 
 
+# --------------------------------------------------------------- uploads: logo e fotos dos jogadores
+
+FOTOS_DIR = os.path.join(WEB_DIR, "fotos")
+os.makedirs(FOTOS_DIR, exist_ok=True)
+
+
+class UploadLogoPayload(BaseModel):
+    imagem_b64: str
+
+
+@app.post("/api/upload_logo")
+def api_upload_logo(body: UploadLogoPayload):
+    try:
+        from io import BytesIO
+        from PIL import Image
+
+        b64 = body.imagem_b64
+        if "," in b64:
+            b64 = b64.split(",", 1)[1]
+        raw = base64.b64decode(b64)
+        img = Image.open(BytesIO(raw)).convert("RGBA")
+
+        # Salva tanto na raiz quanto em web/ para servir estático
+        caminho_raiz = os.path.join(PROJECT_DIR, "logo_campeonato.png")
+        caminho_web = os.path.join(WEB_DIR, "logo_campeonato.png")
+        img.save(caminho_raiz, "PNG")
+        img.save(caminho_web, "PNG")
+
+        return {"ok": True, "url": "/web/logo_campeonato.png"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao salvar logo: {e}")
+
+
+class UploadFotoJogadorPayload(BaseModel):
+    jogador: str
+    time_idx: Optional[int] = None
+    imagem_b64: str
+
+
+@app.post("/api/upload_foto_jogador")
+def api_upload_foto_jogador(body: UploadFotoJogadorPayload):
+    try:
+        from io import BytesIO
+        from PIL import Image
+
+        jogador = body.jogador.strip()
+        if not jogador:
+            raise HTTPException(status_code=400, detail="Nome do jogador obrigatorio")
+
+        b64 = body.imagem_b64
+        if "," in b64:
+            b64 = b64.split(",", 1)[1]
+        raw = base64.b64decode(b64)
+        img = Image.open(BytesIO(raw)).convert("RGBA")
+
+        # Redimensiona para maximo 300x300 mantendo proporcao
+        img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+
+        slug = re.sub(r'[^a-zA-Z0-9_-]', '_', jogador.lower())
+        nome_arquivo = f"{slug}.png"
+        caminho_foto = os.path.join(FOTOS_DIR, nome_arquivo)
+        img.save(caminho_foto, "PNG")
+
+        rel_url = f"/web/fotos/{nome_arquivo}"
+
+        # Se partida.json existir, atualiza o mapa de fotos do time
+        if os.path.exists(PARTIDA_JSON):
+            try:
+                with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                    p = json.load(f)
+                times = p.get("times", [])
+                if body.time_idx is not None and 0 <= body.time_idx < len(times):
+                    times[body.time_idx].setdefault("fotos", {})[jogador] = rel_url
+                else:
+                    for t in times:
+                        if jogador in t.get("jogadores", []):
+                            t.setdefault("fotos", {})[jogador] = rel_url
+                with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
+                    json.dump(p, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
+
+        return {"ok": True, "url": rel_url, "jogador": jogador}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao salvar foto do jogador: {e}")
+
+
+class RemoverFotoJogadorPayload(BaseModel):
+    jogador: str
+    time_idx: Optional[int] = None
+
+
+@app.post("/api/remover_foto_jogador")
+def api_remover_foto_jogador(body: RemoverFotoJogadorPayload):
+    jogador = body.jogador.strip()
+    slug = re.sub(r'[^a-zA-Z0-9_-]', '_', jogador.lower())
+    nome_arquivo = f"{slug}.png"
+    caminho_foto = os.path.join(FOTOS_DIR, nome_arquivo)
+    if os.path.exists(caminho_foto):
+        try:
+            os.remove(caminho_foto)
+        except Exception:
+            pass
+
+    if os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                p = json.load(f)
+            times = p.get("times", [])
+            if body.time_idx is not None and 0 <= body.time_idx < len(times):
+                times[body.time_idx].get("fotos", {}).pop(jogador, None)
+            else:
+                for t in times:
+                    t.get("fotos", {}).pop(jogador, None)
+            with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
+                json.dump(p, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+    return {"ok": True}
+
+
 # --------------------------------------------------------------- montagem final
 
 class IniciarMontagem(BaseModel):
