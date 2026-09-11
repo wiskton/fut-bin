@@ -1397,6 +1397,21 @@ def api_preview_cartela(tipo: str):
         img = montar_video.cartela_destaques(d)
     elif tipo == "cronologia":
         img = montar_video.cartela_cronologia(d)
+    elif tipo in ("placar", "lance", "jogo"):
+        ev = None
+        for g in d.get("gols", []):
+            if g.get("autor"):
+                ev = g
+                break
+        if not ev:
+            ev = {"autor": "Jogador", "tempo": "10:00", "time": 0, "assist": "Companheiro"}
+        t_gol = ev.get("time", 0)
+        ov = montar_video.cartela_lance(
+            ev, d["times"], "gol", 1, 0,
+            gol_neste_clipe=True, time_gol=t_gol, d_=d
+        )
+        bg = montar_video.criar_fundo_base(d)
+        img = Image.alpha_composite(bg.convert("RGBA"), ov).convert("RGB")
     else:
         raise HTTPException(400, f"Tipo de cartela desconhecido: {tipo}")
     

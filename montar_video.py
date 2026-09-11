@@ -638,15 +638,10 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
                             fill=AMARELO_GOL + (255,), outline=(255, 255, 255, 255), width=2)
         d.text((xg + wg // 2, yg0 + 17), "GOL!", font=fonte(20, True), fill=(10, 15, 20, 255), anchor="mm")
 
-    # 3. FAIXA INFERIOR (LOWER-THIRD ELEGANTE ESTILO TRANSMISSÃO DE TV)
-    card_x0 = 80
-    card_w = L - 160
-    card_y0 = A - 215
-    card_h = 165
-
-    # Sombra do card inferior
-    d.rounded_rectangle([card_x0 + 4, card_y0 + 6, card_x0 + card_w + 4, card_y0 + card_h + 6],
-                        radius=16, fill=(0, 0, 0, 140))
+    # 3. FAIXA INFERIOR COMPACTA (LOWER-THIRD ELEGANTE, NÃO POLUI A TELA)
+    card_x0 = 60
+    card_y0 = A - 150
+    card_h = 92
 
     if tipo == "gol":
         t_idx = ev.get("time", 0)
@@ -662,65 +657,77 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
         rotulo_pill = nome_lance
         jogador_principal = ev.get("destaque") or ev.get("autor") or ev.get("lance") or "Lance"
 
-    # Fundo do card translúcido com borda no tom do lance
-    d.rounded_rectangle([card_x0, card_y0, card_x0 + card_w, card_y0 + card_h], radius=16,
-                        fill=(12, 16, 26, 235), outline=cor_lance + (180,), width=2)
+    assist_nome = ev.get("assist") if tipo == "gol" else None
 
-    # Faixa lateral de destaque
-    d.rounded_rectangle([card_x0 + 16, card_y0 + 18, card_x0 + 24, card_y0 + card_h - 18], radius=4,
-                        fill=cor_lance + (255,))
+    # Tipografia refinada e proporcional (não polui a tela)
+    f_nome = fonte(28, True)
+    f_pill = fonte(11, True)
+    f_ass = fonte(14, False)
 
-    # AVATAR / FOTO DO JOGADOR EM DESTAQUE (120x120px)
-    av_tam = 122
-    av_x = card_x0 + 42
+    bb_nm = d.textbbox((0, 0), jogador_principal, font=f_nome)
+    w_nome = bb_nm[2] - bb_nm[0]
+
+    w_ass = 0
+    if assist_nome:
+        bb_ass = d.textbbox((0, 0), f"assistência: {assist_nome}", font=f_ass)
+        w_ass = bb_ass[2] - bb_ass[0] + 30
+
+    bb_pill = d.textbbox((0, 0), rotulo_pill, font=f_pill)
+    pw = bb_pill[2] - bb_pill[0] + 16
+
+    # Largura dinâmica compacta (ocupa apenas o espaço necessário)
+    card_w = max(420, max(w_nome, w_ass, pw) + 150)
+    card_w = min(card_w, 640)
+
+    # Sombra suave
+    d.rounded_rectangle([card_x0 + 3, card_y0 + 4, card_x0 + card_w + 3, card_y0 + card_h + 4],
+                        radius=12, fill=(0, 0, 0, 130))
+
+    # Fundo translúcido com borda no tom do lance
+    d.rounded_rectangle([card_x0, card_y0, card_x0 + card_w, card_y0 + card_h], radius=12,
+                        fill=(12, 16, 26, 235), outline=cor_lance + (170,), width=2)
+
+    # Filete lateral com a cor do time
+    d.rounded_rectangle([card_x0 + 10, card_y0 + 12, card_x0 + 15, card_y0 + card_h - 12],
+                        radius=3, fill=cor_lance + (255,))
+
+    # Foto / Avatar compacto (68x68)
+    av_tam = 68
+    av_x = card_x0 + 26
     av_y = card_y0 + (card_h - av_tam) // 2
 
-    time_obj_alvo = times[ev["time"]] if (ev.get("time") is not None and 0 <= ev["time"] < len(times)) else times
+    time_obj_alvo = times[ev["time"]] if (ev.get("time") is not None and 0 <= ev["time"] < len(times)) else times[0]
     avatar_jog = obter_avatar_jogador(jogador_principal, time_obj_alvo, tamanho=(av_tam, av_tam), cor_time=cor_lance)
     if avatar_jog:
         img.paste(avatar_jog, (av_x, av_y), avatar_jog)
-        x_texto = av_x + av_tam + 24
-    else:
-        x_texto = card_x0 + 50
 
-    # Pill badge superior
-    f_pill = fonte(15, True)
-    bb_pill = d.textbbox((0, 0), rotulo_pill, font=f_pill)
-    pw = bb_pill[2] - bb_pill[0] + 24
-    ph = 28
-    py = card_y0 + 22
-    d.rounded_rectangle([x_texto, py, x_texto + pw, py + ph], radius=6, fill=cor_lance + (255,))
-    d.text((x_texto + pw // 2, py + ph // 2), rotulo_pill, font=f_pill, fill=contraste_cor(cor_lance) + (255,), anchor="mm")
+    x_txt = av_x + av_tam + 16
 
-    # Nome do Jogador
-    d.text((x_texto, card_y0 + 54), jogador_principal, font=fonte(52, True), fill=TEXTO + (255,))
+    # Pill identificadora compacta
+    ph = 20
+    py = card_y0 + 12
+    d.rounded_rectangle([x_txt, py, x_txt + pw, py + ph], radius=4, fill=cor_lance + (255,))
+    d.text((x_txt + pw // 2, py + ph // 2), rotulo_pill, font=f_pill,
+           fill=contraste_cor(cor_lance) + (255,), anchor="mm")
 
-    # Assistência com mini-foto quando houver
-    if ev.get("assist"):
-        assist_nome = ev["assist"]
-        ass_y = card_y0 + 118
-        # Verifica se o assistente tem foto
-        foto_ass = obter_avatar_jogador(assist_nome, time_obj_alvo, tamanho=(26, 26), cor_time=cor_lance)
-        d.text((x_texto, ass_y + 2), "assistência:", font=fonte(20, False), fill=FRACO + (255,))
-        bb_lbl = d.textbbox((0, 0), "assistência:", font=fonte(20, False))
-        lbl_w = bb_lbl[2] - bb_lbl[0] + 10
+    # Nome do autor (28px - limpo, legível e proporcional)
+    d.text((x_txt, card_y0 + 36), jogador_principal, font=f_nome, fill=(255, 255, 255, 255))
+
+    # Assistência compacta
+    if assist_nome:
+        y_ass = card_y0 + 68
+        d.text((x_txt, y_ass), "assistência: ", font=f_ass, fill=FRACO + (255,))
+        bb_lbl = d.textbbox((0, 0), "assistência: ", font=f_ass)
+        w_lbl = bb_lbl[2] - bb_lbl[0]
+        foto_ass = obter_avatar_jogador(assist_nome, time_obj_alvo, tamanho=(18, 18), cor_time=cor_lance)
         if foto_ass:
-            img.paste(foto_ass, (x_texto + lbl_w, ass_y - 2), foto_ass)
-            d.text((x_texto + lbl_w + 34, ass_y + 2), assist_nome, font=fonte(20, True), fill=(255, 255, 255, 255))
+            img.paste(foto_ass, (x_txt + w_lbl, y_ass), foto_ass)
+            d.text((x_txt + w_lbl + 24, y_ass), assist_nome, font=fonte(14, True), fill=(240, 244, 250, 255))
         else:
-            d.text((x_texto + lbl_w, ass_y + 2), assist_nome, font=fonte(20, True), fill=(255, 255, 255, 255))
-
-    # Lado Direito do Lower-Third: Resumo do Placar e Cronômetro
-    rx0 = card_x0 + card_w - 380
-    d.line([rx0, card_y0 + 24, rx0, card_y0 + card_h - 24], fill=(45, 58, 80, 200), width=1)
-
-    # Mini placar de momento
-    d.text((card_x0 + card_w - 40, card_y0 + 26), f"{times[0]['nome']} {placar_a} × {placar_b} {times[1]['nome']}",
-           font=fonte(18, True), fill=(200, 215, 235, 255), anchor="ra")
-
-    # Tempo em destaque
-    d.text((card_x0 + card_w - 40, card_y0 + 64), ev.get("tempo", ""), font=fonte(48, True), fill=TEXTO + (255,), anchor="ra")
-    d.text((card_x0 + card_w - 40, card_y0 + 120), "TEMPO DE JOGO", font=fonte(13, True), fill=FRACO + (255,), anchor="ra")
+            d.text((x_txt + w_lbl, y_ass), assist_nome, font=fonte(14, True), fill=(240, 244, 250, 255))
+    elif tipo != "gol" and ev.get("destaque"):
+        y_det = card_y0 + 68
+        d.text((x_txt, y_det), ev["destaque"], font=f_ass, fill=FRACO + (255,))
 
     return img
 

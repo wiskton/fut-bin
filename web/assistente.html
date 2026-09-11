@@ -830,6 +830,7 @@
         <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
           <div class="row" style="gap:6px; flex-wrap:wrap">
             <button type="button" class="btnTabPreview active" id="tabPrevFundo" onclick="trocarAbaPreviewFundo('frame')">🖼 Frame Ajustado</button>
+            <button type="button" class="btnTabPreview" id="tabPrevPlacar" onclick="trocarAbaPreviewFundo('placar')">⚽ Placar & Gol no Jogo</button>
             <button type="button" class="btnTabPreview" id="tabPrevAbertura" onclick="trocarAbaPreviewFundo('abertura')">🏟 Cartela Abertura</button>
             <button type="button" class="btnTabPreview" id="tabPrevFim" onclick="trocarAbaPreviewFundo('fim_de_jogo')">🏁 Placar Final</button>
             <button type="button" class="btnTabPreview" id="tabPrevDestaques" onclick="trocarAbaPreviewFundo('destaques')">⭐ Destaques</button>
@@ -3690,7 +3691,7 @@ async function renderizarPreviewCartela(tipo){
 
 async function trocarAbaPreviewFundo(aba){
   abaPreviewAtual = aba;
-  ['tabPrevFundo', 'tabPrevAbertura', 'tabPrevFim', 'tabPrevDestaques'].forEach(id => {
+  ['tabPrevFundo', 'tabPrevPlacar', 'tabPrevAbertura', 'tabPrevFim', 'tabPrevDestaques'].forEach(id => {
     const btn = $('#' + id);
     if(btn) btn.classList.remove('active');
   });
@@ -3700,7 +3701,8 @@ async function trocarAbaPreviewFundo(aba){
     $('#imgFundoPreview').style.display = 'block';
     $('#overlayFundoPreview').style.display = 'block';
   } else {
-    if(aba === 'abertura') $('#tabPrevAbertura').classList.add('active');
+    if(aba === 'placar') $('#tabPrevPlacar').classList.add('active');
+    else if(aba === 'abertura') $('#tabPrevAbertura').classList.add('active');
     else if(aba === 'fim_de_jogo') $('#tabPrevFim').classList.add('active');
     else if(aba === 'destaques') $('#tabPrevDestaques').classList.add('active');
     await salvarFundoCartela(true);
