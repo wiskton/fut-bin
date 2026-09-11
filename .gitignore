@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Estado/saídas geradas por jogo - não versionar
+*.mp4
+gols/
+folhas/
+final/
+videos/
+*.json
+!config*.json

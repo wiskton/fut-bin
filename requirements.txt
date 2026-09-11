@@ -1,0 +1,7 @@
+opencv-python
+numpy
+tqdm
+pillow
+fastapi
+uvicorn[standard]
+yt-dlp

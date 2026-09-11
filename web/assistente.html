@@ -1,0 +1,3235 @@
+<meta charset="utf-8">
+<title>fut-bin · Assistente</title>
+<link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="/web/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3440;
+    --txt:#e6edf3; --dim:#8b96a5; --accent:#22c55e; --accent2:#16a34a;
+    --a:#3b82f6; --b:#f59e0b; --warn:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;
+         background:linear-gradient(90deg,#0f1c14,#0d1117);border-bottom:1px solid var(--line);
+         flex-wrap:wrap}
+  header h1{margin:0;font-size:17px;letter-spacing:.4px}
+  .ball{width:26px;height:26px;border-radius:50%;background:var(--accent);
+        display:grid;place-items:center;font-size:14px}
+  nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  nav button{background:transparent;border:1px solid var(--line);color:var(--dim);
+             padding:7px 12px;border-radius:7px;cursor:pointer;font-size:12px}
+  nav button.on{background:var(--accent);border-color:var(--accent);color:#04140a;font-weight:600}
+  nav button.pronto:not(.on){border-color:var(--accent);color:var(--accent)}
+  main{max-width:1120px;margin:0 auto;padding:20px}
+  section{display:none} section.on{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+        padding:16px;margin-bottom:14px}
+  .card h2{margin:0 0 12px;font-size:14px;text-transform:uppercase;
+           letter-spacing:.8px;color:var(--dim);font-weight:600}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  label{display:block;font-size:12px;color:var(--dim);margin:9px 0 4px}
+  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);
+    color:var(--txt);padding:9px 11px;border-radius:7px;font:inherit}
+  textarea{min-height:120px;resize:vertical;font-family:ui-monospace,monospace;font-size:13px}
+  input[type=color]{padding:3px;height:38px;cursor:pointer}
+  input[type=checkbox]{width:auto}
+  button.act{background:var(--accent);border:0;color:#04140a;padding:10px 18px;
+    border-radius:8px;cursor:pointer;font-weight:600;font-size:13px}
+  button.act:hover{background:var(--accent2)}
+  button.act:disabled{opacity:.4;cursor:not-allowed}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt);
+    padding:9px 15px;border-radius:8px;cursor:pointer;font-size:13px}
+  button.ghost:hover{border-color:var(--accent)}
+  button.warnb{background:transparent;border:1px solid var(--warn);color:#fca5a5;
+    padding:6px 11px;border-radius:7px;cursor:pointer;font-size:12px}
+  .row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .hint{font-size:12px;color:var(--dim);margin-top:7px}
+  .bad{color:var(--warn)} .ok{color:var(--accent)}
+
+  video,img.quadro{width:100%;border-radius:9px;background:#000;display:block}
+  .quadro-wrap{position:relative;max-width:900px}
+  .quadro-wrap canvas{position:absolute;left:0;top:0;cursor:crosshair}
+
+  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .evcard{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px}
+  .evcard.fora{opacity:.4}
+  .evcard.status-gol{border-color:var(--accent)}
+  .evcard.status-lance{border-color:var(--b)}
+  .evcard.status-defesaca{border-color:#38bdf8}
+  .evcard.status-trave{border-color:#fbbf24}
+  .evcard.status-quase_gol{border-color:#f97316}
+  .evcard.status-drible{border-color:#a855f7}
+  .evcard.status-bola_perdida{border-color:#f43f5e}
+  .evcard.status-confusao{border-color:#ec4899}
+  .evcard .badge-ok{display:none;align-items:center;gap:4px;font-weight:600}
+  .evcard[class*="status-"] .badge-ok{display:flex}
+  .thumb-wrap .check{position:absolute;top:6px;right:6px;min-width:22px;height:22px;padding:0 6px;
+    border-radius:11px;background:var(--accent);color:#04140a;display:none;align-items:center;
+    justify-content:center;font-size:12px;font-weight:700}
+  .evcard[class*="status-"] .thumb-wrap .check{display:flex}
+  button.amberb{background:transparent;border:1px solid var(--b);color:var(--b);
+    padding:9px 15px;border-radius:8px;cursor:pointer;font-size:13px}
+  button.amberb.sel{background:var(--b);color:#2b1a02;font-weight:600}
+  button.act.sel{background:var(--accent2)}
+  .btnTipoClipe{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease}
+  .btnTipoClipe:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .btnTipoClipe.sel{font-weight:700;box-shadow:0 0 8px rgba(0,0,0,0.35)}
+  .evcard .imgs{display:flex;gap:4px;margin:6px 0}
+  .evcard .imgs img{width:50%;border-radius:5px;image-rendering:pixelated;background:#000}
+  .evcard .topo{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+  .evcard input[type=text]{padding:5px 7px;font-size:12px;margin-top:4px}
+  .nudge{display:flex;gap:4px;margin-top:6px}
+  .nudge button{flex:1;padding:4px;font-size:11px;background:var(--panel);border:1px solid var(--line);
+    color:var(--dim);border-radius:5px;cursor:pointer}
+  .nudge button:hover{border-color:var(--accent);color:var(--txt)}
+
+  .thumb-wrap{position:relative;margin-top:6px;cursor:pointer;border-radius:6px;overflow:hidden}
+  .thumb-wrap video{pointer-events:none}
+  .thumb-wrap .play{position:absolute;inset:0;display:grid;place-items:center;
+    background:rgba(0,0,0,.25)}
+  .thumb-wrap .play::after{content:'▶';width:44px;height:44px;border-radius:50%;
+    background:rgba(0,0,0,.55);color:#fff;font-size:16px;display:grid;place-items:center}
+  .thumb-wrap:hover .play::after{background:var(--accent);color:#04140a}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:1000;
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .modal-overlay[hidden]{display:none}
+  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px;max-width:920px;width:100%;max-height:92vh;overflow:auto}
+  .modal-box video{max-height:70vh;width:100%;border-radius:9px}
+
+  .log{background:#000;border:1px solid var(--line);border-radius:8px;padding:10px;
+    font-family:ui-monospace,monospace;font-size:12px;max-height:220px;overflow:auto;
+    white-space:pre-wrap;color:#9fe0a8}
+  .spinner{display:inline-block;width:13px;height:13px;border-radius:50%;
+    border:2px solid var(--line);border-top-color:var(--accent);
+    animation:girar 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes girar{to{transform:rotate(360deg)}}
+
+  .golnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{min-width:52px;width:auto;padding:0 9px;height:32px;border-radius:7px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--dim);cursor:pointer;font-size:12px;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;transition:all 0.15s ease}
+  .chip:hover{border-color:var(--accent)}
+  .chip.done{background:rgba(34,197,94,0.18);border-color:var(--accent);color:var(--accent)}
+  .chip.pending-gol{background:rgba(245,158,11,0.18);border-color:var(--b);color:var(--b)}
+  .chip.cur{outline:2px solid var(--txt);outline-offset:2px}
+  .chip.skip{background:#3a1d1d;border-color:var(--warn);color:#fca5a5}
+  .chip.lance{background:rgba(56,189,248,0.18);border-color:#38bdf8;color:#38bdf8}
+  .work{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+  @media(max-width:900px){.work{grid-template-columns:1fr}}
+  .pick{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+  .pick button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:8px 13px;border-radius:20px;cursor:pointer;font-size:13px}
+  .pick button:hover{border-color:var(--accent)}
+  .pick button.sel{background:var(--accent);border-color:var(--accent);color:#04140a;font-weight:600}
+  .teamtag{display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;color:#04140a}
+
+  .btnVel{padding:4px 9px;font-size:12px;font-weight:600}
+  .btnVel.sel{background:var(--accent);color:#04140a;border-color:var(--accent)}
+
+  .item-video{padding:10px 14px;border-radius:8px;border:1px solid var(--line);margin-bottom:6px;cursor:pointer;background:var(--panel2);display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease}
+  .item-video:hover{border-color:var(--accent);background:#13261a}
+  .item-video b{display:block;font-size:13px;color:var(--txt)}
+  .item-video .sub{font-size:11px;color:var(--dim);margin-top:2px}
+
+  .video-card-selecionado{border:1px solid var(--accent);background:rgba(34,197,94,0.08);border-radius:9px;padding:14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  .placar-badge{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px;font-weight:700;color:var(--accent)}
+  .btnDescartarCard{position:absolute;top:6px;left:6px;padding:3px 7px;font-size:11px;z-index:2;border-radius:6px;background:rgba(239,68,68,0.85);color:#fff;border:0;cursor:pointer}
+  .btnDescartarCard:hover{background:var(--warn)}
+  .btnNavFlutuante{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.65);border:1px solid var(--line);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s ease;z-index:10}
+  .btnNavFlutuante:hover{background:var(--accent);color:#04140a;border-color:var(--accent)}
+  .btnNavFlutuante:disabled{opacity:0.2;cursor:not-allowed;pointer-events:none}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .podium{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .pod{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:14px;text-align:center}
+  .pod .p{font-size:20px}.pod .nm{font-weight:600;margin:4px 0 2px}
+  .pod .v{color:var(--accent);font-size:13px}
+  .score{font-size:34px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;margin:6px 0 2px}
+</style>
+
+<header>
+  <div class="ball">⚽</div>
+  <h1>fut-bin · Assistente</h1>
+  <nav id="nav"></nav>
+</header>
+
+<main>
+
+<!-- ================= 1. VIDEO ================= -->
+<section id="s-video">
+  <div class="card">
+    <h2>Vídeo do jogo</h2>
+    <p class="hint">
+      Pesquise o vídeo pelo nome no computador ou selecione um dos vídeos encontrados abaixo:
+    </p>
+
+    <div style="margin-top:10px">
+      <input id="campoPesquisaVideo" type="text" placeholder="🔍 Digite para pesquisar vídeos no computador (ex: will cup, pelada, jogo...)" autocomplete="off">
+    </div>
+
+    <div id="videoSelecionadoCard" style="display:none"></div>
+
+    <div id="listaResultadosPesquisa" style="margin-top:10px; max-height:280px; overflow-y:auto"></div>
+
+    <div style="margin-top:14px; border-top:1px solid var(--line); padding-top:10px">
+      <button class="ghost" id="btnToggleExplorador" style="font-size:12px">📁 Explorar pastas manualmente</button>
+      <div id="wrapExploradorManual" style="display:none; margin-top:10px">
+        <div class="row">
+          <button class="ghost" id="btnSubirPasta">⬆ subir</button>
+          <span id="pastaAtual" class="hint" style="flex:1;word-break:break-all"></span>
+        </div>
+        <select id="selExplorador" size="6" style="margin-top:8px"></select>
+      </div>
+    </div>
+
+    <div style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">
+      <div style="font-weight:600; font-size:14px; margin-bottom:8px; display:flex; align-items:center; gap:8px">
+        <span style="color:#ef4444; font-size:16px">▶</span>
+        <span>Ou cole um link do YouTube (baixa e usa automaticamente):</span>
+      </div>
+      <div class="row" style="gap:8px">
+        <input id="campoUrlYoutube" type="text" placeholder="https://www.youtube.com/watch?v=... ou https://youtu.be/..." style="flex:1" autocomplete="off">
+        <button type="button" class="act" id="btnBaixarYoutube" style="white-space:nowrap">📥 Baixar e usar vídeo</button>
+        <button type="button" class="ghost" id="btnCancelarYoutube" style="display:none; white-space:nowrap">Cancelar</button>
+      </div>
+      <div id="logYoutube" style="display:none; margin-top:8px" class="log"></div>
+    </div>
+  </div>
+  <div class="row">
+    <button class="act" id="btnIrPlacar" disabled>Continuar → localizar o placar</button>
+    <span class="stSalvo hint"></span>
+  </div>
+</section>
+
+<!-- ================= 2. PLACAR ================= -->
+<section id="s-placar">
+  <div class="card">
+    <h2>Localizar o placar no quadro</h2>
+    <p class="hint">Feito uma vez por câmera. Carregue um frame do meio do jogo e arraste um retângulo
+      em volta só dos dígitos do placar (sem o cronômetro).</p>
+    <div class="row">
+      <label style="flex:0 0 auto;margin:0">Instante</label>
+      <input id="tempoFrame" style="max-width:110px" placeholder="30:00">
+      <button class="ghost" id="btnCarregarFrame">Carregar frame</button>
+    </div>
+
+    <!-- Barra de ajuste de brilho e contraste para ler placar claro/estourado -->
+    <div class="row" style="margin-top:12px; align-items:center; gap:12px; background:var(--panel2); padding:8px 14px; border-radius:8px; border:1px solid var(--line); flex-wrap:wrap">
+      <div style="display:flex; align-items:center; gap:6px">
+        <span style="font-size:15px">🔆</span>
+        <span style="font-weight:600; font-size:13px">Barra de brilho / placar:</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px">
+        <label style="font-size:12px; margin:0; color:var(--dim)">Brilho:</label>
+        <input type="range" class="slider-brilho-sync" min="15" max="180" value="100" step="5" style="width:110px; cursor:pointer" title="Diminua o brilho para enxergar o placar claro/estourado">
+        <span class="txt-brilho-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px">
+        <label style="font-size:12px; margin:0; color:var(--dim)">Contraste:</label>
+        <input type="range" class="slider-contraste-sync" min="50" max="250" value="100" step="5" style="width:100px; cursor:pointer" title="Aumente o contraste para destacar números">
+        <span class="txt-contraste-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
+      </div>
+      <div class="row" style="gap:6px; margin-left:auto">
+        <button type="button" class="ghost btn-brilho-diminuir" style="font-size:11px; padding:3px 8px; background:rgba(234,179,8,0.15); border-color:#eab308; color:#fde047" title="Diminui o brilho para 45% e realça dígitos de LED estourados">💡 Diminuir brilho (-55%)</button>
+        <button type="button" class="ghost btn-brilho-reset" style="font-size:11px; padding:3px 8px" title="Restaurar visual normal">Normal (100%)</button>
+      </div>
+    </div>
+
+    <div class="quadro-wrap" style="margin-top:12px">
+      <img class="quadro" id="frameImg">
+      <canvas id="frameCanvas"></canvas>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="ghost" id="btnVerRecorte">Ver recorte</button>
+      <button class="act" id="btnConfirmarPlacar" disabled>Confirmar esta região</button>
+    </div>
+    <div id="previewPlacar" style="margin-top:10px"></div>
+    <div id="placarAtual" class="hint"></div>
+  </div>
+
+  <div class="card">
+    <h2>Zonas-gatilho (opcional)</h2>
+    <p class="hint">Marque quantas áreas quiser no mesmo quadro acima (ex.: a boca de cada gol) -
+      arraste um retângulo e clique em "+ adicionar zona". No passo 3 dá pra detectar jogadas
+      automaticamente pelo movimento dentro dessas áreas (além da detecção pelo placar).</p>
+    <div class="row">
+      <button class="ghost" id="btnAddZona">+ adicionar esta seleção como zona</button>
+      <button class="act" id="btnSalvarZonas">Salvar zonas</button>
+    </div>
+    <div id="listaZonas" style="margin-top:10px"></div>
+  </div>
+
+  <div class="row">
+    <button class="act" id="btnIrGols" disabled>Continuar → achar os gols</button>
+  </div>
+</section>
+
+<!-- ================= 3. DETECTAR E CORTAR ================= -->
+<section id="s-gols">
+  <div class="card">
+    <h2>Detectar e cortar os gols</h2>
+    <p class="hint">Roda a detecção automática do placar e já corta os clipes em seguida - sem
+      passo intermediário. Você confere se cada corte é gol de verdade no próximo passo,
+      assistindo o clipe.</p>
+    <div class="grid2">
+      <div>
+        <label>Quantos gols teve o jogo (opcional, ajuda bastante)</label>
+        <input id="golsTotais" type="number" min="0" placeholder="ex.: 12">
+      </div>
+      <div>
+        <label>Câmera</label>
+        <select id="fixoSel"><option value="0">Rastreia o placar (câmera pode balançar um pouco)</option>
+          <option value="1">Fixa e bem presa (recorte exato, sem rastrear)</option></select>
+      </div>
+    </div>
+    <div class="grid2">
+      <div><label>Início do jogo (opcional)</label><input id="inicioJogo" placeholder="8:40"></div>
+      <div><label>Fim do jogo / apito final</label><input id="fimJogo" placeholder="58:23"></div>
+    </div>
+    <div class="row" style="margin-top:10px; gap:10px">
+      <button class="act" id="btnDetectar">Detectar e cortar automaticamente</button>
+      <button class="warnb" id="btnCancelarDetectar" style="display:none; padding:10px 18px; font-weight:600">✕ Cancelar processamento</button>
+    </div>
+    <div id="detLog" class="log" style="display:none;margin-top:10px"></div>
+  </div>
+
+  <div class="card" id="cardZonasDet" style="display:none">
+    <h2>Detectar jogadas pelas zonas-gatilho (opcional)</h2>
+    <p class="hint">Usa as zonas marcadas no passo 2 - acrescenta os lances achados aos gols já
+      detectados (não apaga nada). Movimento numa zona erra mais que o placar, então revise cada
+      corte no próximo passo.</p>
+    <div class="grid2">
+      <div><label>Quantas jogadas esperadas nessas zonas (opcional)</label>
+        <input id="zonasEventos" type="number" min="0" placeholder="ex.: 6"></div>
+    </div>
+    <div class="row" style="margin-top:10px; gap:10px">
+      <button class="act" id="btnDetectarZonas">Detectar e cortar pelas zonas</button>
+      <button class="warnb" id="btnCancelarZonas" style="display:none; padding:10px 18px; font-weight:600">✕ Cancelar processamento</button>
+    </div>
+    <div id="zonasDetLog" class="log" style="display:none;margin-top:10px"></div>
+  </div>
+
+  <div class="row">
+    <button class="act" id="btnIrRevisar" disabled>Continuar → revisar os cortes</button>
+  </div>
+</section>
+
+<!-- ================= 4. REVISAR OS CORTES ================= -->
+<section id="s-revisar">
+  <div class="card">
+    <h2>Assista cada corte <span id="contagemClipes" class="hint"></span></h2>
+    <p class="hint">Se não foi gol (ou o corte saiu ruim), descarte - remove da lista e apaga o
+      clipe.</p>
+    <div class="grade" id="gradeClipes"></div>
+  </div>
+
+  <div class="card" id="cardVideoCompleto">
+    <h2>Assistir ao vídeo completo do jogo</h2>
+    <p class="hint">Assista ao jogo na íntegra para conferir os lances e cortar jogadas faltantes.</p>
+    <video id="videoCompleto" controls preload="metadata" style="width:100%; max-height:460px; border-radius:9px; background:#000; margin-top:6px"></video>
+    <div class="row" style="margin-top:6px; align-items:center; gap:10px; background:var(--panel2); padding:6px 12px; border-radius:7px; border:1px solid var(--line); flex-wrap:wrap">
+      <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho do vídeo:</span>
+      <input type="range" class="slider-brilho-sync" min="15" max="180" value="100" step="5" style="width:110px; cursor:pointer" title="Diminua para ler placar com reflexo/estourado">
+      <span class="txt-brilho-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
+      <button type="button" class="ghost btn-brilho-diminuir" style="font-size:11px; padding:2px 8px">💡 Diminuir brilho (-55%)</button>
+      <button type="button" class="ghost btn-brilho-reset" style="font-size:11px; padding:2px 8px">Normal (100%)</button>
+    </div>
+    <div id="statusVideoCompleto" class="hint" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px">
+      <div class="row" style="gap:6px">
+        <span class="hint" style="margin:0; font-weight:600">Velocidade:</span>
+        <button type="button" class="btnVel ghost sel" data-vel="1">1x</button>
+        <button type="button" class="btnVel ghost" data-vel="1.5">1.5x</button>
+        <button type="button" class="btnVel ghost" data-vel="2">2x</button>
+        <button type="button" class="btnVel ghost" data-vel="3">3x</button>
+        <button type="button" class="btnVel ghost" data-vel="4">4x</button>
+        <button type="button" class="btnVel ghost" data-vel="5">5x</button>
+      </div>
+      <div class="row" style="gap:8px; align-items:center">
+        <label for="tempoPularVideo" style="margin:0; font-weight:600; color:var(--dim)">⏱ Ir para o tempo:</label>
+        <div style="display:flex; gap:4px">
+          <input id="tempoPularVideo" type="text" placeholder="ex: 14:30" style="width:110px; padding:6px 9px; font-size:13px; text-align:center" autocomplete="off">
+          <button type="button" class="act" id="btnPularVideo" style="padding:6px 14px; font-size:12px; font-weight:700">Ir ➔</button>
+        </div>
+        <div style="display:flex; gap:4px; margin-left:4px">
+          <button type="button" class="ghost" id="btnPularMenos15s" style="font-weight:700; padding:6px 10px; font-size:12px" title="Voltar 15 segundos no vídeo">⏪ -15s</button>
+          <button type="button" class="ghost" id="btnPularMais15s" style="font-weight:700; padding:6px 10px; font-size:12px" title="Avançar 15 segundos no vídeo">+15s ⏩</button>
+        </div>
+        <div style="margin-left:8px; border-left:1px solid var(--line); padding-left:10px">
+          <span class="hint" style="margin:0; font-size:11px; display:block">Instante atual:</span>
+          <span id="tempoCompletoTxt" style="font-size:16px; font-weight:700; color:var(--accent); font-family:ui-monospace,monospace">00:00</span>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px; background:var(--panel2); padding:12px; border-radius:8px; border:1px solid var(--line); align-items:center; gap:10px; flex-wrap:wrap">
+      <label style="margin:0; flex:0 0 auto">Duração do clipe:</label>
+      <div style="display:flex; align-items:center; gap:4px">
+        <input id="duracaoCorteCompleto" type="number" value="15" min="2" max="120" style="width:70px; text-align:center">
+        <span class="hint" style="margin:0">segundos</span>
+      </div>
+      <select id="posicaoCorteCompleto" style="max-width:260px">
+        <option value="antes">Últimos 15s até aqui (acabou de sair o lance)</option>
+        <option value="depois">15s a partir daqui (início do lance)</option>
+        <option value="centro">Centralizado no instante atual</option>
+      </select>
+      <select id="tipoCorteCompleto" style="max-width:160px">
+        <option value="gol">⚽ Gol</option>
+        <option value="lance">🎬 Outro lance</option>
+      </select>
+      <div class="row" style="gap:8px; margin-left:auto">
+        <button type="button" class="ghost" id="btnGerarClipeCompletoMaisTras" style="font-weight:700; font-size:12px; padding:8px 14px; border-color:var(--accent)" title="Gera clipe dos 15 segundos anteriores ao instante atual">⏪ Gerar 15s mais pra trás</button>
+        <button type="button" class="act" id="btnGerarClipeCompleto">🎬 Gerar clipe deste instante</button>
+      </div>
+    </div>
+    <div id="logCorteCompleto" class="log" style="display:none; margin-top:10px"></div>
+  </div>
+
+  <div class="row">
+    <button class="act" id="btnIrDados" disabled>Continuar → dados da partida</button>
+  </div>
+</section>
+
+<!-- ================= 5. DADOS DA PARTIDA ================= -->
+<section id="s-dados">
+  <div class="card">
+    <h2>Dados da partida</h2>
+    <p class="hint">Usados na cartela de abertura e nos créditos do vídeo final.</p>
+    <div class="grid2">
+      <div>
+        <label>Data</label><input type="date" id="mData">
+        <label>Competição / rodada</label><input id="mComp" placeholder="Mendes Cup 2026 · Rodada 8">
+      </div>
+      <div>
+        <label>Local</label><input id="mLocal" placeholder="Sport Ball">
+        <label>Nome da pelada</label><input id="mPelada" value="Mensal FC">
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Placar final do jogo</h2>
+    <p class="hint">Informe o placar final do jogo (gols de cada time). Na tela de resumo, o assistente irá comparar com os gols encontrados nos clipes para apontar quantos gols faltam encontrar no vídeo.</p>
+    <div class="row" style="align-items:center; justify-content:center; gap:16px; margin-top:8px">
+      <div style="text-align:center; min-width:140px">
+        <label id="lblPlacarA" style="font-weight:600; font-size:13px; color:var(--a); margin-bottom:4px">Time A</label>
+        <input type="number" id="placarJogoA" min="0" placeholder="0" style="text-align:center; font-size:22px; font-weight:700; width:90px; margin:0 auto">
+      </div>
+      <span style="font-size:24px; font-weight:700; color:var(--dim)">×</span>
+      <div style="text-align:center; min-width:140px">
+        <label id="lblPlacarB" style="font-weight:600; font-size:13px; color:var(--b); margin-bottom:4px">Time B</label>
+        <input type="number" id="placarJogoB" min="0" placeholder="0" style="text-align:center; font-size:22px; font-weight:700; width:90px; margin:0 auto">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Times e elenco</h2>
+    <p class="hint">Cadastre o elenco de cada time aqui - é essa lista que aparece no próximo passo
+      pra escolher quem fez o gol e quem deu a assistência.</p>
+    <div class="row" style="margin-bottom:12px; justify-content:space-between; align-items:center; background:var(--panel2); padding:10px 14px; border-radius:8px; border:1px solid var(--line); flex-wrap:wrap; gap:8px">
+      <div class="row" style="gap:10px; align-items:center">
+        <span style="font-weight:700; font-size:13px">Cores dos Times:</span>
+        <span id="previewTagA" class="teamtag" style="background:#eab308; color:#04140a">Time A</span>
+        <span style="color:var(--dim)">vs</span>
+        <span id="previewTagB" class="teamtag" style="background:#3b82f6; color:#fff">Time B</span>
+      </div>
+      <button type="button" class="act" id="btnInverterCores" style="font-size:12px; padding:6px 12px">⇄ Inverter cores (Amarelo ↔ Azul)</button>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="row" style="align-items:center; gap:6px">
+          <input id="tA" value="Time A" style="flex:1">
+          <input type="color" id="cA" value="#eab308" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time A">
+        </div>
+        <label style="margin-top:10px">Elenco (um por linha)</label>
+        <textarea id="pA" placeholder="Boy&#10;Scott&#10;Mendes"></textarea>
+        <div id="posElencoA" style="margin-top:10px"></div>
+      </div>
+      <div>
+        <div class="row" style="align-items:center; gap:6px">
+          <input id="tB" value="Time B" style="flex:1">
+          <input type="color" id="cB" value="#3b82f6" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time B">
+        </div>
+        <label style="margin-top:10px">Elenco (um por linha)</label>
+        <textarea id="pB" placeholder="Lemão&#10;Will&#10;Caio"></textarea>
+        <div id="posElencoB" style="margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px; gap:8px; flex-wrap:wrap">
+      <button class="ghost" id="btnElenco">Colar elenco do site</button>
+      <button type="button" class="ghost" id="btnAutoPosicoes">⚡ Auto-definir posições padrão</button>
+      <span class="hint">Escolha a posição de cada jogador (Goleiro, Zagueiro, Meio, Atacante) para o campo tático na abertura.</span>
+    </div>
+  </div>
+  <div class="row">
+    <button class="act" id="btnIrMarcar">Continuar → marcar autor/assistência</button>
+    <span class="stSalvo hint"></span>
+  </div>
+</section>
+
+<!-- ================= 6. MARCACAO ================= -->
+<section id="s-marcar">
+  <div id="placarMarcacaoTopo"></div>
+  <div class="golnav" id="golnav"></div>
+  <div class="work">
+    <div>
+      <div class="card" style="padding:10px">
+        <video id="vid" controls></video>
+        <div class="row" style="margin-top:6px; align-items:center; gap:8px; background:var(--panel2); padding:5px 10px; border-radius:6px; border:1px solid var(--line); flex-wrap:wrap">
+          <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho:</span>
+          <input type="range" class="slider-brilho-sync" min="15" max="180" value="100" step="5" style="width:90px; cursor:pointer" title="Diminua o brilho para enxergar o placar">
+          <span class="txt-brilho-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
+          <button type="button" class="ghost btn-brilho-diminuir" style="font-size:11px; padding:2px 6px">💡 -55%</button>
+          <button type="button" class="ghost btn-brilho-reset" style="font-size:11px; padding:2px 6px">100%</button>
+        </div>
+        <div class="row" style="margin-top:9px;justify-content:space-between">
+          <span id="lblGol" class="hint"></span>
+          <div class="row">
+            <button class="ghost" id="btnPrev">← anterior</button>
+            <button class="ghost" id="btnRep">repetir</button>
+            <button class="ghost" id="btnNext">próximo →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>O que é este clipe</h2>
+        <div class="pick" id="pickTipo"></div>
+        <div id="camposGol">
+          <div class="row" style="justify-content:space-between; align-items:center; margin-top:10px; margin-bottom:4px">
+            <label style="margin:0">Time</label>
+            <button type="button" class="ghost" id="btnInverterCoresStep6" style="font-size:11px; padding:3px 8px" title="Inverter as cores dos times">⇄ Inverter cores (Amarelo ↔ Azul)</button>
+          </div>
+          <div class="pick" id="pickTime"></div>
+          <label>Autor do gol</label><div class="pick" id="pickAutor"></div>
+          <label>Assistência</label><div class="pick" id="pickAssist"></div>
+        </div>
+        <div id="camposLance" style="display:none">
+          <label>Tipo de lance</label><div class="pick" id="pickLance"></div>
+          <div class="row" style="justify-content:space-between; align-items:center; margin-top:10px; margin-bottom:4px">
+            <label style="margin:0">Time da jogada (opcional)</label>
+            <button type="button" class="ghost" id="btnInverterCoresStep6Lance" style="font-size:11px; padding:3px 8px" title="Inverter as cores dos times">⇄ Inverter cores</button>
+          </div>
+          <div class="pick" id="pickTimeLance"></div>
+          <label>Jogador em destaque (opcional)</label><div class="pick" id="pickDestaque"></div>
+        </div>
+        <div class="row" style="margin-top:14px; gap:8px; align-items:center; flex-wrap:wrap">
+          <button class="act" id="btnSalvar">Salvar e avançar</button>
+          <button type="button" class="warnb" id="btnExcluirClipeStep6" style="font-size:12px; padding:7px 12px" title="Apaga permanentemente o clipe selecionado do computador">🗑 Excluir clipe do disco</button>
+          <button type="button" class="ghost" id="btnDescartar" style="font-size:12px; padding:7px 12px" title="Apenas pula este lance da súmula sem apagar o arquivo de vídeo">🚫 Pular da súmula</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Andamento & Conferência dos Gols</h2>
+        <div id="andamento" class="hint"></div>
+        <div id="analiseGolsDetalhada"></div>
+      </div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button class="act" id="btnIrResumo">Continuar → resumo</button>
+  </div>
+</section>
+
+<!-- ================= 7. RESUMO E MONTAGEM ================= -->
+<section id="s-resumo">
+  <div class="card">
+    <h2>Placar final dos clipes marcados</h2>
+    <div class="score" id="placar">0 × 0</div>
+    <div class="hint" style="text-align:center" id="subPlacar"></div>
+  </div>
+
+  <div id="cardComparacaoPlacar"></div>
+  <div class="card">
+    <h2>Destaques</h2>
+    <div class="podium" id="podGols"></div>
+    <div class="podium" id="podAssist"></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Gols</h2><table id="tbGols"></table></div>
+    <div class="card"><h2>Assistências</h2><table id="tbAssist"></table></div>
+  </div>
+  <div class="card"><h2>Cronologia</h2><table id="tbCrono"></table></div>
+
+  <div class="card">
+    <h2>Montar vídeo final</h2>
+    <div class="grid2">
+      <div><label>Cartela de abertura (s)</label><input id="abertura" type="number" value="7"></div>
+      <div><label>Cartelas de fechamento (s)</label><input id="fechamento" type="number" value="8"></div>
+    </div>
+    <label class="row"><input type="checkbox" id="semAbertura" style="width:auto"> Sem cartela de abertura</label>
+    <label class="row"><input type="checkbox" id="semFechamento" style="width:auto"> Sem cartelas de fechamento</label>
+    <label class="row"><input type="checkbox" id="semAudio" style="width:auto"> Silenciar os clipes</label>
+    <div class="row" style="margin-top:8px; gap:8px">
+      <button class="act" id="btnMontar">Montar vídeo final</button>
+      <button type="button" class="warnb" id="btnCancelarMontar" style="display:none">✕ Cancelar montagem</button>
+    </div>
+    <div id="montarLog" class="log" style="display:none;margin-top:10px"></div>
+    <div id="resultadoFinal" style="margin-top:10px"></div>
+  </div>
+</section>
+
+</main>
+
+<div class="modal-overlay" id="modalClipe" hidden>
+  <div class="modal-box" style="position:relative">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="row" style="gap:10px;align-items:center">
+        <b id="modalTitulo" style="font-size:16px"></b>
+        <span id="modalStatusBadge" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px"></span>
+      </div>
+      <div class="row" style="gap:6px;align-items:center">
+        <button type="button" class="warnb" id="modalDescartar" style="font-size:12px; padding:4px 10px; background:#dc2626; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:700" title="Excluir este clipe permanentemente do computador">🗑 Excluir</button>
+        <button type="button" class="ghost" id="modalBtnAnterior" title="Clipe anterior (←)">← Anterior</button>
+        <button type="button" class="ghost" id="modalBtnProximo" title="Próximo clipe (→)">Próximo →</button>
+        <button class="ghost" id="modalFechar" style="margin-left:6px">✕ Fechar</button>
+      </div>
+    </div>
+    <div style="position:relative">
+      <video id="modalVideo" controls autoplay style="width:100%;max-height:68vh;border-radius:9px;background:#000;display:block"></video>
+      <button type="button" id="modalSetaEsq" title="Clipe anterior (←)" class="btnNavFlutuante" style="left:8px">◀</button>
+      <button type="button" id="modalSetaDir" title="Próximo clipe (→)" class="btnNavFlutuante" style="right:8px">▶</button>
+    </div>
+    <div class="row" style="margin-top:6px; align-items:center; gap:10px; background:var(--panel2); padding:5px 12px; border-radius:7px; border:1px solid var(--line); flex-wrap:wrap">
+      <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho:</span>
+      <input type="range" class="slider-brilho-sync" min="15" max="180" value="100" step="5" style="width:100px; cursor:pointer" title="Diminua o brilho para enxergar o placar">
+      <span class="txt-brilho-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
+      <button type="button" class="ghost btn-brilho-diminuir" style="font-size:11px; padding:2px 8px">💡 Diminuir brilho (-55%)</button>
+      <button type="button" class="ghost btn-brilho-reset" style="font-size:11px; padding:2px 8px">Normal</button>
+    </div>
+    <!-- Painel de ajuste de corte (-15s / +15s / gerar novo clipe mais pra trás) -->
+    <div id="modalPainelAjuste" style="background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-top:10px">
+      <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px">
+        <div class="row" style="gap:8px; align-items:center">
+          <span style="font-weight:700; font-size:13px; color:var(--txt)">✂️ Ajustar corte deste lance:</span>
+          <span id="modalInfoTrechoJogo" class="hint" style="font-size:12px; font-family:ui-monospace,monospace; color:var(--dim)">00:00 até 00:00 (24s)</span>
+        </div>
+        <div id="modalBadgeOffset" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; background:var(--line); color:var(--txt)">
+          Sem deslocamento (0s)
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap">
+        <div class="row" style="gap:5px; align-items:center; flex-wrap:wrap">
+          <button type="button" class="ghost" id="btnModalVoltar15s" style="font-weight:700; border-color:var(--accent)" title="Deslocar corte 15s mais pra trás">⏪ Voltar 15s</button>
+          <button type="button" class="ghost" id="btnModalVoltar5s" title="Deslocar corte 5s mais pra trás">-5s</button>
+          <button type="button" class="ghost" id="btnModalRestaurar" title="Restaurar tempo original deste clipe">↺ Original</button>
+          <button type="button" class="ghost" id="btnModalAvancar5s" title="Deslocar corte 5s pra frente">+5s</button>
+          <button type="button" class="ghost" id="btnModalAvancar15s" style="font-weight:700; border-color:var(--accent)" title="Deslocar corte 15s pra frente">Avançar 15s ⏩</button>
+        </div>
+
+        <div class="row" style="gap:6px; align-items:center; font-size:12px">
+          <span class="hint" style="margin:0; font-weight:600">Novo trecho:</span>
+          <input id="modalInpInicio" type="text" placeholder="00:00" style="width:64px; padding:3px 6px; font-size:12px; text-align:center; font-family:ui-monospace,monospace" title="Início do novo clipe (mm:ss)">
+          <span style="color:var(--dim)">até</span>
+          <input id="modalInpFim" type="text" placeholder="00:00" style="width:64px; padding:3px 6px; font-size:12px; text-align:center; font-family:ui-monospace,monospace" title="Fim do novo clipe (mm:ss)">
+          <span id="modalDuracaoAjustada" class="hint" style="margin:0; font-size:11px">(24s)</span>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; border-top:1px dashed var(--line); padding-top:8px">
+        <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap">
+          <button type="button" class="ghost" id="btnModalPreviewVideo" style="font-size:12px; padding:6px 12px; font-weight:600" title="Carregar este trecho no vídeo completo para conferir a jogada antes de cortar">👁 Pré-visualizar no jogo</button>
+          <button type="button" class="ghost" id="btnModalVoltarClipe" style="font-size:12px; padding:6px 12px; font-weight:600; display:none" title="Voltar a assistir o clipe original">🎬 Ver clipe original</button>
+          <div id="modalBotoesTipo" class="row" style="gap:6px; align-items:center"></div>
+        </div>
+
+        <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap">
+          <button type="button" class="act" id="btnModalGerarClipeMaisTras" style="background:#0284c7; border-color:#38bdf8; font-size:12px; padding:6px 14px; font-weight:700" title="Volta 15s e corta imediatamente um novo clipe no vídeo">
+            ⏪ Gerar novo clipe 15s mais pra trás
+          </button>
+          <button type="button" class="act" id="btnModalCortarNovo" style="font-size:12px; padding:6px 14px; font-weight:700" title="Cortar novo clipe com o trecho configurado acima">
+            🎬 Cortar novo clipe ajustado
+          </button>
+        </div>
+      </div>
+
+      <div id="modalAjusteLog" class="log" style="display:none; margin-top:8px; font-size:12px"></div>
+    </div>
+
+    <div class="row" style="justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:10px; margin-top:10px; flex-wrap:wrap; gap:8px">
+      <div class="hint" style="margin:0; font-size:11px">
+        ⚡ Ao clicar em <b>Gol</b> ou <b>Outro lance</b>, o clipe é salvo e já avança para o próximo · Atalhos: <b>G</b> (Gol) · <b>O</b> ou <b>L</b> (Outro lance) · <b>←/→</b> Navegar
+      </div>
+      <div class="row" style="gap:8px; align-items:center">
+        <button type="button" class="okb" id="modalConfirmarOk" onclick="fecharModalClipe()" style="font-size:12px; padding:6px 14px">✓ Concluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+const PASSOS = [
+  ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
+  ['s-revisar','4 · Revisar cortes'], ['s-dados','5 · Dados da partida'], ['s-marcar','6 · Marcação'],
+  ['s-resumo','7 · Resumo'],
+];
+let passoAtual = 's-video';
+
+let ESTADO = {
+  video: null,           // {nome, caminho, duracao_s}
+  placarRect: null,      // [x,y,w,h] em pixels do frame original
+  gols: [],              // gols confirmados (schema gols.json) usados na marcacao
+  clipes: {},            // "01" -> url
+  atual: 0,
+  indiceAtual: null,     // Indice do clipe atualmente selecionado (evita desalinhamento)
+};
+let S = { meta:{data:'',comp:'',local:'',pelada:'Mensal FC'},
+  times:[{nome:'Time A',cor:'#eab308',jogadores:[]},{nome:'Time B',cor:'#3b82f6',jogadores:[]}] };
+let rascunho = {tipo:null,time:null,autor:null,assist:null,lance:null,destaque:null};
+const TIPOS_LANCE = ['Defesaça','Chute na trave','Quase gol','Drible','Bola perdida','Confusão'];
+const TIPOS_CLIPE = [
+  { id: 'gol', rotulo: 'Gol', icon: '⚽', cor: 'var(--accent)', bg: 'rgba(34,197,94,0.18)', border: '#22c55e', isGol: true, hotkey: 'g' },
+  { id: 'lance', rotulo: 'Outro lance', icon: '🎬', cor: '#38bdf8', bg: 'rgba(56,189,248,0.18)', border: '#38bdf8', lanceNome: 'Outro lance', isGol: false, hotkey: 'o' },
+];
+
+const POSICOES_JOGADORES = [
+  { id: 'goleiro', rotulo: 'Goleiro', sigla: 'GOL', icon: '🧤', cor: '#eab308' },
+  { id: 'zagueiro', rotulo: 'Zagueiro', sigla: 'ZAG', icon: '🛡️', cor: '#3b82f6' },
+  { id: 'meio', rotulo: 'Meio', sigla: 'MEI', icon: '⚙️', cor: '#22c55e' },
+  { id: 'atacante', rotulo: 'Atacante', sigla: 'ATA', icon: '⚽', cor: '#ef4444' },
+];
+
+function obterPosicaoJogador(timeIdx, nome){
+  if(!S.times[timeIdx]) return 'meio';
+  const posicoes = S.times[timeIdx].posicoes || {};
+  if(posicoes[nome]) return posicoes[nome];
+  const jgs = S.times[timeIdx].jogadores || [];
+  const idx = jgs.indexOf(nome);
+  if(idx === 0) return 'goleiro';
+  if(idx === 1 || idx === 2) return 'zagueiro';
+  if(idx === 3 || idx === 4) return 'meio';
+  return 'atacante';
+}
+
+function definirPosicaoJogador(timeIdx, nome, pos){
+  if(!S.times[timeIdx]) return;
+  if(!S.times[timeIdx].posicoes) S.times[timeIdx].posicoes = {};
+  S.times[timeIdx].posicoes[nome] = pos;
+  renderPosicoesElenco(timeIdx);
+  agendarSalvar();
+}
+
+function autoDefinirPosicoes(){
+  [0, 1].forEach(timeIdx => {
+    if(!S.times[timeIdx]) return;
+    const jgs = S.times[timeIdx].jogadores || [];
+    if(!S.times[timeIdx].posicoes) S.times[timeIdx].posicoes = {};
+    jgs.forEach((nome, idx) => {
+      if(idx === 0) S.times[timeIdx].posicoes[nome] = 'goleiro';
+      else if(idx === 1 || idx === 2) S.times[timeIdx].posicoes[nome] = 'zagueiro';
+      else if(idx === 3 || idx === 4) S.times[timeIdx].posicoes[nome] = 'meio';
+      else S.times[timeIdx].posicoes[nome] = 'atacante';
+    });
+    renderPosicoesElenco(timeIdx);
+  });
+  agendarSalvar();
+}
+
+function renderPosicoesElenco(timeIdx){
+  const el = timeIdx === 0 ? $('#posElencoA') : $('#posElencoB');
+  if(!el) return;
+  const t = S.times[timeIdx];
+  if(!t || !t.jogadores || !t.jogadores.length){
+    el.innerHTML = '<div class="hint" style="font-size:12px">Digite os nomes acima para definir as posições.</div>';
+    return;
+  }
+  let html = '<div style="background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px; margin-top:6px">';
+  html += `<div style="font-size:11px; font-weight:700; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">Posições em campo (${t.nome}):</div>`;
+  html += '<div style="display:flex; flex-direction:column; gap:6px">';
+  t.jogadores.forEach(nome => {
+    const posAtual = obterPosicaoJogador(timeIdx, nome);
+    html += `<div class="row" style="align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05)">`;
+    html += `<span style="font-weight:600; font-size:13px">${nome}</span>`;
+    html += `<div class="row" style="gap:4px">`;
+    POSICOES_JOGADORES.forEach(p => {
+      const ativa = (posAtual === p.id);
+      const bg = ativa ? p.cor : 'transparent';
+      const corTexto = ativa ? (p.id === 'goleiro' ? '#04140a' : '#ffffff') : 'var(--dim)';
+      const borda = ativa ? p.cor : 'var(--line)';
+      html += `<button type="button" class="ghost" style="padding:2px 8px; font-size:11px; font-weight:700; border-radius:4px; border:1px solid ${borda}; background:${bg}; color:${corTexto}" onclick="definirPosicaoJogador(${timeIdx}, '${nome.replace(/'/g, "\\'")}', '${p.id}')" title="${p.rotulo}">${p.sigla}</button>`;
+    });
+    html += `</div></div>`;
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
+function corTextoParaFundo(hex){
+  if(!hex || !hex.startsWith('#')) return '#ffffff';
+  const c = hex.replace('#','');
+  const r = parseInt(c.substr(0,2),16)||0;
+  const g = parseInt(c.substr(2,2),16)||0;
+  const b = parseInt(c.substr(4,2),16)||0;
+  const yiq = ((r*299)+(g*587)+(b*114))/1000;
+  return (yiq >= 140) ? '#04140a' : '#ffffff';
+}
+
+function normalizarTexto(txt){
+  return String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+function obterInfoTipo(status, lance){
+  if(!status && !lance) return null;
+  const s = normalizarTexto(status);
+  const l = normalizarTexto(lance);
+  if(s === 'revisar' || s === 'pendente' || s === 'null' || s === 'none' || s === 'undefined') return null;
+
+  if(s === 'gol' || (!s && l === 'gol')) return TIPOS_CLIPE[0];
+  if(s || l) return TIPOS_CLIPE[1];
+  return null;
+}
+
+/* ------------------------------------------------------------ tempo */
+function parseTempo(txt){
+  if(!txt) return null;
+  txt = String(txt).trim();
+  if(!txt) return null;
+  if(txt.indexOf(':')===-1) return parseFloat(txt);
+  return txt.split(':').reduce((acc,p)=>acc*60+parseFloat(p), 0);
+}
+function fmtTempo(s){
+  s = Math.max(0, s|0);
+  const m = Math.floor(s/60), r = s%60;
+  return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0');
+}
+
+/* ------------------------------------------------------------ navegacao */
+function montarNav(){
+  const nav = $('#nav'); nav.innerHTML='';
+  PASSOS.forEach(([id,rot])=>{
+    const b = document.createElement('button');
+    b.textContent = rot; b.dataset.id = id;
+    b.onclick = ()=> irPara(id);
+    nav.appendChild(b);
+  });
+  atualizarNav();
+}
+function atualizarNav(){
+  $$('#nav button').forEach(b=>{
+    b.classList.toggle('on', b.dataset.id===passoAtual);
+  });
+}
+function inicializarVideoCompleto(){
+  const vc = $('#videoCompleto');
+  const st = $('#statusVideoCompleto');
+  if(!vc) return;
+  const caminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : '';
+  const urlEsperada = '/video/completo' + (caminho ? ('?video=' + encodeURIComponent(caminho)) : '');
+  if(vc.getAttribute('data-carregado') !== urlEsperada){
+    vc.setAttribute('data-carregado', urlEsperada);
+    if(st) st.innerHTML = '<span class="spinner"></span> Carregando vídeo do jogo...';
+    vc.src = urlEsperada;
+    vc.load();
+    if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
+  }
+}
+
+function irPara(id){
+  passoAtual = id;
+  $$('section').forEach(s=>s.classList.toggle('on', s.id===id));
+  atualizarNav();
+  if(id==='s-revisar'){
+    inicializarVideoCompleto();
+  }
+  if(id==='s-marcar'){
+    renderMarcacao();
+    sincronizarGolsComBackend().then(() => renderMarcacao());
+  }
+  if(id==='s-resumo') renderResumo();
+  if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
+}
+
+/* ------------------------------------------------------------ autosave partida */
+let salvarTimer = null;
+function agendarSalvar(){
+  clearTimeout(salvarTimer);
+  salvarTimer = setTimeout(salvarPartida, 400);
+}
+async function salvarPartida(){
+  try{
+    await fetch('/api/partida', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(estadoParaPartida())});
+    $$('.stSalvo').forEach(el=> el.textContent = 'salvo ' + new Date().toLocaleTimeString('pt-BR'));
+  }catch(e){ $$('.stSalvo').forEach(el=> el.textContent = 'não consegui salvar'); }
+}
+function estadoParaPartida(){
+  const v = [...validos()].sort((a, b) => {
+    const tA = obterTempoSegundosClipe(a), tB = obterTempoSegundosClipe(b);
+    return (tA !== -1 && tB !== -1) ? (tA - tB) : ((a.indice||0) - (b.indice||0));
+  });
+  const l = [...lances()].sort((a, b) => {
+    const tA = obterTempoSegundosClipe(a), tB = obterTempoSegundosClipe(b);
+    return (tA !== -1 && tB !== -1) ? (tA - tB) : ((a.indice||0) - (b.indice||0));
+  });
+  const todosRoteiro = [...v, ...l].sort((a, b) => {
+    const tA = obterTempoSegundosClipe(a), tB = obterTempoSegundosClipe(b);
+    return (tA !== -1 && tB !== -1) ? (tA - tB) : ((a.indice||0) - (b.indice||0));
+  });
+
+  return {
+    meta: Object.assign({}, S.meta, {video: ESTADO.video ? ESTADO.video.caminho : null,
+      placar:[v.filter(g=>g.time===0).length, v.filter(g=>g.time===1).length]}),
+    times: S.times.map(t => ({
+      nome: t.nome,
+      cor: t.cor,
+      jogadores: t.jogadores || [],
+      posicoes: t.posicoes || {},
+    })),
+    gols: v.map(g=>({indice:g.indice, tempo:g.tempo,
+      tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
+      inicio_s:g.inicio_s, fim_s:g.fim_s, tipo:'gol', status:'gol', time:g.time,
+      time_nome:S.times[g.time]?.nome || '', autor:g.autor, assist:g.assist, fonte:g.fonte||null})),
+    lances: l.map(g=>{
+      const inf = obterInfoTipo(g.status || g.tipo, g.lance);
+      return {
+        indice: g.indice,
+        tempo: g.tempo,
+        tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
+        inicio_s: g.inicio_s,
+        fim_s: g.fim_s,
+        tipo: 'lance',
+        status: g.status || (inf ? inf.id : 'lance'),
+        lance: g.lance || (inf ? inf.lanceNome : 'Lance'),
+        time: g.time,
+        destaque: g.destaque,
+        fonte: g.fonte||null
+      };
+    }),
+    roteiro: todosRoteiro.map(g=>({i:g.indice, t:obterTempoSegundosClipe(g), tipo:g.tipo})),
+    artilheiros: contar('autor').map(d=>({jogador:d[0],gols:d[1]})),
+    garcons: contar('assist').map(d=>({jogador:d[0],assistencias:d[1]})),
+    descartados: (ESTADO.gols||[]).filter(g=>g.descartado).map(g=>g.indice),
+    _todosGols: ESTADO.gols,   // guarda o estado bruto (com nao marcados) pra retomar depois
+  };
+}
+function validos(){ return (ESTADO.gols||[]).filter(g=>!g.descartado && g.tipo==='gol' && g.autor); }
+function golsMarcados(){ return (ESTADO.gols||[]).filter(g=>!g.descartado && g.tipo==='gol'); }
+function lances(){
+  return (ESTADO.gols||[]).filter(g => {
+    if(g.descartado) return false;
+    const inf = obterInfoTipo(g.status || g.tipo, g.lance);
+    return inf ? !inf.isGol : (g.tipo === 'lance');
+  });
+}
+function contar(campo){
+  const m={};
+  validos().forEach(g=>{ const v=g[campo]; if(v) m[v]=(m[v]||0)+1; });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+}
+
+/* ------------------------------------------------------------ passo 1: video/partida */
+let buscaDebounce = null;
+async function buscarVideos(query = ''){
+  const listaEl = $('#listaResultadosPesquisa');
+  if(!listaEl) return;
+  listaEl.innerHTML = '<span class="hint"><span class="spinner"></span>Buscando vídeos no computador...</span>';
+  try {
+    const url = '/api/videos/buscar' + (query ? ('?q=' + encodeURIComponent(query)) : '');
+    const r = await fetch(url);
+    const videos = await r.json();
+    renderResultadosPesquisa(videos);
+  } catch(e) {
+    listaEl.innerHTML = '<span class="hint bad">Erro ao buscar vídeos.</span>';
+  }
+}
+
+function renderResultadosPesquisa(videos){
+  const listaEl = $('#listaResultadosPesquisa');
+  if(!listaEl) return;
+  listaEl.innerHTML = '';
+  if(!videos || !videos.length){
+    listaEl.innerHTML = '<span class="hint">Nenhum vídeo encontrado. Digite outro termo ou use o explorador de pastas abaixo.</span>';
+    return;
+  }
+  videos.forEach(v => {
+    const item = document.createElement('div');
+    item.className = 'item-video';
+    const durStr = v.duracao_s ? fmtTempo(v.duracao_s) : '';
+    item.innerHTML = `
+      <div style="flex:1; min-width:0; padding-right:10px">
+        <b>🎬 ${v.nome}</b>
+        <div class="sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${v.caminho}</div>
+      </div>
+      <div style="text-align:right; flex:0 0 auto">
+        ${durStr ? `<span class="teamtag" style="background:var(--line); color:var(--txt)">${durStr}</span>` : ''}
+        <button type="button" class="ghost" style="margin-left:8px; padding:4px 10px; font-size:12px">Selecionar</button>
+      </div>
+    `;
+    item.onclick = () => selecionarVideo(v);
+    listaEl.appendChild(item);
+  });
+}
+
+function selecionarVideo(v){
+  ESTADO.video = v;
+  const card = $('#videoSelecionadoCard');
+  if(card){
+    const durStr = v.duracao_s ? ` · ${fmtTempo(v.duracao_s)}` : '';
+    card.style.display = 'flex';
+    card.className = 'video-card-selecionado';
+    card.innerHTML = `
+      <div style="flex:1; min-width:0">
+        <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--accent)">✓ Vídeo selecionado</div>
+        <div style="font-size:15px; font-weight:700; color:var(--txt); margin-top:2px; word-break:break-all">🎬 ${v.nome}${durStr}</div>
+        <div class="hint" style="margin-top:2px; word-break:break-all">${v.caminho}</div>
+      </div>
+      <div style="flex:0 0 auto">
+        <button type="button" class="ghost" id="btnTrocarVideo" style="font-size:12px">Trocar vídeo</button>
+      </div>
+    `;
+    const btnTr = $('#btnTrocarVideo');
+    if(btnTr) {
+      btnTr.onclick = () => {
+        $('#campoPesquisaVideo').focus();
+        $('#campoPesquisaVideo').select();
+      };
+    }
+  }
+  $('#btnIrPlacar').disabled = false;
+  if(v.duracao_s && !$('#tempoFrame').value) $('#tempoFrame').value = fmtTempo(v.duracao_s * 0.4);
+
+  inicializarVideoCompleto();
+  agendarSalvar();
+}
+
+$('#campoPesquisaVideo').addEventListener('input', e => {
+  clearTimeout(buscaDebounce);
+  const q = e.target.value.trim();
+  buscaDebounce = setTimeout(() => buscarVideos(q), 250);
+});
+
+$('#btnToggleExplorador').onclick = () => {
+  const el = $('#wrapExploradorManual');
+  const aberto = el.style.display !== 'none';
+  el.style.display = aberto ? 'none' : 'block';
+  $('#btnToggleExplorador').textContent = aberto ? '📁 Explorar pastas manualmente' : '📁 Fechar explorador manual';
+  if(!aberto && (!pastaExplorador || !pastaExplorador.pastas.length)){
+    explorar();
+  }
+};
+
+let pastaExplorador = null;
+async function explorar(caminho){
+  const url = '/api/explorar' + (caminho ? ('?caminho='+encodeURIComponent(caminho)) : '');
+  const r = await fetch(url);
+  pastaExplorador = await r.json();
+  $('#pastaAtual').textContent = pastaExplorador.atual + (pastaExplorador.erro ? ' — '+pastaExplorador.erro : '');
+  $('#btnSubirPasta').disabled = !pastaExplorador.pai;
+  const sel = $('#selExplorador'); sel.innerHTML = '';
+  pastaExplorador.pastas.forEach(p=>{
+    const o = document.createElement('option'); o.value = 'dir:'+p.caminho; o.textContent = '📁 '+p.nome;
+    sel.appendChild(o);
+  });
+  pastaExplorador.videos.forEach(v=>{
+    const o = document.createElement('option'); o.value = 'video:'+v.caminho;
+    const dur = v.duracao_s ? ` (${fmtTempo(v.duracao_s)})` : '';
+    o.textContent = '🎬 '+v.nome+dur; sel.appendChild(o);
+  });
+  if(!pastaExplorador.pastas.length && !pastaExplorador.videos.length){
+    const o = document.createElement('option'); o.disabled = true; o.textContent = '(pasta vazia)';
+    sel.appendChild(o);
+  }
+}
+$('#selExplorador').addEventListener('change', e=>{
+  const v = e.target.value;
+  if(v.startsWith('dir:')) explorar(v.slice(4));
+  else if(v.startsWith('video:')){
+    const caminho = v.slice(6);
+    const info = pastaExplorador.videos.find(x=>x.caminho===caminho);
+    selecionarVideo(info || {nome: caminho.split(/[\\/]/).pop(), caminho, duracao_s: null});
+  }
+});
+$('#btnSubirPasta').onclick = ()=>{ if(pastaExplorador && pastaExplorador.pai) explorar(pastaExplorador.pai); };
+
+const btnBaixarYt = $('#btnBaixarYoutube');
+if(btnBaixarYt){
+  btnBaixarYt.onclick = async () => {
+    const url = ($('#campoUrlYoutube').value || '').trim();
+    if(!url){
+      alert('Cole o link do vídeo do YouTube no campo correspondente.');
+      $('#campoUrlYoutube').focus();
+      return;
+    }
+    const btn = $('#btnBaixarYoutube');
+    const btnCanc = $('#btnCancelarYoutube');
+    const logEl = $('#logYoutube');
+    btn.disabled = true;
+    btnCanc.style.display = 'inline-block';
+    logEl.style.display = 'block';
+    logEl.textContent = 'Iniciando download do YouTube...';
+
+    try {
+      const r = await fetch('/api/video/youtube', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url})
+      });
+      const data = await r.json();
+      if(!r.ok){
+        alert('Erro ao iniciar download: ' + (data.detail || 'falha no servidor'));
+        return;
+      }
+      const ok = await acompanharJob(data.job_id, logEl, btnCanc);
+      if(ok){
+        const res = await fetch(`/api/video/youtube/resultado/${data.job_id}`);
+        if(res.ok){
+          const videoInfo = await res.json();
+          selecionarVideo(videoInfo);
+          logEl.textContent += `\n✓ Vídeo baixado com sucesso e selecionado: ${videoInfo.nome}!`;
+        } else {
+          await buscarVideos();
+        }
+      }
+    } catch(e) {
+      alert('Erro ao baixar vídeo do YouTube: ' + e);
+    } finally {
+      btn.disabled = false;
+      btnCanc.style.display = 'none';
+    }
+  };
+}
+const btnCancYt = $('#btnCancelarYoutube');
+if(btnCancYt){
+  btnCancYt.onclick = cancelarJobAtivo;
+}
+
+/* ------------------------------------------------------------ passo 5: dados da partida */
+function lerSetup(){
+  const placarA = parseInt($('#placarJogoA').value, 10);
+  const placarB = parseInt($('#placarJogoB').value, 10);
+  S.meta = {
+    data: $('#mData').value,
+    comp: $('#mComp').value,
+    local: $('#mLocal').value,
+    pelada: $('#mPelada').value,
+    placar_jogo: [isNaN(placarA) ? null : placarA, isNaN(placarB) ? null : placarB],
+  };
+  const lista = t => t.split('\n').map(x=>x.trim()).filter(Boolean);
+  const jA = lista($('#pA').value);
+  const jB = lista($('#pB').value);
+  const posA = S.times[0]?.posicoes || {};
+  const posB = S.times[1]?.posicoes || {};
+  S.times[0] = {nome:$('#tA').value||'Time A', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA};
+  S.times[1] = {nome:$('#tB').value||'Time B', cor:$('#cB').value||'#3b82f6', jogadores:jB, posicoes:posB};
+  atualizarEstilosTimes();
+  renderPosicoesElenco(0);
+  renderPosicoesElenco(1);
+}
+function atualizarEstilosTimes(){
+  const corA = S.times[0]?.cor || '#eab308';
+  const corB = S.times[1]?.cor || '#3b82f6';
+  const txtA = corTextoParaFundo(corA);
+  const txtB = corTextoParaFundo(corB);
+
+  const tagA = $('#previewTagA');
+  if(tagA){
+    tagA.textContent = S.times[0]?.nome || 'Time A';
+    tagA.style.background = corA;
+    tagA.style.color = txtA;
+  }
+  const tagB = $('#previewTagB');
+  if(tagB){
+    tagB.textContent = S.times[1]?.nome || 'Time B';
+    tagB.style.background = corB;
+    tagB.style.color = txtB;
+  }
+  atualizarLabelsPlacar();
+}
+function atualizarLabelsPlacar(){
+  const lA = $('#lblPlacarA'), lB = $('#lblPlacarB');
+  if(lA && S.times[0]) {
+    lA.textContent = S.times[0].nome || 'Time A';
+    lA.style.color = S.times[0].cor || '#eab308';
+  }
+  if(lB && S.times[1]) {
+    lB.textContent = S.times[1].nome || 'Time B';
+    lB.style.color = S.times[1].cor || '#3b82f6';
+  }
+}
+function inverterCoresDosTimes(){
+  const corA = S.times[0]?.cor || '#eab308';
+  const corB = S.times[1]?.cor || '#3b82f6';
+  S.times[0].cor = corB;
+  S.times[1].cor = corA;
+  const cA = $('#cA'), cB = $('#cB');
+  if(cA) cA.value = corB;
+  if(cB) cB.value = corA;
+  atualizarEstilosTimes();
+  agendarSalvar();
+  if(passoAtual === 's-marcar') renderMarcacao();
+  else if(passoAtual === 's-resumo') renderResumo();
+}
+function definirCorTime(timeIdx, corHex){
+  if(!S.times[timeIdx]) return;
+  S.times[timeIdx].cor = corHex;
+  if(timeIdx === 0 && $('#cA')) $('#cA').value = corHex;
+  if(timeIdx === 1 && $('#cB')) $('#cB').value = corHex;
+  atualizarEstilosTimes();
+  agendarSalvar();
+  if(passoAtual === 's-marcar') renderMarcacao();
+  else if(passoAtual === 's-resumo') renderResumo();
+}
+function escreverSetup(){
+  $('#mData').value=S.meta.data||''; $('#mComp').value=S.meta.comp||'';
+  $('#mLocal').value=S.meta.local||''; $('#mPelada').value=S.meta.pelada||'Mensal FC';
+  if(S.meta.placar_jogo && Array.isArray(S.meta.placar_jogo)){
+    $('#placarJogoA').value = S.meta.placar_jogo[0] != null ? S.meta.placar_jogo[0] : '';
+    $('#placarJogoB').value = S.meta.placar_jogo[1] != null ? S.meta.placar_jogo[1] : '';
+  }
+  $('#tA').value=S.times[0].nome; $('#cA').value=S.times[0].cor||'#eab308';
+  $('#pA').value=(S.times[0].jogadores || []).join('\n');
+  $('#tB').value=S.times[1].nome; $('#cB').value=S.times[1].cor||'#3b82f6';
+  $('#pB').value=(S.times[1].jogadores || []).join('\n');
+  if(!S.times[0].posicoes) S.times[0].posicoes = {};
+  if(!S.times[1].posicoes) S.times[1].posicoes = {};
+  atualizarEstilosTimes();
+  renderPosicoesElenco(0);
+  renderPosicoesElenco(1);
+}
+$$('#s-dados input,#s-dados textarea').forEach(el=>{
+  el.addEventListener('input', ()=>{ lerSetup(); agendarSalvar(); });
+  el.addEventListener('change', ()=>{ lerSetup(); agendarSalvar(); });
+});
+const btnInv = $('#btnInverterCores');
+if(btnInv) btnInv.onclick = inverterCoresDosTimes;
+const btnInv6 = $('#btnInverterCoresStep6');
+if(btnInv6) btnInv6.onclick = inverterCoresDosTimes;
+const btnInv6L = $('#btnInverterCoresStep6Lance');
+if(btnInv6L) btnInv6L.onclick = inverterCoresDosTimes;
+const btnAutoPos = $('#btnAutoPosicoes');
+if(btnAutoPos) btnAutoPos.onclick = autoDefinirPosicoes;
+const btnCancM = $('#btnCancelarMontar');
+if(btnCancM) btnCancM.onclick = cancelarJobAtivo;
+$('#btnElenco').onclick = ()=>{
+  const t = prompt('Cole a lista de jogadores (um por linha ou separados por vírgula):');
+  if(!t) return;
+  const nomes = t.split(/[\n,;]+/).map(x=>x.replace(/[⚽🎯🛡️🧤]/g,'').trim()).filter(Boolean);
+  const meio = Math.ceil(nomes.length/2);
+  $('#pA').value = nomes.slice(0,meio).join('\n');
+  $('#pB').value = nomes.slice(meio).join('\n');
+  lerSetup(); agendarSalvar();
+  alert(nomes.length+' jogadores divididos. Ajuste a divisão entre os times.');
+};
+$('#btnIrPlacar').onclick = ()=>{
+  if(!ESTADO.video){ alert('Escolha um vídeo primeiro.'); return; }
+  salvarPartida();
+  irPara('s-placar');
+};
+$('#btnIrDados').onclick = ()=>irPara('s-dados');
+$('#btnIrMarcar').onclick = async ()=>{
+  lerSetup();
+  await sincronizarGolsComBackend();
+  await salvarPartida();
+  irPara('s-marcar');
+};
+$('#btnIrResumo').onclick = ()=>{ salvarPartida(); irPara('s-resumo'); };
+
+/* ------------------------------------------------------------ ajuste de brilho e contraste */
+let filtroBrilho = { brilho: 100, contraste: 100 };
+
+function aplicarFiltroBrilho(b = filtroBrilho.brilho, c = filtroBrilho.contraste){
+  filtroBrilho.brilho = b;
+  filtroBrilho.contraste = c;
+  const valFiltro = (b === 100 && c === 100) ? 'none' : `brightness(${b}%) contrast(${c}%)`;
+
+  const elementos = [
+    $('#frameImg'),
+    $('#videoCompleto'),
+    $('#modalVideo'),
+    $('#vid'),
+    ...$$('#previewPlacar img')
+  ];
+  elementos.forEach(el => {
+    if(el) el.style.filter = valFiltro;
+  });
+
+  $$('.slider-brilho-sync').forEach(s => { s.value = b; });
+  $$('.slider-contraste-sync').forEach(s => { s.value = c; });
+  $$('.txt-brilho-sync').forEach(el => { el.textContent = `${b}%`; });
+  $$('.txt-contraste-sync').forEach(el => { el.textContent = `${c}%`; });
+}
+
+document.addEventListener('input', e => {
+  if(e.target.classList.contains('slider-brilho-sync')){
+    aplicarFiltroBrilho(parseInt(e.target.value, 10), filtroBrilho.contraste);
+  } else if(e.target.classList.contains('slider-contraste-sync')){
+    aplicarFiltroBrilho(filtroBrilho.brilho, parseInt(e.target.value, 10));
+  }
+});
+document.addEventListener('click', e => {
+  if(e.target.classList.contains('btn-brilho-diminuir')){
+    aplicarFiltroBrilho(45, 150);
+  } else if(e.target.classList.contains('btn-brilho-reset')){
+    aplicarFiltroBrilho(100, 100);
+  }
+});
+
+/* ------------------------------------------------------------ passo 2: placar + zonas-gatilho */
+let frameNatural = {w:0,h:0};
+let rectSel = null;      // ultimo retangulo arrastado (rascunho, ainda nao salvo)
+let zonasSel = [];       // zonas-gatilho ja adicionadas nesta sessao (lista de [x,y,w,h])
+let arrastando = false, inicioArrasto = null;
+
+function prepararCanvas(){
+  const img = $('#frameImg'), cv = $('#frameCanvas');
+  cv.width = img.clientWidth; cv.height = img.clientHeight;
+}
+async function carregarFrame(){
+  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
+  const tempo_s = parseTempo($('#tempoFrame').value) || 0;
+  const r = await fetch('/api/frame', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({video: ESTADO.video.caminho, tempo_s})});
+  if(!r.ok){ alert('Não consegui ler esse instante do vídeo.'); return; }
+  const blob = await r.blob();
+  const img = $('#frameImg');
+  img.onload = ()=>{
+    frameNatural = {w: img.naturalWidth, h: img.naturalHeight};
+    prepararCanvas();
+    redesenharTudo();
+    aplicarFiltroBrilho();
+  };
+  img.src = URL.createObjectURL(blob);
+}
+$('#btnCarregarFrame').onclick = carregarFrame;
+
+function coordsCanvas(e){
+  const r = $('#frameCanvas').getBoundingClientRect();
+  return {x: e.clientX-r.left, y: e.clientY-r.top};
+}
+function desenharRetangulo(ctx, rect, cor, rotulo){
+  const img = $('#frameImg');
+  if(!frameNatural.w || !img.clientWidth) return;
+  const esc = img.clientWidth / frameNatural.w;
+  const x = rect[0]*esc, y = rect[1]*esc, w = rect[2]*esc, h = rect[3]*esc;
+  ctx.strokeStyle = cor; ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+  if(rotulo){
+    ctx.fillStyle = cor; ctx.font = 'bold 13px system-ui';
+    ctx.fillText(rotulo, x+3, y > 14 ? y-4 : y+14);
+  }
+}
+function redesenharTudo(){
+  const cv = $('#frameCanvas'), ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(ESTADO.placarRect) desenharRetangulo(ctx, ESTADO.placarRect, '#22c55e', 'placar');
+  zonasSel.forEach((z,i)=> desenharRetangulo(ctx, z, '#f59e0b', 'zona '+(i+1)));
+}
+function desenharRascunho(p0,p1){
+  redesenharTudo();
+  const cv = $('#frameCanvas'), ctx = cv.getContext('2d');
+  ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2;
+  ctx.strokeRect(Math.min(p0.x,p1.x), Math.min(p0.y,p1.y), Math.abs(p1.x-p0.x), Math.abs(p1.y-p0.y));
+}
+function renderListaZonas(){
+  const el = $('#listaZonas');
+  if(!zonasSel.length){ el.innerHTML = '<span class="hint">Nenhuma zona adicionada ainda.</span>'; return; }
+  el.innerHTML = '';
+  zonasSel.forEach((z,i)=>{
+    const div = document.createElement('div'); div.className = 'row'; div.style.marginBottom = '4px';
+    div.innerHTML = `<span class="hint">Zona ${i+1}: [${z.join(', ')}]</span>
+      <button class="ghost" data-i="${i}" style="padding:2px 10px">✕</button>`;
+    div.querySelector('button').onclick = ()=>{ zonasSel.splice(i,1); renderListaZonas(); redesenharTudo(); };
+    el.appendChild(div);
+  });
+}
+$('#frameCanvas').addEventListener('mousedown', e=>{ arrastando = true; inicioArrasto = coordsCanvas(e); });
+$('#frameCanvas').addEventListener('mousemove', e=>{ if(arrastando) desenharRascunho(inicioArrasto, coordsCanvas(e)); });
+window.addEventListener('mouseup', e=>{
+  if(!arrastando) return;
+  arrastando = false;
+  const fim = coordsCanvas(e);
+  const img = $('#frameImg');
+  if(!frameNatural.w || !img.clientWidth) return;
+  const esc = frameNatural.w / img.clientWidth;
+  const x0 = Math.min(inicioArrasto.x, fim.x)*esc, y0 = Math.min(inicioArrasto.y, fim.y)*esc;
+  const w = Math.abs(fim.x-inicioArrasto.x)*esc, h = Math.abs(fim.y-inicioArrasto.y)*esc;
+  if(w < 4 || h < 4) return;
+  rectSel = [Math.round(x0), Math.round(y0), Math.round(w), Math.round(h)];
+  $('#btnConfirmarPlacar').disabled = false;
+});
+$('#btnAddZona').onclick = ()=>{
+  if(!rectSel){ alert('Arraste um retângulo no quadro primeiro.'); return; }
+  zonasSel.push(rectSel);
+  rectSel = null;
+  renderListaZonas();
+  redesenharTudo();
+  $('#cardZonasDet').style.display = 'block';
+};
+$('#btnSalvarZonas').onclick = async ()=>{
+  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
+  const r = await fetch('/api/zonas', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({video: ESTADO.video.caminho, zonas: zonasSel})});
+  if(!r.ok){ alert('Não consegui salvar as zonas.'); return; }
+  $('#btnSalvarZonas').textContent = 'Salvo ✓';
+  setTimeout(()=>{ $('#btnSalvarZonas').textContent = 'Salvar zonas'; }, 1500);
+  if(zonasSel.length > 0) $('#cardZonasDet').style.display = 'block';
+};
+
+async function mostrarBlobEm(el, resp){
+  const blob = await resp.blob();
+  el.innerHTML = `<img src="${URL.createObjectURL(blob)}" style="max-width:400px;border-radius:7px;border:1px solid var(--line)">`;
+  aplicarFiltroBrilho();
+}
+$('#btnVerRecorte').onclick = async ()=>{
+  if(!rectSel || !ESTADO.video) return;
+  const tempo_s = parseTempo($('#tempoFrame').value) || 0;
+  const r = await fetch('/api/placar/preview', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({video: ESTADO.video.caminho, tempo_s, rect: rectSel})});
+  if(!r.ok){ alert('Não consegui gerar o recorte.'); return; }
+  await mostrarBlobEm($('#previewPlacar'), r);
+};
+$('#btnConfirmarPlacar').onclick = async ()=>{
+  if(!rectSel || !ESTADO.video) return;
+  const tempo_s = parseTempo($('#tempoFrame').value) || 0;
+  const r = await fetch('/api/placar', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({video: ESTADO.video.caminho, rect: rectSel, tempo_s})});
+  if(!r.ok){ alert('Não consegui salvar a região.'); return; }
+  ESTADO.placarRect = rectSel;
+  $('#placarAtual').innerHTML = `<span class="ok">✓ Região salva: [${rectSel.join(', ')}]</span>`;
+  $('#btnIrGols').disabled = false;
+  redesenharTudo();
+};
+$('#btnIrGols').onclick = ()=>irPara('s-gols');
+
+/* ------------------------------------------------------------ jobs (polling e cancelamento) */
+let jobAtivoId = null;
+async function cancelarJobAtivo(){
+  if(!jobAtivoId) return;
+  try{
+    await fetch(`/api/job/${jobAtivoId}/cancelar`, {method: 'POST'});
+  }catch(e){
+    console.error('Erro ao cancelar job:', e);
+  }
+}
+$('#btnCancelarDetectar').onclick = cancelarJobAtivo;
+$('#btnCancelarZonas').onclick = cancelarJobAtivo;
+
+async function acompanharJob(job_id, elLog, btnCancelar = null){
+  jobAtivoId = job_id;
+  if(btnCancelar) btnCancelar.style.display = 'inline-block';
+  elLog.style.display = 'block';
+  elLog.textContent = 'iniciando...';
+  try{
+    while(true){
+      const r = await fetch('/api/job/' + job_id);
+      if(!r.ok) break;
+      const j = await r.json();
+      const linhas = j.log.slice(-40).join('\n') + (j.linha_atual ? '\n' + j.linha_atual : '');
+      elLog.textContent = linhas || '(sem saída ainda)';
+      elLog.scrollTop = elLog.scrollHeight;
+      if(j.status === 'done' || j.status === 'error' || j.status === 'canceled'){
+        if(j.status === 'done'){
+          elLog.textContent += '\n\n✓ concluído';
+          return true;
+        }else if(j.status === 'canceled'){
+          elLog.textContent += '\n\n⚠ Processamento cancelado.';
+          return false;
+        }else{
+          elLog.textContent += '\n\n✗ erro (código ' + j.returncode + ')';
+          return false;
+        }
+      }
+      await new Promise(res => setTimeout(res, 1000));
+    }
+    return false;
+  }finally{
+    if(btnCancelar) btnCancelar.style.display = 'none';
+    jobAtivoId = null;
+  }
+}
+
+/* ------------------------------------------------------------ passo 3: detectar e cortar */
+$('#btnDetectar').onclick = async ()=>{
+  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
+  if(clipesAtuais.length > 0 || (ESTADO.gols && ESTADO.gols.length > 0)){
+    const conf = confirm("Atenção: Rodar a detecção novamente irá substituir os clipes existentes!\n\nSe você já tem clipes e deseja apenas adicionar lances ou gols faltantes, use o player do vídeo completo ou o corte manual no Passo 4 (Revisar cortes).\n\nDeseja realmente rodar a detecção novamente?");
+    if(!conf) return;
+  }
+  const body = {
+    video: ESTADO.video.caminho,
+    gols_totais: $('#golsTotais').value ? parseInt($('#golsTotais').value,10) : null,
+    fixo: $('#fixoSel').value === '1',
+    inicio: $('#inicioJogo').value || null,
+    fim: $('#fimJogo').value || null,
+  };
+  const logEl = $('#detLog');
+  const btnCanc = $('#btnCancelarDetectar');
+  $('#btnDetectar').disabled = true;
+  try{
+    let r = await fetch('/api/detectar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    if(!r.ok){ alert('Não consegui iniciar a detecção.'); return; }
+    let {job_id} = await r.json();
+    if(!await acompanharJob(job_id, logEl, btnCanc)) return;
+
+    const rg = await fetch('/api/gols?video='+encodeURIComponent(ESTADO.video.caminho));
+    const {eventos} = await rg.json();
+    if(!eventos.length){
+      logEl.textContent += '\n\n⚠ nenhum gol detectado. Ajuste os parâmetros acima e tente de novo, ou adicione manualmente no próximo passo.';
+    }
+    await fetch('/api/gols', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({video: ESTADO.video.caminho, eventos: eventos.map(e=>({tempo_s:e.tempo_s}))})});
+
+    r = await fetch('/api/cortar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({video: ESTADO.video.caminho})});
+    if(!r.ok){ alert('Não consegui iniciar o corte.'); return; }
+    ({job_id} = await r.json());
+    if(!await acompanharJob(job_id, logEl, btnCanc)) return;
+    await carregarClipes();
+    $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
+  }catch(e){ alert('Erro: '+e); }
+  finally{ $('#btnDetectar').disabled = false; btnCanc.style.display = 'none'; }
+};
+
+$('#btnDetectarZonas').onclick = async ()=>{
+  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
+  const body = {
+    video: ESTADO.video.caminho,
+    eventos_esperados: $('#zonasEventos').value ? parseInt($('#zonasEventos').value, 10) : null,
+    inicio: $('#inicioJogo').value || null,
+    fim: $('#fimJogo').value || null,
+  };
+  const logEl = $('#zonasDetLog');
+  const btnCanc = $('#btnCancelarZonas');
+  $('#btnDetectarZonas').disabled = true;
+  try{
+    let r = await fetch('/api/zonas/detectar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    if(!r.ok){ alert('Não consegui iniciar a detecção pelas zonas.'); return; }
+    let {job_id} = await r.json();
+    if(!await acompanharJob(job_id, logEl, btnCanc)) return;
+
+    r = await fetch('/api/cortar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({video: ESTADO.video.caminho})});
+    if(!r.ok){ alert('Não consegui iniciar o corte.'); return; }
+    ({job_id} = await r.json());
+    if(!await acompanharJob(job_id, logEl, btnCanc)) return;
+    await carregarClipes();
+    $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
+  }catch(e){ alert('Erro: '+e); }
+  finally{ $('#btnDetectarZonas').disabled = false; btnCanc.style.display = 'none'; }
+};
+$('#btnIrRevisar').onclick = ()=>irPara('s-revisar');
+
+/* ------------------------------------------------------------ passo 4: revisar os cortes */
+$$('.btnVel').forEach(btn => {
+  btn.onclick = () => {
+    const vel = parseFloat(btn.dataset.vel);
+    const vc = $('#videoCompleto');
+    if(vc) vc.playbackRate = vel;
+    $$('.btnVel').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+  };
+});
+
+$('#videoCompleto').addEventListener('timeupdate', () => {
+  const t = $('#videoCompleto').currentTime || 0;
+  $('#tempoCompletoTxt').textContent = fmtTempo(t);
+});
+
+$('#videoCompleto').addEventListener('loadedmetadata', () => {
+  const st = $('#statusVideoCompleto');
+  const vc = $('#videoCompleto');
+  if(st && vc) st.innerHTML = `<span class="ok">✓ Vídeo pronto (${fmtTempo(vc.duration)})</span>`;
+});
+
+$('#videoCompleto').addEventListener('error', () => {
+  const st = $('#statusVideoCompleto');
+  if(st) st.innerHTML = `<span class="bad">⚠ Não foi possível carregar o vídeo. Verifique se o arquivo existe ou escolha outro vídeo no <a href="javascript:void(0)" onclick="irPara('s-video')" style="color:var(--accent); font-weight:600">Passo 1</a>.</span>`;
+});
+
+function pularParaTempoVideo(){
+  const input = $('#tempoPularVideo');
+  if(!input) return;
+  const txt = input.value.trim();
+  if(!txt){
+    input.focus();
+    return;
+  }
+  const t = parseTempo(txt);
+  if(t == null || isNaN(t) || t < 0){
+    alert('Digite um tempo válido (ex: 14:30 ou 8:40 ou segundos).');
+    input.focus();
+    input.select();
+    return;
+  }
+  const vc = $('#videoCompleto');
+  if(vc){
+    vc.currentTime = t;
+    $('#tempoCompletoTxt').textContent = fmtTempo(t);
+    vc.play().catch(()=>{});
+  }
+}
+
+$('#btnPularVideo').onclick = pularParaTempoVideo;
+$('#tempoPularVideo').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    pularParaTempoVideo();
+  }
+});
+const btnMenos15 = $('#btnPularMenos15s');
+if(btnMenos15){
+  btnMenos15.onclick = () => {
+    const vc = $('#videoCompleto');
+    if(vc){
+      vc.currentTime = Math.max(0, (vc.currentTime || 0) - 15);
+      $('#tempoCompletoTxt').textContent = fmtTempo(vc.currentTime);
+    }
+  };
+}
+const btnMais15 = $('#btnPularMais15s');
+if(btnMais15){
+  btnMais15.onclick = () => {
+    const vc = $('#videoCompleto');
+    if(vc){
+      vc.currentTime = Math.min(vc.duration || 999999, (vc.currentTime || 0) + 15);
+      $('#tempoCompletoTxt').textContent = fmtTempo(vc.currentTime);
+    }
+  };
+}
+const btnMaisTrasCompleto = $('#btnGerarClipeCompletoMaisTras');
+if(btnMaisTrasCompleto){
+  btnMaisTrasCompleto.onclick = () => {
+    $('#posicaoCorteCompleto').value = 'antes';
+    $('#duracaoCorteCompleto').value = '15';
+    $('#btnGerarClipeCompleto').click();
+  };
+}
+
+$('#btnGerarClipeCompleto').onclick = async () => {
+  if(!ESTADO.video){ alert('Selecione um vídeo primeiro no passo 1.'); return; }
+  const vc = $('#videoCompleto');
+  if(vc && !vc.paused) vc.pause();
+  const t = vc ? (vc.currentTime || 0) : 0;
+  const dur = Math.max(2, parseFloat($('#duracaoCorteCompleto').value) || 15);
+  const pos = $('#posicaoCorteCompleto').value;
+  const tipo = $('#tipoCorteCompleto').value || 'gol';
+  const infoTipo = obterInfoTipo(tipo);
+  const status = tipo;
+  const lanceNome = (infoTipo && !infoTipo.isGol) ? infoTipo.lanceNome : null;
+  const rotuloClipe = infoTipo ? `${infoTipo.icon} ${infoTipo.rotulo}` : tipo;
+
+  let inicio_s = 0, fim_s = 0;
+  if(pos === 'antes'){
+    fim_s = t;
+    inicio_s = Math.max(0, t - dur);
+  } else if(pos === 'depois'){
+    inicio_s = t;
+    fim_s = t + dur;
+  } else {
+    inicio_s = Math.max(0, t - dur / 2);
+    fim_s = t + dur / 2;
+  }
+  inicio_s = Math.round(inicio_s * 100) / 100;
+  fim_s = Math.round(fim_s * 100) / 100;
+
+  const btn = $('#btnGerarClipeCompleto');
+  const logEl = $('#logCorteCompleto');
+  btn.disabled = true;
+  logEl.style.display = 'block';
+  logEl.textContent = `Cortando clipe (${rotuloClipe}) de ${fmtTempo(inicio_s)} até ${fmtTempo(fim_s)} (${dur}s)...`;
+
+  try {
+    const r = await fetch('/api/gols/adicionar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        video: ESTADO.video.caminho,
+        inicio_s: inicio_s,
+        fim_s: fim_s,
+        tempo_s: t,
+        status: status,
+        lance: lanceNome,
+      })
+    });
+    const res = await r.json();
+    if(!r.ok){
+      logEl.textContent = 'Erro ao cortar: ' + (res.detail || 'falha no servidor');
+      return;
+    }
+    logEl.textContent = `✓ Clipe #${String(res.indice).padStart(2,'0')} inserido com sucesso! Abrindo para visualização...`;
+    await carregarClipes();
+    const novoClipe = clipesAtuais.find(c => c.indice === res.indice);
+    if(novoClipe){
+      abrirModalClipe(novoClipe);
+    }
+    setTimeout(() => { logEl.style.display = 'none'; }, 4000);
+  } catch(e) {
+    logEl.textContent = 'Erro ao comunicar com o servidor: ' + e;
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+let _descartandoClipe = false;
+async function descartarClipe(indice, avancarModal = true){
+  if(_descartandoClipe) return false;
+  _descartandoClipe = true;
+  const modalAberto = !$('#modalClipe').hidden;
+  const idxAtual = clipesAtuais.findIndex(x => x.indice === indice);
+  try {
+    const v = $('#modalVideo');
+    if(v && modalAberto) v.pause();
+
+    const r = await fetch('/api/gols/descartar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({indice})
+    });
+    if(!r.ok){
+      alert('Não consegui descartar o clipe #' + indice);
+      return false;
+    }
+
+    await carregarClipes();
+
+    if(modalAberto && avancarModal){
+      if(!clipesAtuais.length){
+        fecharModalClipe();
+      } else {
+        // Vai para o próximo clipe da lista (que agora ocupa a posição idxAtual)
+        const proxIdx = (idxAtual >= 0 && idxAtual < clipesAtuais.length) ? idxAtual : (clipesAtuais.length - 1);
+        abrirModalClipe(clipesAtuais[proxIdx]);
+      }
+    } else {
+      fecharModalClipe();
+    }
+    return true;
+  } catch(e) {
+    alert('Erro ao descartar clipe: ' + e);
+    return false;
+  } finally {
+    _descartandoClipe = false;
+  }
+}
+
+async function sincronizarGolsComBackend(){
+  try {
+    const rc = await fetch('/api/clipes');
+    if(!rc.ok) return;
+    const {clipes} = await rc.json();
+    if(!clipes || !clipes.length) return;
+
+    let mapaMeta = {};
+    try {
+      const rg = await fetch('/api/gols');
+      if(rg.ok){
+        const dg = await rg.json();
+        (dg.eventos || []).forEach(ev => { mapaMeta[ev.indice] = ev; });
+      }
+    } catch(e){}
+
+    const antigos = {};
+    (ESTADO.gols || []).forEach(g => { antigos[g.indice] = g; });
+
+    ESTADO.gols = clipes.map(c => {
+      const meta = mapaMeta[c.indice] || {};
+      const prev = antigos[c.indice] || {};
+      const statusFinal = c.status || meta.status || prev.status || null;
+      const lanceFinal = c.lance || meta.lance || prev.lance || null;
+      const info = obterInfoTipo(statusFinal, lanceFinal);
+      const ehGol = info ? info.isGol : (statusFinal === 'gol');
+      const tipo = info ? (info.isGol ? 'gol' : 'lance') : (statusFinal === 'gol' ? 'gol' : (statusFinal ? 'lance' : null));
+
+      let timeEscolhido = (c.time !== undefined && c.time !== null) ? c.time : (prev.time !== undefined ? prev.time : null);
+      const temTime = (timeEscolhido !== null && timeEscolhido !== undefined && S.times[timeEscolhido]);
+      if(!temTime) timeEscolhido = null;
+
+      const autorFinal = temTime ? (c.autor || prev.autor || null) : null;
+      const assistFinal = temTime ? (c.assist || prev.assist || null) : null;
+      const destaqueFinal = temTime ? (c.destaque || prev.destaque || null) : null;
+
+      return {
+        indice: c.indice,
+        tempo: c.tempo || meta.tempo || '',
+        tempo_s: c.tempo_s != null ? c.tempo_s : meta.tempo_s,
+        inicio_s: meta.inicio_s,
+        fim_s: meta.fim_s,
+        fonte: meta.fonte || 'revisado',
+        status: info ? info.id : (statusFinal || null),
+        tipo: tipo,
+        lance: ehGol ? null : (lanceFinal || (info ? info.lanceNome : null)),
+        placar: c.placar || meta.placar || null,
+        time_provavel: meta.time_provavel,
+        time: timeEscolhido,
+        autor: (ehGol && temTime) ? autorFinal : null,
+        assist: (ehGol && temTime) ? assistFinal : null,
+        destaque: (!ehGol && temTime) ? destaqueFinal : null,
+        descartado: Boolean(prev.descartado),
+      };
+    });
+
+    if(ESTADO.indiceAtual != null && !ESTADO.gols.some(g => g.indice === ESTADO.indiceAtual)){
+      ESTADO.indiceAtual = ESTADO.gols.length ? ESTADO.gols[0].indice : null;
+    }
+  } catch(e){}
+}
+
+async function carregarClipes(){
+  const r = await fetch('/api/clipes');
+  const {clipes} = await r.json();
+  ESTADO.clipes = {};
+  clipes.forEach(c=> ESTADO.clipes[String(c.indice).padStart(2,'0')] = c.url);
+  await sincronizarGolsComBackend();
+  renderGradeClipes(clipes);
+
+  inicializarVideoCompleto();
+  $('#btnIrDados').disabled = (ESTADO.gols||[]).length===0;
+}
+
+function obterTempoSegundosClipe(c){
+  if(c.tempo_s != null && !isNaN(c.tempo_s) && c.tempo_s !== '') return Number(c.tempo_s);
+  if(c.inicio_s != null && !isNaN(c.inicio_s) && c.inicio_s !== '') return Number(c.inicio_s);
+  if(c.tempo) {
+    const p = parseTempo(c.tempo);
+    if(p != null && !isNaN(p)) return Number(p);
+  }
+  const g = (ESTADO.gols || []).find(x => x.indice === c.indice);
+  if(g){
+    if(g.tempo_s != null && !isNaN(g.tempo_s) && g.tempo_s !== '') return Number(g.tempo_s);
+    if(g.inicio_s != null && !isNaN(g.inicio_s) && g.inicio_s !== '') return Number(g.inicio_s);
+    if(g.tempo) {
+      const p = parseTempo(g.tempo);
+      if(p != null && !isNaN(p)) return Number(p);
+    }
+  }
+  return -1;
+}
+
+let clipesAtuais = [];
+function renderGradeClipes(clipes){
+  // Ordena os clipes da tela 4 por horário crescente (do início para o final do jogo)
+  clipesAtuais = [...(clipes || [])].sort((a, b) => {
+    const tA = obterTempoSegundosClipe(a);
+    const tB = obterTempoSegundosClipe(b);
+    if(tA === -1 && tB !== -1) return 1;
+    if(tB === -1 && tA !== -1) return -1;
+    if(tA !== tB) return tA - tB;
+    return (a.indice || 0) - (b.indice || 0);
+  });
+
+  const grade = $('#gradeClipes'); grade.innerHTML='';
+  if(!clipesAtuais.length){
+    grade.innerHTML = '<span class="hint">Nenhum clipe ainda - volte ao passo 3 e rode a detecção ou gere clipes no player do vídeo completo abaixo.</span>';
+  }
+  clipesAtuais.forEach(c=>{
+    const gItem = (ESTADO.gols || []).find(x => x.indice === c.indice);
+    const autorAtual = c.autor || (gItem && gItem.autor);
+    const timeAtual = (c.time !== undefined && c.time !== null) ? c.time : (gItem && gItem.time);
+    const assistAtual = c.assist || (gItem && gItem.assist);
+    const destaqueAtual = c.destaque || (gItem && gItem.destaque);
+    const statusAtual = c.status || (gItem && gItem.status);
+    const lanceAtual = c.lance || (gItem && gItem.lance);
+
+    const info = obterInfoTipo(statusAtual, lanceAtual);
+    const div = document.createElement('div');
+    div.className = 'evcard' + (info ? ' status-' + info.id : '');
+    if(info) div.style.borderColor = info.border;
+
+    const ehGol = info ? info.isGol : (statusAtual === 'gol');
+    const temTime = (timeAtual !== null && timeAtual !== undefined && S.times[timeAtual]);
+    let autorBadge = '';
+    if(ehGol && temTime && autorAtual){
+      const timeCor = S.times[timeAtual].cor || 'var(--accent)';
+      const txtCor = corTextoParaFundo(timeCor);
+      const assistStr = (assistAtual && assistAtual !== '—') ? ` (${assistAtual})` : '';
+      autorBadge = `<span style="background:${timeCor}; color:${txtCor}; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:700; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="Autor: ${autorAtual}${assistAtual ? ' (assistência: ' + assistAtual + ')' : ''}">⚽ ${autorAtual}${assistStr}</span>`;
+    } else if(!ehGol && temTime && destaqueAtual){
+      autorBadge = `<span style="background:rgba(56,189,248,0.18); border:1px solid #38bdf8; color:#38bdf8; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="Destaque: ${destaqueAtual}">⭐ ${destaqueAtual}</span>`;
+    }
+
+    const rotuloBadge = info
+      ? `<span class="badge-ok" style="background:${info.bg};border:1px solid ${info.border};color:${info.cor};padding:2px 6px;border-radius:4px;font-size:11px">${info.icon} ${info.rotulo}</span>`
+      : `<span class="badge-ok" style="background:var(--panel2);border:1px solid var(--line);color:var(--dim);padding:2px 6px;border-radius:4px;font-size:11px">⏳ sem marcação</span>`;
+    const rotuloCheck = (ehGol && temTime && autorAtual) ? '⚽' : (info ? info.icon : '⏳');
+    const placarBadge = c.placar ? `<span class="placar-badge">${c.placar}</span>` : '';
+
+    div.innerHTML = `
+      <div class="topo" style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap">
+        <div class="row" style="gap:5px; align-items:center; flex-wrap:wrap">
+          <b style="font-size:13px">#${String(c.indice).padStart(2,'0')}</b>
+          <span class="hint" style="margin:0">${c.tempo||''}</span>
+          ${autorBadge}
+        </div>
+        <div class="row" style="gap:4px; align-items:center">
+          ${placarBadge}
+          ${rotuloBadge}
+          <button type="button" class="btnDescartarCard" title="Excluir este clipe permanentemente do computador" style="position:static; margin-left:4px; background:#dc2626; color:#fff; border:0; border-radius:5px; padding:2px 7px; font-size:11px; cursor:pointer; font-weight:700">🗑 Excluir</button>
+        </div>
+      </div>
+      <div class="thumb-wrap" style="position:relative">
+        <video src="${c.url}" muted preload="metadata" playsinline></video>
+        <div class="play"></div>
+        <div class="check" style="${info ? `display:flex;background:${info.bg};border:1px solid ${info.border};color:${info.cor}` : ''}">${rotuloCheck}</div>
+      </div>
+    `;
+
+    const vid = div.querySelector('video');
+    vid.onerror = () => {
+      const wrap = div.querySelector('.thumb-wrap');
+      wrap.innerHTML = `
+        <div style="background:#200d0d; border:1px solid #7f1d1d; border-radius:6px; padding:16px 8px; text-align:center">
+          <div style="color:#f87171; font-size:12px; font-weight:600">⚠ Vídeo corrompido / preto</div>
+          <button type="button" class="warnb btnRemoverCorrompido" style="margin-top:8px">🗑 Excluir clipe</button>
+        </div>
+      `;
+      const btnRem = wrap.querySelector('.btnRemoverCorrompido');
+      if(btnRem){
+        btnRem.onclick = async (e) => {
+          e.stopPropagation();
+          if(confirm(`ATENÇÃO: Excluir definitivamente o clipe corrompido #${c.indice} do computador?`)){
+            await descartarClipe(c.indice);
+          }
+        };
+      }
+    };
+
+    const btnDesc = div.querySelector('.btnDescartarCard');
+    if(btnDesc){
+      btnDesc.onclick = async (e) => {
+        e.stopPropagation();
+        if(confirm(`ATENÇÃO: Deseja EXCLUIR DEFINITIVAMENTE o clipe #${String(c.indice).padStart(2,'0')} (${c.tempo||''}) do computador?\n\nO arquivo de vídeo será apagado e o lance será removido.`)){
+          await descartarClipe(c.indice);
+        }
+      };
+    }
+
+    div.style.cursor = 'pointer';
+    div.onclick = (e) => {
+      if(e.target.closest('.btnDescartarCard')) return;
+      abrirModalClipe(c);
+    };
+    grade.appendChild(div);
+  });
+  const contagemGols = clipesAtuais.filter(c => {
+    const inf = obterInfoTipo(c.status, c.lance);
+    return inf && inf.isGol;
+  }).length;
+  const contagemLances = clipesAtuais.filter(c => {
+    const inf = obterInfoTipo(c.status, c.lance);
+    return inf && !inf.isGol;
+  }).length;
+  const faltam = clipesAtuais.filter(c => !obterInfoTipo(c.status, c.lance)).length;
+  $('#contagemClipes').textContent = `(${contagemGols} gols · ${contagemLances} lances · ${faltam} sem marcação · ordem cronológica ⏱️)`;
+}
+
+function abrirModalClipe(c){
+  const vc = $('#videoCompleto');
+  if(vc && !vc.paused) vc.pause();
+  $('#modalTitulo').textContent = `Clipe #${String(c.indice).padStart(2,'0')}` + (c.tempo?` · ${c.tempo}`:'');
+  const v = $('#modalVideo');
+  v.src = c.url + (c.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  $('#modalClipe').hidden = false;
+  aplicarFiltroBrilho();
+  v.play().catch(()=>{});
+
+  const idx = clipesAtuais.findIndex(x => x.indice === c.indice);
+  const temAnterior = idx > 0;
+  const temProximo = idx >= 0 && idx < clipesAtuais.length - 1;
+  const btnAnt = $('#modalBtnAnterior'), btnProx = $('#modalBtnProximo');
+  const setaEsq = $('#modalSetaEsq'), setaDir = $('#modalSetaDir');
+  if(btnAnt) btnAnt.disabled = !temAnterior;
+  if(btnProx) btnProx.disabled = !temProximo;
+  if(setaEsq) setaEsq.disabled = !temAnterior;
+  if(setaDir) setaDir.disabled = !temProximo;
+
+  const navegarAnt = () => {
+    irAnteriorClipe(c.indice);
+  };
+  const navegarProx = () => {
+    irProximoClipe(c.indice);
+  };
+  if(btnAnt) btnAnt.onclick = navegarAnt;
+  if(setaEsq) setaEsq.onclick = navegarAnt;
+  if(btnProx) btnProx.onclick = navegarProx;
+  if(setaDir) setaDir.onclick = navegarProx;
+
+  const badge = $('#modalStatusBadge');
+  const infoAtual = obterInfoTipo(c.status, c.lance);
+  if(badge){
+    if(infoAtual){
+      badge.style.background = infoAtual.bg;
+      badge.style.border = '1px solid ' + infoAtual.border;
+      badge.style.color = infoAtual.cor;
+      badge.innerHTML = `${infoAtual.icon} Marcado como ${infoAtual.rotulo.toUpperCase()}`;
+    } else {
+      badge.style.background = 'var(--panel2)';
+      badge.style.border = '1px solid var(--line)';
+      badge.style.color = 'var(--dim)';
+      badge.innerHTML = '⏳ Sem marcação';
+    }
+  }
+
+  // Configuração do Painel de Ajuste de Corte (-15s / +15s / gerar novo clipe)
+  const tempoClipeS = (c.tempo_s != null) ? Number(c.tempo_s) : (c.inicio_s != null ? Number(c.inicio_s) + 20 : 0);
+  const inicioOriginal = (c.inicio_s != null) ? Number(c.inicio_s) : Math.max(0, tempoClipeS - 20);
+  let fimOriginal = (c.fim_s != null) ? Number(c.fim_s) : (tempoClipeS + 4);
+  if(fimOriginal <= inicioOriginal) fimOriginal = inicioOriginal + 24;
+  const durOrig = Math.round(fimOriginal - inicioOriginal);
+
+  let modalOffsetSec = 0;
+  let modoPreviewVideo = false;
+
+  const infoTrechoEl = $('#modalInfoTrechoJogo');
+  if(infoTrechoEl){
+    infoTrechoEl.textContent = `${fmtTempo(inicioOriginal)} até ${fmtTempo(fimOriginal)} (${durOrig}s)`;
+  }
+
+  const logAjuste = $('#modalAjusteLog');
+  if(logAjuste){
+    logAjuste.style.display = 'none';
+    logAjuste.innerHTML = '';
+  }
+
+  const btnPreview = $('#btnModalPreviewVideo');
+  const btnVoltarClipe = $('#btnModalVoltarClipe');
+  if(btnPreview) btnPreview.style.display = 'inline-block';
+  if(btnVoltarClipe) btnVoltarClipe.style.display = 'none';
+
+  function atualizarAjusteCorte(){
+    const novoInicio = Math.max(0, Math.round((inicioOriginal + modalOffsetSec) * 100) / 100);
+    const novoFim = Math.max(novoInicio + 3, Math.round((fimOriginal + modalOffsetSec) * 100) / 100);
+    const dur = Math.round(novoFim - novoInicio);
+
+    const inpIni = $('#modalInpInicio');
+    const inpFim = $('#modalInpFim');
+    const durEl = $('#modalDuracaoAjustada');
+    const badge = $('#modalBadgeOffset');
+
+    if(inpIni) inpIni.value = fmtTempo(novoInicio);
+    if(inpFim) inpFim.value = fmtTempo(novoFim);
+    if(durEl) durEl.textContent = `(${dur}s)`;
+
+    if(badge){
+      if(modalOffsetSec === 0){
+        badge.textContent = 'Sem deslocamento (0s)';
+        badge.style.background = 'var(--line)';
+        badge.style.color = 'var(--txt)';
+      } else if(modalOffsetSec < 0){
+        badge.textContent = `Deslocamento: ${modalOffsetSec}s (mais pra trás)`;
+        badge.style.background = '#0369a1';
+        badge.style.color = '#e0f2fe';
+      } else {
+        badge.textContent = `Deslocamento: +${modalOffsetSec}s (pra frente)`;
+        badge.style.background = '#b45309';
+        badge.style.color = '#fef3c7';
+      }
+    }
+
+    if(modoPreviewVideo){
+      const v = $('#modalVideo');
+      v.currentTime = novoInicio;
+      v.play().catch(()=>{});
+    }
+  }
+
+  atualizarAjusteCorte();
+
+  const bVoltar15 = $('#btnModalVoltar15s');
+  if(bVoltar15) bVoltar15.onclick = () => { modalOffsetSec -= 15; atualizarAjusteCorte(); };
+  const bVoltar5 = $('#btnModalVoltar5s');
+  if(bVoltar5) bVoltar5.onclick = () => { modalOffsetSec -= 5; atualizarAjusteCorte(); };
+  const bRest = $('#btnModalRestaurar');
+  if(bRest) bRest.onclick = () => { modalOffsetSec = 0; atualizarAjusteCorte(); };
+  const bAvancar5 = $('#btnModalAvancar5s');
+  if(bAvancar5) bAvancar5.onclick = () => { modalOffsetSec += 5; atualizarAjusteCorte(); };
+  const bAvancar15 = $('#btnModalAvancar15s');
+  if(bAvancar15) bAvancar15.onclick = () => { modalOffsetSec += 15; atualizarAjusteCorte(); };
+
+  const inpIniEl = $('#modalInpInicio');
+  if(inpIniEl){
+    inpIniEl.onchange = () => {
+      const t = parseTempo(inpIniEl.value);
+      if(t != null && !isNaN(t) && t >= 0){
+        modalOffsetSec = Math.round(t - inicioOriginal);
+        atualizarAjusteCorte();
+      }
+    };
+  }
+
+  const inpFimEl = $('#modalInpFim');
+  if(inpFimEl){
+    inpFimEl.onchange = () => {
+      const t = parseTempo(inpFimEl.value);
+      if(t != null && !isNaN(t) && t > 0){
+        const novoIni = Math.max(0, inicioOriginal + modalOffsetSec);
+        if(t > novoIni){
+          fimOriginal = t - modalOffsetSec;
+          atualizarAjusteCorte();
+        }
+      }
+    };
+  }
+
+  async function dispararCorteModal(novoIni, novoFim, motivoDesc){
+    const logEl = $('#modalAjusteLog');
+    const btnCorte = $('#btnModalCortarNovo');
+    const btnMaisTras = $('#btnModalGerarClipeMaisTras');
+    if(btnCorte) btnCorte.disabled = true;
+    if(btnMaisTras) btnMaisTras.disabled = true;
+
+    logEl.style.display = 'block';
+    logEl.innerHTML = `<span class="spinner"></span> Cortando clipe ${motivoDesc} (${fmtTempo(novoIni)} até ${fmtTempo(novoFim)})...`;
+
+    try {
+      const infoTipo = obterInfoTipo(c.status, c.lance);
+      const status = c.status || 'gol';
+      const lanceNome = (infoTipo && !infoTipo.isGol) ? infoTipo.lanceNome : (c.lance || null);
+      const videoCaminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : null;
+
+      const r = await fetch('/api/gols/adicionar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          video: videoCaminho,
+          inicio_s: novoIni,
+          fim_s: novoFim,
+          tempo_s: Math.max(0, novoIni + 20),
+          status: status,
+          lance: lanceNome
+        })
+      });
+      const res = await r.json();
+      if(!r.ok){
+        logEl.innerHTML = `<span class="bad">Erro ao cortar: ${res.detail || 'falha no servidor'}</span>`;
+        return;
+      }
+      logEl.innerHTML = `<span class="ok">✓ Clipe #${String(res.indice).padStart(2,'0')} gerado com sucesso! Abrindo...</span>`;
+      await carregarClipes();
+      const novoClipe = clipesAtuais.find(x => x.indice === res.indice);
+      if(novoClipe){
+        setTimeout(() => {
+          abrirModalClipe(novoClipe);
+        }, 600);
+      }
+    } catch(err) {
+      logEl.innerHTML = `<span class="bad">Erro ao comunicar: ${err}</span>`;
+    } finally {
+      if(btnCorte) btnCorte.disabled = false;
+      if(btnMaisTras) btnMaisTras.disabled = false;
+    }
+  }
+
+  const btnGerarMaisTras = $('#btnModalGerarClipeMaisTras');
+  if(btnGerarMaisTras){
+    btnGerarMaisTras.onclick = async () => {
+      // Se ainda não estava deslocado para trás, usa -15s
+      const offset = modalOffsetSec < 0 ? modalOffsetSec : -15;
+      const novoInicio = Math.max(0, Math.round((inicioOriginal + offset) * 100) / 100);
+      const novoFim = Math.max(novoInicio + 5, Math.round((fimOriginal + offset) * 100) / 100);
+      await dispararCorteModal(novoInicio, novoFim, '15s mais pra trás');
+    };
+  }
+
+  const btnCortarNovo = $('#btnModalCortarNovo');
+  if(btnCortarNovo){
+    btnCortarNovo.onclick = async () => {
+      const tIni = parseTempo($('#modalInpInicio').value);
+      const tFim = parseTempo($('#modalInpFim').value);
+      if(tIni == null || tFim == null || tFim <= tIni){
+        alert('Informe um trecho válido (início menor que o fim).');
+        return;
+      }
+      const motivo = modalOffsetSec !== 0 ? `(${modalOffsetSec > 0 ? '+' : ''}${modalOffsetSec}s)` : 'ajustado';
+      await dispararCorteModal(tIni, tFim, motivo);
+    };
+  }
+
+  if(btnPreview){
+    btnPreview.onclick = () => {
+      modoPreviewVideo = true;
+      const caminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : '';
+      const urlVideoCompleto = '/video/completo' + (caminho ? ('?video=' + encodeURIComponent(caminho)) : '');
+      const novoInicio = Math.max(0, Math.round((inicioOriginal + modalOffsetSec) * 100) / 100);
+
+      const v = $('#modalVideo');
+      v.src = urlVideoCompleto;
+      v.currentTime = novoInicio;
+      v.play().catch(()=>{});
+
+      btnPreview.style.display = 'none';
+      if(btnVoltarClipe) btnVoltarClipe.style.display = 'inline-block';
+      $('#modalTitulo').textContent = `Vídeo do Jogo · a partir de ${fmtTempo(novoInicio)} (conferindo jogada)`;
+    };
+  }
+
+  if(btnVoltarClipe){
+    btnVoltarClipe.onclick = () => {
+      modoPreviewVideo = false;
+      const v = $('#modalVideo');
+      v.src = c.url + (c.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      v.play().catch(()=>{});
+
+      if(btnPreview) btnPreview.style.display = 'inline-block';
+      btnVoltarClipe.style.display = 'none';
+      $('#modalTitulo').textContent = `Clipe #${String(c.indice).padStart(2,'0')}` + (c.tempo ? ` · ${c.tempo}` : '');
+    };
+  }
+
+  // ------------------------- Lógica de Classificação rápida no Modal (Tela de Revisão)
+  let gItem = (ESTADO.gols || []).find(x => x.indice === c.indice);
+  const statusAtual = c.status || (gItem && (gItem.status || gItem.tipo)) || null;
+  const lanceAtual = c.lance || (gItem && gItem.lance) || null;
+
+  function modalAtualizarBadge(status, lance){
+    const badge = $('#modalStatusBadge');
+    if(!badge) return;
+    const inf = obterInfoTipo(status, lance);
+    if(inf){
+      badge.style.background = inf.bg;
+      badge.style.border = '1px solid ' + inf.border;
+      badge.style.color = inf.cor;
+      badge.innerHTML = `${inf.icon} Marcado como ${inf.rotulo.toUpperCase()}`;
+    } else {
+      badge.style.background = 'var(--panel2)';
+      badge.style.border = '1px solid var(--line)';
+      badge.style.color = 'var(--dim)';
+      badge.innerHTML = '⏳ Sem marcação';
+    }
+  }
+
+  async function classificarEAvancar(tipo){
+    const isGol = tipo.isGol;
+    const statusFinal = tipo.id;
+    const lanceFinal = isGol ? null : tipo.lanceNome;
+
+    c.status = statusFinal;
+    c.lance = lanceFinal;
+
+    let g = (ESTADO.gols || []).find(x => x.indice === c.indice);
+    if(!g){
+      g = {
+        indice: c.indice,
+        tempo: c.tempo || '',
+        tempo_s: c.tempo_s,
+        inicio_s: c.inicio_s,
+        fim_s: c.fim_s,
+        fonte: 'revisado',
+        descartado: false
+      };
+      if(!ESTADO.gols) ESTADO.gols = [];
+      ESTADO.gols.push(g);
+      ESTADO.gols.sort((a,b) => a.indice - b.indice);
+    }
+    g.tipo = isGol ? 'gol' : 'lance';
+    g.status = statusFinal;
+    g.lance = lanceFinal;
+    g.descartado = false;
+
+    try {
+      await fetch('/api/gols/confirmar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          indice: c.indice,
+          status: statusFinal,
+          lance: lanceFinal
+        })
+      });
+    } catch(err){}
+
+    agendarSalvar();
+    renderGradeClipes(clipesAtuais);
+
+    // Ao clicar em gol ou outro lance, já vai para o próximo clipe
+    irProximoClipe(c.indice);
+  }
+
+  function modalRenderBotoesTipo(){
+    const container = $('#modalBotoesTipo');
+    if(!container) return;
+    container.innerHTML = '';
+
+    const infoSel = obterInfoTipo(c.status, c.lance);
+    const idSel = infoSel ? infoSel.id : (c.status === 'gol' ? 'gol' : null);
+
+    TIPOS_CLIPE.forEach(tipo => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btnTipoClipe';
+      btn.dataset.tipoId = tipo.id;
+      const isSel = Boolean(idSel && ((idSel === tipo.id) || (tipo.isGol && c.status === 'gol') || (!tipo.isGol && c.status !== 'gol' && (c.status || c.lance))));
+      if(isSel){
+        btn.classList.add('sel');
+        btn.style.background = tipo.bg;
+        btn.style.borderColor = tipo.border;
+        btn.style.color = tipo.cor;
+      }
+      btn.style.padding = '6px 14px';
+      btn.style.fontSize = '12px';
+      btn.style.fontWeight = isSel ? '700' : '600';
+      btn.innerHTML = `<span style="font-size:14px">${tipo.icon}</span> <span>${tipo.rotulo}</span>`;
+      btn.title = `Classificar como ${tipo.rotulo} e avançar para o próximo (tecla ${tipo.hotkey.toUpperCase()})`;
+      btn.onclick = () => {
+        classificarEAvancar(tipo);
+      };
+      container.appendChild(btn);
+    });
+  }
+
+  modalAtualizarBadge(statusAtual, lanceAtual);
+  modalRenderBotoesTipo();
+
+  const btnLimpar = $('#modalLimparStatus');
+  if(btnLimpar){
+    btnLimpar.onclick = async () => {
+      c.status = null;
+      c.lance = null;
+
+      let g = (ESTADO.gols || []).find(x => x.indice === c.indice);
+      if(g){
+        g.status = null;
+        g.tipo = 'gol';
+        g.lance = null;
+      }
+
+      try {
+        await fetch('/api/gols/confirmar', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            indice: c.indice,
+            status: null
+          })
+        });
+      } catch(err){}
+
+      agendarSalvar();
+      renderGradeClipes(clipesAtuais);
+      modalAtualizarBadge(null, null);
+      modalRenderBotoesTipo();
+    };
+  }
+
+  $('#modalDescartar').onclick = async ()=>{
+    if(_descartandoClipe) return;
+    if(!confirm(`ATENÇÃO: Deseja EXCLUIR DEFINITIVAMENTE o clipe selecionado #${String(c.indice).padStart(2,'0')} (${c.tempo||''}) do computador?\n\nO arquivo de vídeo será apagado e o lance será removido.`)) return;
+    await descartarClipe(c.indice);
+  };
+}
+function irAnteriorClipe(indiceAtual){
+  const idx = clipesAtuais.findIndex(x => x.indice === indiceAtual);
+  if(idx > 0) abrirModalClipe(clipesAtuais[idx - 1]);
+}
+function irProximoClipe(indiceAtual){
+  const idx = clipesAtuais.findIndex(x => x.indice === indiceAtual);
+  if(idx >= 0 && idx < clipesAtuais.length - 1){
+    abrirModalClipe(clipesAtuais[idx + 1]);
+  } else if(idx === -1 && clipesAtuais.length > 0){
+    abrirModalClipe(clipesAtuais[0]);
+  } else {
+    fecharModalClipe();
+  }
+}
+function fecharModalClipe(){
+  const v = $('#modalVideo');
+  v.pause(); v.removeAttribute('src'); v.load();
+  $('#modalClipe').hidden = true;
+  const btnPrev = $('#btnModalPreviewVideo');
+  const btnVolt = $('#btnModalVoltarClipe');
+  if(btnPrev) btnPrev.style.display = 'inline-block';
+  if(btnVolt) btnVolt.style.display = 'none';
+}
+$('#modalFechar').onclick = fecharModalClipe;
+$('#modalClipe').addEventListener('click', (e)=>{ if(e.target.id==='modalClipe') fecharModalClipe(); });
+document.addEventListener('keydown', (e)=>{
+  if(!$('#modalClipe').hidden){
+    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'){
+      if(e.key === 'Escape') fecharModalClipe();
+      return;
+    }
+    const k = e.key.toLowerCase();
+    if(e.key==='Escape') fecharModalClipe();
+    else if(e.key==='ArrowLeft'){ e.preventDefault(); $('#modalBtnAnterior').click(); }
+    else if(e.key==='ArrowRight' || e.key==='Enter'){ e.preventDefault(); $('#modalBtnProximo').click(); }
+    else if(e.key==='Delete' || (e.ctrlKey && e.key==='Backspace')){ e.preventDefault(); $('#modalDescartar').click(); }
+    else {
+      let match = TIPOS_CLIPE.find(t => t.hotkey === k);
+      if(!match && (k === 'l' || k === 'o')){
+        match = TIPOS_CLIPE.find(t => t.id === 'lance');
+      }
+      if(match){
+        const btn = [...$('#modalBotoesTipo').children].find(b => b.dataset.tipoId === match.id || b.textContent.includes(match.rotulo));
+        if(btn) btn.click();
+      }
+    }
+  }
+});
+
+/* ------------------------------------------------------------ passo 6: marcacao */
+function renderMarcacao(){
+  if(!ESTADO.gols.length){ $('#golnav').innerHTML='<span class="hint">Detecte e corte os gols nos passos 3/4 primeiro.</span>'; return; }
+  $('#golnav').innerHTML='';
+
+  if(ESTADO.indiceAtual == null && ESTADO.gols.length > 0){
+    ESTADO.indiceAtual = ESTADO.gols[0].indice;
+  }
+  let g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual);
+  if(!g && ESTADO.gols.length > 0){
+    g = ESTADO.gols[0];
+    ESTADO.indiceAtual = g.indice;
+  }
+  if(!g) return;
+  ESTADO.atual = ESTADO.gols.findIndex(x => x.indice === ESTADO.indiceAtual);
+
+  ESTADO.gols.forEach((item, i)=>{
+    const b = document.createElement('button');
+    const inf = obterInfoTipo(item.status || item.tipo, item.lance);
+    const temTipo = Boolean(inf || item.status || (item.tipo && item.tipo !== 'revisar'));
+    const ehGol = inf ? inf.isGol : (item.tipo === 'gol');
+    const ehDone = item.descartado ? false : (ehGol ? Boolean(item.autor && item.time !== null) : Boolean(temTipo));
+
+    let classe = 'chip';
+    if(item.descartado) classe += ' skip';
+    else if(!temTipo) classe += ' pending-revisar';
+    else if(ehDone) classe += (ehGol ? ' done' : ' lance');
+    else if(ehGol) classe += ' pending-gol';
+    else classe += ' pending-lance';
+    if(item.indice === ESTADO.indiceAtual) classe += ' cur';
+
+    b.className = classe;
+    const icone = item.descartado ? '🗑' : (inf ? inf.icon : (temTipo ? (ehGol ? '⚽' : '🎬') : '⏳'));
+    const rotulo = String(item.indice).padStart(2,'0');
+    let autorTexto = '';
+    if(item.autor){
+      const timeCor = (item.time !== null && S.times[item.time]) ? S.times[item.time].cor : 'var(--accent)';
+      autorTexto = `<span style="font-size:10px; font-weight:700; color:${timeCor}; margin-left:3px">(${item.autor})</span>`;
+    } else if(item.tipo === 'lance' && item.destaque){
+      autorTexto = `<span style="font-size:10px; opacity:0.85; margin-left:3px">(${item.destaque})</span>`;
+    }
+    b.innerHTML = `<span>${icone} #${rotulo}</span>${autorTexto}`;
+    b.title = `Clipe #${item.indice} · ${inf ? inf.rotulo : (temTipo ? (ehGol ? 'Gol' : 'Lance') : 'Sem marcação')}` + (item.autor ? ` (${item.autor})` : '');
+    b.onclick = ()=>{ ESTADO.indiceAtual = item.indice; renderMarcacao(); };
+    $('#golnav').appendChild(b);
+  });
+  const infoAtual = obterInfoTipo(g.status || g.tipo, g.lance);
+  const temTipoAtual = Boolean(infoAtual || g.status || (g.tipo && g.tipo !== 'revisar'));
+  const ehGol = infoAtual ? infoAtual.isGol : (g.tipo === 'gol');
+
+  const temTime = (g.time !== null && g.time !== undefined && S.times[g.time]);
+  rascunho = {
+    tipo: infoAtual ? (infoAtual.isGol ? 'gol' : 'lance') : (g.tipo || null),
+    status: infoAtual ? infoAtual.id : (g.status || null),
+    lance: ehGol ? null : (g.lance || (infoAtual ? infoAtual.lanceNome : null)),
+    time: temTime ? g.time : null,
+    autor: temTime ? g.autor : null,
+    assist: temTime ? g.assist : null,
+    destaque: temTime ? g.destaque : null
+  };
+
+  const url = ESTADO.clipes[String(g.indice).padStart(2,'0')];
+  const v = $('#vid');
+  if(url){ v.src=url; v.load(); } else { v.removeAttribute('src'); v.load(); }
+  if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
+
+  const placarBadgeHtml = g.placar
+    ? `<span style="background:var(--panel2); border:1px solid var(--line); font-family:ui-monospace,monospace; font-weight:700; font-size:12px; padding:3px 8px; border-radius:5px; margin-left:8px">Placar: ${g.placar}</span>`
+    : '';
+
+  const badgeHtml = infoAtual
+    ? `<span style="background:${infoAtual.bg}; border:1px solid ${infoAtual.border}; color:${infoAtual.cor}; font-weight:700; font-size:12px; padding:3px 8px; border-radius:5px; margin-left:8px">${infoAtual.icon} Marcado como ${infoAtual.rotulo.toUpperCase()}</span>`
+    : `<span style="background:var(--panel2); border:1px solid var(--line); color:var(--dim); font-size:12px; padding:3px 8px; border-radius:5px; margin-left:8px">⏳ Sem marcação</span>`;
+
+  $('#lblGol').innerHTML = `Clipe #${String(g.indice).padStart(2,'0')} · <b>${g.tempo}</b> ${placarBadgeHtml} ${badgeHtml}` + (url?'':' — <span class="bad">clipe não encontrado</span>');
+
+  pickTipos();
+  pickTimes();
+  pickJogadores();
+  pickLances();
+  pickTimesLance();
+  pickDestaqueLance();
+  andamento();
+}
+
+function pickTipos(){
+  const el = $('#pickTipo');
+  if(!el) return;
+  el.innerHTML = '';
+
+  const infoAtual = obterInfoTipo(rascunho.status || rascunho.tipo, rascunho.lance);
+  const idAtual = infoAtual ? infoAtual.id : (rascunho.tipo === 'gol' ? 'gol' : (rascunho.tipo === 'lance' ? 'lance' : null));
+
+  TIPOS_CLIPE.forEach(tipo => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btnTipoClipe';
+    const isSel = Boolean(idAtual && ((idAtual === tipo.id) || (tipo.isGol && rascunho.tipo === 'gol') || (!tipo.isGol && rascunho.status === tipo.id)));
+    if(isSel){
+      b.classList.add('sel');
+      b.style.background = tipo.bg;
+      b.style.borderColor = tipo.border;
+      b.style.color = tipo.cor;
+    }
+    b.innerHTML = `<span>${tipo.icon}</span> <span>${tipo.rotulo}</span>`;
+    b.title = `Classificar como ${tipo.rotulo} (tecla ${tipo.hotkey.toUpperCase()})`;
+    b.onclick = () => {
+      selecionarTipoMarcacao(tipo);
+    };
+    el.appendChild(b);
+  });
+
+  alternarCampos();
+}
+
+function selecionarTipoMarcacao(tipo){
+  if(tipo.isGol){
+    rascunho.tipo = 'gol';
+    rascunho.status = 'gol';
+    rascunho.lance = null;
+  } else {
+    rascunho.tipo = 'lance';
+    rascunho.status = tipo.id;
+    rascunho.lance = tipo.lanceNome;
+  }
+  pickTipos();
+  alternarCampos();
+  pickTimes();
+  pickJogadores();
+  pickLances();
+  pickTimesLance();
+  pickDestaqueLance();
+  andamento();
+}
+
+function alternarCampos(){
+  const ehGol = rascunho.tipo === 'gol';
+  const ehLance = rascunho.tipo === 'lance';
+  $('#camposGol').style.display = ehGol ? '' : 'none';
+  $('#camposLance').style.display = ehLance ? '' : 'none';
+}
+
+function pickLances(){
+  const el = $('#pickLance');
+  if(!el) return;
+  el.innerHTML = '';
+  TIPOS_LANCE.forEach(n => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = n;
+    b.className = rascunho.lance === n ? 'sel' : '';
+    b.onclick = () => {
+      rascunho.lance = rascunho.lance === n ? null : n;
+      const inf = obterInfoTipo(null, rascunho.lance);
+      if(inf){
+        rascunho.status = inf.id;
+      }
+      pickTipos();
+      pickLances();
+    };
+    el.appendChild(b);
+  });
+}
+function pickTimesLance(){
+  const el=$('#pickTimeLance');
+  if(!el) return;
+  el.innerHTML='';
+  S.times.forEach((t,i)=>{
+    const b=document.createElement('button'); b.type='button'; b.textContent=t.nome;
+    const isSel = rascunho.time===i;
+    b.className = isSel ? 'sel' : '';
+    const txtCor = corTextoParaFundo(t.cor);
+    b.style.borderLeft = '6px solid ' + t.cor;
+    if(isSel){
+      b.style.background = t.cor;
+      b.style.borderColor = t.cor;
+      b.style.color = txtCor;
+      b.style.fontWeight = '700';
+    } else {
+      b.style.background = 'var(--panel2)';
+      b.style.color = 'var(--txt)';
+    }
+    b.onclick=()=>{
+      rascunho.time = (rascunho.time===i) ? null : i;
+      pickTimesLance();
+      pickDestaqueLance();
+    };
+    el.appendChild(b);
+  });
+  const bNenhum = document.createElement('button'); bNenhum.type='button';
+  bNenhum.textContent = 'Sem time / neutro';
+  const isNeutro = (rascunho.time===null || rascunho.time===undefined);
+  bNenhum.className = isNeutro ? 'sel' : '';
+  bNenhum.onclick = ()=>{
+    rascunho.time = null;
+    pickTimesLance();
+    pickDestaqueLance();
+  };
+  el.appendChild(bNenhum);
+}
+
+function pickDestaqueLance(){
+  const ed=$('#pickDestaque');
+  if(!ed) return;
+  ed.innerHTML='';
+
+  if(rascunho.time===null || rascunho.time===undefined || !S.times[rascunho.time]){
+    rascunho.destaque = null;
+    ed.innerHTML='<span class="hint" style="margin:0; padding:4px 0; color:var(--dim)">Selecione o time da jogada acima para ver o elenco.</span>';
+    return;
+  }
+  let jogadores = S.times[rascunho.time].jogadores || [];
+
+  if(jogadores.length > 0){
+    const wrapBotoes = document.createElement('div');
+    wrapBotoes.className = 'pick';
+    wrapBotoes.style.marginBottom = '6px';
+    jogadores.forEach(nome => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const pos = obterPosicaoJogador(rascunho.time, nome);
+      const pInfo = POSICOES_JOGADORES.find(p => p.id === pos) || { sigla: 'MEI' };
+      b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${pInfo.sigla}]</span>`;
+      const isSel = rascunho.destaque === nome;
+      b.className = isSel ? 'sel' : '';
+      b.onclick = () => {
+        if(isSel){
+          rascunho.destaque = null;
+        } else {
+          rascunho.destaque = nome;
+          if(rascunho.time === null || rascunho.time === undefined){
+            if(S.times[0]?.jogadores?.includes(nome)) rascunho.time = 0;
+            else if(S.times[1]?.jogadores?.includes(nome)) rascunho.time = 1;
+            pickTimesLance();
+          }
+        }
+        pickDestaqueLance();
+      };
+      wrapBotoes.appendChild(b);
+    });
+    ed.appendChild(wrapBotoes);
+  }
+
+  const outroSel = rascunho.destaque && !jogadores.includes(rascunho.destaque);
+  const inD = document.createElement('input');
+  inD.type = 'text';
+  inD.id = 'inDestaque';
+  inD.style.width = '100%';
+  inD.placeholder = jogadores.length ? 'outro nome (fora do elenco)' : 'Nome do jogador em destaque (opcional)';
+  inD.value = outroSel ? rascunho.destaque : (rascunho.destaque || '');
+  inD.oninput = e => {
+    rascunho.destaque = e.target.value.trim() || null;
+    if(rascunho.destaque && (rascunho.time === null || rascunho.time === undefined)){
+      if(S.times[0]?.jogadores?.includes(rascunho.destaque)){
+        rascunho.time = 0;
+        pickTimesLance();
+      } else if(S.times[1]?.jogadores?.includes(rascunho.destaque)){
+        rascunho.time = 1;
+        pickTimesLance();
+      }
+    }
+  };
+  ed.appendChild(inD);
+}
+
+function pickTimes(){
+  const el=$('#pickTime');
+  if(!el) return;
+  el.innerHTML='';
+  S.times.forEach((t,i)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.textContent=t.nome;
+    const isSel = rascunho.time===i;
+    b.className = isSel ? 'sel' : '';
+    const txtCor = corTextoParaFundo(t.cor);
+    b.style.borderLeft = '6px solid ' + t.cor;
+    if(isSel){
+      b.style.background = t.cor;
+      b.style.borderColor = t.cor;
+      b.style.color = txtCor;
+      b.style.fontWeight = '700';
+    } else {
+      b.style.background = 'var(--panel2)';
+      b.style.color = 'var(--txt)';
+    }
+    b.onclick=()=>{
+      rascunho.time = (rascunho.time === i) ? null : i;
+      rascunho.autor=null;
+      rascunho.assist=null;
+      pickTimes();
+      pickJogadores();
+      andamento();
+    };
+    el.appendChild(b);
+  });
+}
+function pickJogadores(){
+  const ea=$('#pickAutor'), es=$('#pickAssist');
+  if(rascunho.time===null || rascunho.time===undefined || !S.times[rascunho.time]){
+    rascunho.autor = null;
+    rascunho.assist = null;
+    ea.innerHTML='<span class="hint" style="margin:0; padding:4px 0; color:var(--dim)">Selecione o time do gol primeiro.</span>';
+    es.innerHTML='<span class="hint" style="margin:0; padding:4px 0; color:var(--dim)">Selecione o time do gol primeiro.</span>';
+    return;
+  }
+  const jogadores = S.times[rascunho.time].jogadores;
+  const semElenco = jogadores.length===0;
+
+  ea.innerHTML='';
+  jogadores.forEach(nome=>{
+    const pos = obterPosicaoJogador(rascunho.time, nome);
+    const pInfo = POSICOES_JOGADORES.find(p => p.id === pos) || { sigla: 'MEI' };
+    const b=document.createElement('button'); b.type='button';
+    b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${pInfo.sigla}]</span>`;
+    b.className = rascunho.autor===nome ? 'sel' : '';
+    b.onclick=()=>{ rascunho.autor = nome; pickJogadores(); };
+    ea.appendChild(b);
+  });
+  const outroAutorSel = rascunho.autor!=null && !jogadores.includes(rascunho.autor);
+  const inA = document.createElement('input');
+  inA.type='text'; inA.id='inAutor'; inA.style.flex='1 1 100%';
+  if(!semElenco) inA.style.marginTop='6px';
+  inA.placeholder = semElenco ? 'Nome de quem fez o gol' : 'outro nome (fora do elenco)';
+  inA.value = outroAutorSel ? rascunho.autor : '';
+  inA.oninput = e=>{ rascunho.autor = e.target.value.trim() || null; };
+  ea.appendChild(inA);
+
+  es.innerHTML='';
+  const semAssist = rascunho.assist === '—';
+  jogadores.forEach(nome=>{
+    const pos = obterPosicaoJogador(rascunho.time, nome);
+    const pInfo = POSICOES_JOGADORES.find(p => p.id === pos) || { sigla: 'MEI' };
+    const b=document.createElement('button'); b.type='button';
+    b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${pInfo.sigla}]</span>`;
+    b.className = (!semAssist && rascunho.assist===nome) ? 'sel' : '';
+    b.onclick=()=>{ rascunho.assist = nome; pickJogadores(); };
+    es.appendChild(b);
+  });
+  const outroAssistSel = !semAssist && rascunho.assist!=null && !jogadores.includes(rascunho.assist);
+  const inS = document.createElement('input');
+  inS.type='text'; inS.id='inAssist'; inS.style.flex='1 1 100%';
+  if(!semElenco) inS.style.marginTop='6px';
+  inS.placeholder = semElenco ? 'Nome de quem deu a assistência' : 'outro nome (fora do elenco)';
+  inS.disabled = semAssist;
+  inS.value = outroAssistSel ? rascunho.assist : '';
+  inS.oninput = e=>{ rascunho.assist = e.target.value.trim() || null; };
+  es.appendChild(inS);
+
+  const lbl = document.createElement('label'); lbl.className='row'; lbl.style.marginTop='6px'; lbl.style.flex='1 1 100%';
+  const chk = document.createElement('input'); chk.type='checkbox'; chk.id='chkSemAssist'; chk.style.width='auto';
+  chk.checked = semAssist;
+  chk.onchange = e=>{
+    rascunho.assist = e.target.checked ? '—' : ($('#inAssist').value.trim() || null);
+    pickJogadores();
+  };
+  lbl.appendChild(chk); lbl.appendChild(document.createTextNode(' sem assistência'));
+  es.appendChild(lbl);
+}
+function andamento(){
+  const t=ESTADO.gols.length;
+  const gols=ESTADO.gols.filter(g=>g.tipo==='gol'&&!g.descartado).length;
+  const lc=ESTADO.gols.filter(g=>g.tipo==='lance'&&!g.descartado).length;
+  const desc=ESTADO.gols.filter(g=>g.descartado).length;
+  $('#andamento').innerHTML = `<b>${gols}</b> gols · <b>${lc}</b> lances · ${desc} descartados · ${t-gols-lc-desc} a revisar`;
+  atualizarAnaliseGolsMarcacao();
+}
+
+function atualizarAnaliseGolsMarcacao(){
+  const topoEl = $('#placarMarcacaoTopo');
+  const detalheEl = $('#analiseGolsDetalhada');
+  if(!topoEl && !detalheEl) return;
+
+  const timeA = S.times[0] || {nome: 'Time A', cor: '#3b82f6'};
+  const timeB = S.times[1] || {nome: 'Time B', cor: '#f59e0b'};
+
+  const v = validos();
+  const golsA = v.filter(g => g.time === 0).length;
+  const golsB = v.filter(g => g.time === 1).length;
+  const totalMarcados = golsA + golsB;
+
+  const pJogo = S.meta.placar_jogo;
+  const temPlacar = pJogo && (pJogo[0] != null || pJogo[1] != null);
+
+  if(!temPlacar){
+    if(topoEl){
+      topoEl.innerHTML = `
+        <div style="background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px">
+          <div class="row" style="gap:10px; align-items:center">
+            <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--dim)">Gols marcados:</span>
+            <span style="font-weight:700; color:${timeA.cor}">${timeA.nome}: ${golsA}</span>
+            <span style="color:var(--line)">×</span>
+            <span style="font-weight:700; color:${timeB.cor}">${timeB.nome}: ${golsB}</span>
+          </div>
+          <div style="font-size:12px; color:var(--dim)">
+            💡 <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Informe o placar final no Passo 5</a> para conferir quantos gols faltam.
+          </div>
+        </div>
+      `;
+    }
+    if(detalheEl){
+      detalheEl.innerHTML = `
+        <div style="padding:10px; background:var(--panel2); border:1px dashed var(--line); border-radius:6px; font-size:12px; color:var(--dim); line-height:1.5">
+          💡 Para o assistente analisar <b>quantos gols faltam</b> e de <b>qual time falta marcar</b>, informe o placar final do jogo no <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Passo 5 (Dados da partida)</a>.
+        </div>
+      `;
+    }
+    return;
+  }
+
+  const espA = pJogo[0] != null ? pJogo[0] : 0;
+  const espB = pJogo[1] != null ? pJogo[1] : 0;
+  const totalEsp = espA + espB;
+  const faltamA = espA - golsA;
+  const faltamB = espB - golsB;
+  const faltamTotal = totalEsp - totalMarcados;
+
+  let badgeTextoA = '', badgeStyleA = '';
+  if(faltamA > 0){
+    badgeTextoA = `Faltam ${faltamA}`;
+    badgeStyleA = `background:rgba(245,158,11,0.18); border:1px solid var(--b); color:var(--b)`;
+  } else if(faltamA === 0){
+    badgeTextoA = `✓ Completo (${espA})`;
+    badgeStyleA = `background:rgba(34,197,94,0.18); border:1px solid var(--accent); color:var(--accent)`;
+  } else {
+    badgeTextoA = `⚠ +${-faltamA} a mais`;
+    badgeStyleA = `background:rgba(239,68,68,0.18); border:1px solid #ef4444; color:#f87171`;
+  }
+
+  let badgeTextoB = '', badgeStyleB = '';
+  if(faltamB > 0){
+    badgeTextoB = `Faltam ${faltamB}`;
+    badgeStyleB = `background:rgba(245,158,11,0.18); border:1px solid var(--b); color:var(--b)`;
+  } else if(faltamB === 0){
+    badgeTextoB = `✓ Completo (${espB})`;
+    badgeStyleB = `background:rgba(34,197,94,0.18); border:1px solid var(--accent); color:var(--accent)`;
+  } else {
+    badgeTextoB = `⚠ +${-faltamB} a mais`;
+    badgeStyleB = `background:rgba(239,68,68,0.18); border:1px solid #ef4444; color:#f87171`;
+  }
+
+  let badgeTextoTotal = '', badgeStyleTotal = '';
+  if(faltamTotal > 0){
+    badgeTextoTotal = `⏳ Faltam ${faltamTotal} gols no total`;
+    badgeStyleTotal = `background:rgba(245,158,11,0.22); border:1px solid var(--b); color:var(--b)`;
+  } else if(faltamTotal === 0 && faltamA === 0 && faltamB === 0){
+    badgeTextoTotal = `✓ Todos os ${totalEsp} gols marcados!`;
+    badgeStyleTotal = `background:rgba(34,197,94,0.22); border:1px solid var(--accent); color:var(--accent)`;
+  } else {
+    badgeTextoTotal = `⚠ Atenção ao placar`;
+    badgeStyleTotal = `background:rgba(239,68,68,0.22); border:1px solid #ef4444; color:#f87171`;
+  }
+
+  if(topoEl){
+    topoEl.innerHTML = `
+      <div style="background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px">
+        <div class="row" style="gap:14px; align-items:center; flex-wrap:wrap">
+          <div style="display:flex; align-items:center; gap:8px">
+            <span style="font-size:11px; text-transform:uppercase; letter-spacing:.7px; color:var(--dim); font-weight:700">Placar do Jogo:</span>
+            <b style="font-family:ui-monospace,monospace; font-size:15px; color:var(--txt)">${espA} × ${espB}</b>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; border-left:1px solid var(--line); padding-left:14px; flex-wrap:wrap">
+            <span style="font-size:11px; text-transform:uppercase; letter-spacing:.7px; color:var(--dim); font-weight:700">Gols Marcados:</span>
+            <span style="font-weight:700; color:${timeA.cor}">${timeA.nome}: ${golsA}/${espA}</span>
+            <span style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:4px; ${badgeStyleA}">${badgeTextoA}</span>
+            <span style="color:var(--line)">|</span>
+            <span style="font-weight:700; color:${timeB.cor}">${timeB.nome}: ${golsB}/${espB}</span>
+            <span style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:4px; ${badgeStyleB}">${badgeTextoB}</span>
+          </div>
+        </div>
+        <div class="row" style="align-items:center">
+          <span style="font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px; ${badgeStyleTotal}">${badgeTextoTotal}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  if(detalheEl){
+    const pctA = Math.min(100, Math.round((golsA / Math.max(1, espA)) * 100));
+    const pctB = Math.min(100, Math.round((golsB / Math.max(1, espB)) * 100));
+
+    let itensAnalise = [];
+    if(faltamA > 0) itensAnalise.push(`Faltam <b style="color:${timeA.cor}">${faltamA} gol(s) do ${timeA.nome}</b>`);
+    else if(faltamA === 0) itensAnalise.push(`<span style="color:var(--accent); font-weight:700">✓ ${timeA.nome} completo (${espA}/${espA})</span>`);
+    else itensAnalise.push(`<span style="color:#f87171; font-weight:700">⚠ ${timeA.nome} com ${-faltamA} a mais</span>`);
+
+    if(faltamB > 0) itensAnalise.push(`Faltam <b style="color:${timeB.cor}">${faltamB} gol(s) do ${timeB.nome}</b>`);
+    else if(faltamB === 0) itensAnalise.push(`<span style="color:var(--accent); font-weight:700">✓ ${timeB.nome} completo (${espB}/${espB})</span>`);
+    else itensAnalise.push(`<span style="color:#f87171; font-weight:700">⚠ ${timeB.nome} com ${-faltamB} a mais</span>`);
+
+    const faltamRevisar = (ESTADO.gols || []).filter(g => !g.descartado && !g.tipo).length;
+
+    let avisoSemClipes = '';
+    if(faltamTotal > 0 && faltamRevisar === 0){
+      avisoSemClipes = `
+        <div style="margin-top:10px; padding:10px; background:rgba(245,158,11,0.12); border:1px solid var(--b); border-radius:6px; font-size:12px">
+          <b style="color:var(--b)">⚠ Faltam ${faltamTotal} gol(s) no vídeo!</b>
+          <div style="margin-top:4px; line-height:1.4">Todos os clipes atuais já foram classificados, mas ainda faltam marcar ${faltamA > 0 ? `${faltamA} gol(s) do ${timeA.nome}` : ''}${(faltamA > 0 && faltamB > 0) ? ' e ' : ''}${faltamB > 0 ? `${faltamB} gol(s) do ${timeB.nome}` : ''}.</div>
+          <button type="button" class="amberb" onclick="irPara('s-revisar')" style="margin-top:8px; width:100%; font-size:12px; padding:6px 10px">🎬 Voltar à Tela 4 para cortar mais gols no vídeo completo</button>
+        </div>
+      `;
+    }
+
+    detalheEl.innerHTML = `
+      <div style="background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px">
+          <!-- Card Time A -->
+          <div style="background:var(--panel); border:1px solid ${faltamA === 0 ? 'var(--accent)' : 'var(--line)'}; border-radius:6px; padding:8px 10px">
+            <div class="row" style="justify-content:space-between; align-items:center">
+              <b style="color:${timeA.cor}; font-size:12px">${timeA.nome}</b>
+              <span style="font-size:10px; font-weight:700; padding:1px 5px; border-radius:3px; ${badgeStyleA}">${badgeTextoA}</span>
+            </div>
+            <div style="font-size:18px; font-weight:800; color:${timeA.cor}; margin:4px 0 3px; font-family:ui-monospace,monospace">
+              ${golsA} <span style="font-size:12px; font-weight:500; color:var(--dim)">/ ${espA} gols</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.08); border-radius:3px; height:5px; overflow:hidden">
+              <div style="background:${timeA.cor}; width:${pctA}%; height:100%; border-radius:3px"></div>
+            </div>
+          </div>
+
+          <!-- Card Time B -->
+          <div style="background:var(--panel); border:1px solid ${faltamB === 0 ? 'var(--accent)' : 'var(--line)'}; border-radius:6px; padding:8px 10px">
+            <div class="row" style="justify-content:space-between; align-items:center">
+              <b style="color:${timeB.cor}; font-size:12px">${timeB.nome}</b>
+              <span style="font-size:10px; font-weight:700; padding:1px 5px; border-radius:3px; ${badgeStyleB}">${badgeTextoB}</span>
+            </div>
+            <div style="font-size:18px; font-weight:800; color:${timeB.cor}; margin:4px 0 3px; font-family:ui-monospace,monospace">
+              ${golsB} <span style="font-size:12px; font-weight:500; color:var(--dim)">/ ${espB} gols</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.08); border-radius:3px; height:5px; overflow:hidden">
+              <div style="background:${timeB.cor}; width:${pctB}%; height:100%; border-radius:3px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:12px; line-height:1.5; color:var(--txt)">
+          ${itensAnalise.join(' · ')}
+        </div>
+        ${avisoSemClipes}
+      </div>
+    `;
+  }
+}
+$('#btnSalvar').onclick = ()=>{
+  const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];
+  if(!g) return;
+  if(!rascunho.tipo){ alert('Escolha o tipo do clipe (Gol, Defesaça, etc).'); return; }
+  const temTime = (rascunho.time !== null && rascunho.time !== undefined && S.times[rascunho.time]);
+  const ehGol = rascunho.tipo === 'gol';
+  if(ehGol && (!temTime || !rascunho.autor)){ alert('Escolha o time e o autor do gol.'); return; }
+  g.tipo = rascunho.tipo;
+  g.status = rascunho.status || (ehGol ? 'gol' : 'lance');
+  g.lance = !ehGol ? (rascunho.lance || 'Lance') : null;
+  g.time = temTime ? rascunho.time : null;
+  g.autor = (ehGol && temTime) ? rascunho.autor : null;
+  g.assist = (ehGol && temTime && rascunho.assist !== '—') ? rascunho.assist : null;
+  g.destaque = (!ehGol && temTime) ? rascunho.destaque : null;
+  g.descartado = false;
+
+  fetch('/api/gols/confirmar', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      indice: g.indice,
+      status: g.status,
+      lance: g.lance,
+      time: g.time,
+      autor: g.autor,
+      assist: g.assist,
+      destaque: g.destaque
+    })
+  }).catch(()=>{});
+
+  agendarSalvar();
+  const currIdx = ESTADO.gols.findIndex(x => x.indice === g.indice);
+  if(currIdx >= 0 && currIdx < ESTADO.gols.length - 1){
+    ESTADO.indiceAtual = ESTADO.gols[currIdx + 1].indice;
+  }
+  renderMarcacao();
+};
+
+const btnExcluirStep6 = $('#btnExcluirClipeStep6');
+if(btnExcluirStep6){
+  btnExcluirStep6.onclick = async ()=>{
+    const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];
+    if(!g) return;
+    if(!confirm(`ATENÇÃO: Deseja EXCLUIR DEFINITIVAMENTE o clipe selecionado #${String(g.indice).padStart(2,'0')} (${g.tempo || ''}) do computador?\n\nO arquivo de vídeo será apagado e o lance será removido da lista.`)) return;
+
+    const currIdx = ESTADO.gols.findIndex(x => x.indice === g.indice);
+    const proximoIndice = (currIdx >= 0 && currIdx < ESTADO.gols.length - 1)
+      ? ESTADO.gols[currIdx + 1].indice
+      : (currIdx > 0 ? ESTADO.gols[currIdx - 1].indice : null);
+
+    const ok = await descartarClipe(g.indice);
+    if(ok){
+      ESTADO.indiceAtual = proximoIndice;
+      await sincronizarGolsComBackend();
+      renderMarcacao();
+    }
+  };
+}
+
+$('#btnDescartar').onclick = ()=>{
+  const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];
+  if(!g) return;
+  if(!g.descartado){
+    if(!confirm(`Pular o clipe #${String(g.indice).padStart(2,'0')} (${g.tempo || ''}) da súmula sem apagar o arquivo de vídeo?\n\nEle não entrará no vídeo final.`)) return;
+    g._backup = { tipo: g.tipo, status: g.status, autor: g.autor, assist: g.assist, time: g.time, lance: g.lance, destaque: g.destaque };
+    g.descartado = true;
+    g.tipo = null; g.status = null; g.autor = null; g.assist = null; g.time = null; g.lance = null; g.destaque = null;
+    const currIdx = ESTADO.gols.findIndex(x => x.indice === g.indice);
+    if(currIdx >= 0 && currIdx < ESTADO.gols.length - 1){
+      ESTADO.indiceAtual = ESTADO.gols[currIdx + 1].indice;
+    }
+  } else {
+    g.descartado = false;
+    if(g._backup){
+      Object.assign(g, g._backup);
+      delete g._backup;
+    }
+  }
+  agendarSalvar();
+  renderMarcacao();
+};
+$('#btnPrev').onclick = ()=>{
+  const currIdx = ESTADO.gols.findIndex(x => x.indice === ESTADO.indiceAtual);
+  if(currIdx > 0){
+    ESTADO.indiceAtual = ESTADO.gols[currIdx - 1].indice;
+    renderMarcacao();
+  }
+};
+$('#btnNext').onclick = ()=>{
+  const currIdx = ESTADO.gols.findIndex(x => x.indice === ESTADO.indiceAtual);
+  if(currIdx >= 0 && currIdx < ESTADO.gols.length - 1){
+    ESTADO.indiceAtual = ESTADO.gols[currIdx + 1].indice;
+    renderMarcacao();
+  }
+};
+$('#btnRep').onclick = ()=>{ const v=$('#vid'); v.currentTime=0; v.play(); };
+document.addEventListener('keydown', e=>{
+  if(passoAtual!=='s-marcar') return;
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if(e.key==='ArrowLeft') $('#btnPrev').click();
+  else if(e.key==='ArrowRight') $('#btnNext').click();
+  else if(e.key==='Enter') $('#btnSalvar').click();
+  else if(k==='r') $('#btnRep').click();
+  else {
+    let match = TIPOS_CLIPE.find(t => t.hotkey === k);
+    if(!match && (k === 'l' || k === 'o')){
+      match = TIPOS_CLIPE.find(t => t.id === 'lance');
+    }
+    if(match){
+      selecionarTipoMarcacao(match);
+    }
+  }
+});
+
+/* ------------------------------------------------------------ passo 7: resumo e montagem */
+function renderResumo(){
+  const v = validos();
+  const gm = golsMarcados();
+  const a = v.filter(g=>g.time===0).length, b = v.filter(g=>g.time===1).length;
+  $('#placar').innerHTML = `<span style="color:${S.times[0].cor}">${a}</span> × <span style="color:${S.times[1].cor}">${b}</span>`;
+  const l = lances();
+  $('#subPlacar').textContent = `${S.times[0].nome} × ${S.times[1].nome} · ${v.length} gols marcados (${gm.length} identificados)`
+    + (l.length?` · ${l.length} melhores momentos`:'') + ` · ${v.length+l.length} clipes no vídeo final`;
+
+  const cardComp = $('#cardComparacaoPlacar');
+  const pJogo = S.meta.placar_jogo;
+  if(pJogo && (pJogo[0] != null || pJogo[1] != null)){
+    const espA = pJogo[0] != null ? pJogo[0] : 0;
+    const espB = pJogo[1] != null ? pJogo[1] : 0;
+    const totalEsp = espA + espB;
+    const diffA = espA - a;
+    const diffB = espB - b;
+    const totalAchados = a + b;
+    const diffTotal = totalEsp - totalAchados;
+
+    let msgStatus = '';
+    let corBorda = 'var(--accent)';
+    if(diffTotal === 0 && diffA === 0 && diffB === 0){
+      msgStatus = '<span class="ok" style="font-size:14px; font-weight:700">✓ Todos os gols do placar foram encontrados e marcados!</span>';
+    } else {
+      corBorda = 'var(--b)';
+      const faltamMsg = [];
+      if(diffA > 0) faltamMsg.push(`faltam <b>${diffA} gol(s)</b> do ${S.times[0].nome}`);
+      else if(diffA < 0) faltamMsg.push(`há <b>${-diffA} gol(s) a mais</b> do ${S.times[0].nome}`);
+      if(diffB > 0) faltamMsg.push(`faltam <b>${diffB} gol(s)</b> do ${S.times[1].nome}`);
+      else if(diffB < 0) faltamMsg.push(`há <b>${-diffB} gol(s) a mais</b> do ${S.times[1].nome}`);
+
+      msgStatus = `<span style="color:var(--b); font-size:14px; font-weight:700">⚠ Placar informado: ${espA} × ${espB} (${totalEsp} gols). Marcados nos clipes: ${a} × ${b} (${totalAchados} gols).</span>
+        <div style="margin-top:6px; font-size:13px; color:var(--txt)">${faltamMsg.join(' e ')}.</div>
+        <div class="hint" style="margin-top:4px">Dica: Volte ao <a href="javascript:void(0)" onclick="irPara('s-revisar')" style="color:var(--accent); font-weight:600">Passo 4 (Revisar cortes)</a> para assistir ao vídeo completo na velocidade que desejar e gerar os clipes faltantes.</div>`;
+    }
+
+    cardComp.innerHTML = `
+      <div class="card" style="border-left: 5px solid ${corBorda}; padding:14px">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--dim); font-weight:700">Conferência do Placar da Partida</div>
+        <div style="margin-top:8px">${msgStatus}</div>
+      </div>
+    `;
+    cardComp.style.display = 'block';
+  } else {
+    cardComp.innerHTML = `
+      <div class="card" style="border-left: 4px solid var(--line); padding:12px">
+        <div class="hint">💡 Você não informou o placar final do jogo no <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent)">Passo 5 (Dados da partida)</a>. Se preencher lá, o assistente confere quantos gols faltam encontrar no vídeo.</div>
+      </div>
+    `;
+    cardComp.style.display = 'block';
+  }
+
+  const medalhas=['🥇','🥈','🥉'];
+  const pod=(el,dados,rot)=>{
+    $(el).innerHTML = dados.slice(0,3).map(d=>`<div class="pod"><div class="p">${medalhas[dados.indexOf(d)]}</div>
+      <div class="nm">${d[0]}</div><div class="v">${d[1]} ${rot}</div></div>`).join('')
+      || `<div class="pod" style="grid-column:1/-1"><div class="hint">sem dados</div></div>`;
+  };
+  pod('#podGols', contar('autor'), 'gols'); pod('#podAssist', contar('assist'), 'assist.');
+  const tabela=(el,dados,rot)=>{
+    $(el).innerHTML = '<tr><th>Jogador</th><th style="text-align:right">'+rot+'</th></tr>' +
+      (dados.map(d=>`<tr><td>${d[0]}</td><td class="n">${d[1]}</td></tr>`).join('') || '<tr><td colspan="2" class="hint">sem dados</td></tr>');
+  };
+  tabela('#tbGols', contar('autor'), 'Gols'); tabela('#tbAssist', contar('assist'), 'Assist.');
+  const todosCrono = [
+    ...v.map(g => ({...g, tipoEvento: 'gol'})),
+    ...l.map(g => ({...g, tipoEvento: 'lance'}))
+  ].sort((a, b) => {
+    const tA = obterTempoSegundosClipe(a), tB = obterTempoSegundosClipe(b);
+    return (tA !== -1 && tB !== -1) ? (tA - tB) : ((a.indice||0) - (b.indice||0));
+  });
+
+  $('#tbCrono').innerHTML = '<tr><th>#</th><th>Tempo</th><th>Time</th><th>Lance / Gol</th><th>Assistência / Detalhes</th></tr>' +
+    (todosCrono.map((g, idx)=>{
+      if(g.tipoEvento === 'gol'){
+        const t = S.times[g.time];
+        const cor = t ? t.cor : 'var(--accent)';
+        const nomeTime = t ? t.nome : 'Time';
+        return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td><td><span class="teamtag" style="background:${cor};color:${corTextoParaFundo(cor)}">${nomeTime}</span></td>
+          <td><b>⚽ GOL: ${g.autor}</b></td><td>${g.assist ? 'assistência: ' + g.assist : '—'}</td></tr>`;
+      } else {
+        const t = (g.time !== null && g.time !== undefined && S.times[g.time]) ? S.times[g.time] : null;
+        const timeTag = t ? `<span class="teamtag" style="background:${t.cor};color:${corTextoParaFundo(t.cor)}">${t.nome}</span>` : '<span class="hint">lance</span>';
+        return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td><td>${timeTag}</td>
+          <td colspan="2">${g.lance || 'Melhor momento'}${g.destaque ? ' — <b>' + g.destaque + '</b>' : ''}</td></tr>`;
+      }
+    }).join('') || '<tr><td colspan="5" class="hint">nenhum gol ou lance marcado ainda</td></tr>');
+}
+
+function renderResultadosVideosFinais(){
+  $('#resultadoFinal').innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px">
+      <div class="card" style="margin:0; background:var(--panel2)">
+        <h3 style="margin:0 0 8px; font-size:14px; color:var(--accent)">🎬 Melhores Momentos (Gols + Lances)</h3>
+        <video src="/video/final" controls style="border-radius:8px; width:100%; max-height:280px; background:#000"></video>
+        <div class="row" style="margin-top:10px">
+          <a class="act" style="text-decoration:none; display:inline-block; text-align:center; font-size:12px" href="/video/final" download>⬇ Baixar melhores_momentos.mp4</a>
+        </div>
+      </div>
+      <div class="card" style="margin:0; background:var(--panel2)">
+        <h3 style="margin:0 0 8px; font-size:14px; color:var(--accent)">⚽ Apenas Gols</h3>
+        <video src="/video/final/gols" controls style="border-radius:8px; width:100%; max-height:280px; background:#000"></video>
+        <div class="row" style="margin-top:10px">
+          <a class="act" style="text-decoration:none; display:inline-block; text-align:center; font-size:12px" href="/video/final/gols" download>⬇ Baixar apenas_gols.mp4</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+$('#btnMontar').onclick = async ()=>{
+  await salvarPartida();
+  $('#btnMontar').disabled = true;
+
+  const todosOrdenados = [...validos(), ...lances()].sort((a, b) => {
+    const tA = obterTempoSegundosClipe(a), tB = obterTempoSegundosClipe(b);
+    return (tA !== -1 && tB !== -1) ? (tA - tB) : ((a.indice||0) - (b.indice||0));
+  });
+  const todos = todosOrdenados.map(g => g.indice);
+
+  const promptText = todos.length
+    ? `Clipes ordenados por tempo cronológico (${todos.length} clipes). Edite os índices se desejar ou deixe como está para montar na ordem cronológica:`
+    : 'Nenhum clipe válido para montar. Verifique a marcação.';
+
+  const resposta = window.prompt(promptText, todos.join(', '));
+  if (resposta === null) {
+    $('#btnMontar').disabled = false;
+    return;
+  }
+
+  const roteiro = resposta.trim()
+    ? resposta.split(/[\s,]+/).map(v => parseInt(v, 10)).filter(n => Number.isInteger(n) && n >= 0)
+    : todos;
+
+  if (resposta.trim() && !roteiro.length) {
+    $('#btnMontar').disabled = false;
+    alert('Digite índices válidos para os clipes, separados por vírgula.');
+    return;
+  }
+
+  const body = {
+    abertura: parseFloat($('#abertura').value)||7,
+    fechamento: parseFloat($('#fechamento').value)||8,
+    sem_audio: $('#semAudio').checked,
+    sem_abertura: $('#semAbertura').checked,
+    sem_fechamento: $('#semFechamento').checked,
+    roteiro: roteiro.length ? roteiro : todos,
+  };
+
+  const btnCanc = $('#btnCancelarMontar');
+  const r = await fetch('/api/montar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if(!r.ok){ $('#btnMontar').disabled=false; alert('Não consegui iniciar a montagem.'); return; }
+  const {job_id} = await r.json();
+  const ok = await acompanharJob(job_id, $('#montarLog'), btnCanc);
+  $('#btnMontar').disabled = false;
+  if(ok){
+    renderResultadosVideosFinais();
+  }
+};
+
+/* ------------------------------------------------------------ boot */
+(async ()=>{
+  montarNav(); irPara('s-video');
+  buscarVideos();
+  explorar();
+  const rp = await fetch('/api/placar'); const {rect} = await rp.json();
+  if(rect){ ESTADO.placarRect = rect; $('#btnConfirmarPlacar').disabled=false; $('#btnIrGols').disabled=false;
+    $('#placarAtual').innerHTML = `<span class="ok">✓ Região já salva: [${rect.join(', ')}]</span>`; }
+  const rz = await fetch('/api/zonas'); const {zonas} = await rz.json();
+  zonasSel = zonas || [];
+  renderListaZonas();
+  redesenharTudo();
+  if(zonasSel.length > 0) $('#cardZonasDet').style.display = 'block';
+
+  const rpart = await fetch('/api/partida');
+  const partida = rpart.status===200 ? await rpart.json() : null;
+  if(partida){
+    S.meta = partida.meta || S.meta; S.times = partida.times || S.times;
+    if(partida.meta && partida.meta.video){
+      selecionarVideo({nome: partida.meta.video.split(/[\\/]/).pop(), caminho: partida.meta.video, duracao_s: null});
+    }
+    if(partida._todosGols) ESTADO.gols = partida._todosGols;
+  }
+  if(!ESTADO.video){
+    try {
+      const rg = await fetch('/api/gols');
+      const dg = await rg.json();
+      if(dg && dg.video){
+        selecionarVideo({nome: dg.video.split(/[\\/]/).pop(), caminho: dg.video, duracao_s: null});
+      }
+    } catch(e){}
+  }
+  escreverSetup();
+  inicializarVideoCompleto();
+
+  const re = await fetch('/api/estado'); const estado = await re.json();
+  if(estado.clipes_ok){
+    await carregarClipes();
+    $('#btnIrRevisar').disabled = false;
+  }
+  if(estado.final_ok || estado.final_gols_ok){
+    renderResultadosVideosFinais();
+  }
+})();
+</script>

@@ -1,0 +1,640 @@
+<meta charset="utf-8">
+<title>Marcador de Gols</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3440;
+    --txt:#e6edf3; --dim:#8b96a5; --accent:#22c55e; --accent2:#16a34a;
+    --a:#3b82f6; --b:#f59e0b; --warn:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;
+         background:linear-gradient(90deg,#0f1c14,#0d1117);border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:17px;letter-spacing:.4px}
+  .ball{width:26px;height:26px;border-radius:50%;background:var(--accent);
+        display:grid;place-items:center;font-size:14px}
+  nav{margin-left:auto;display:flex;gap:6px}
+  nav button{background:transparent;border:1px solid var(--line);color:var(--dim);
+             padding:7px 14px;border-radius:7px;cursor:pointer;font-size:13px}
+  nav button.on{background:var(--accent);border-color:var(--accent);color:#04140a;font-weight:600}
+  main{max-width:1120px;margin:0 auto;padding:20px}
+  section{display:none} section.on{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+        padding:16px;margin-bottom:14px}
+  .card h2{margin:0 0 12px;font-size:14px;text-transform:uppercase;
+           letter-spacing:.8px;color:var(--dim);font-weight:600}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  label{display:block;font-size:12px;color:var(--dim);margin:9px 0 4px}
+  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);
+    color:var(--txt);padding:9px 11px;border-radius:7px;font:inherit}
+  textarea{min-height:150px;resize:vertical;font-family:ui-monospace,monospace;font-size:13px}
+  input[type=color]{padding:3px;height:38px;cursor:pointer}
+  button.act{background:var(--accent);border:0;color:#04140a;padding:10px 18px;
+    border-radius:8px;cursor:pointer;font-weight:600;font-size:13px}
+  button.act:hover{background:var(--accent2)}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt);
+    padding:9px 15px;border-radius:8px;cursor:pointer;font-size:13px}
+  button.ghost:hover{border-color:var(--accent)}
+  .row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .hint{font-size:12px;color:var(--dim);margin-top:7px}
+
+  /* marcacao */
+  .work{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+  @media(max-width:900px){.work{grid-template-columns:1fr}}
+  video{width:100%;border-radius:9px;background:#000;display:block}
+  .golnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{width:38px;height:32px;border-radius:7px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--dim);cursor:pointer;font-size:12px;font-weight:600}
+  .chip.done{background:#14351f;border-color:var(--accent);color:var(--accent)}
+  .chip.cur{outline:2px solid var(--txt);outline-offset:1px}
+  .chip.skip{background:#3a1d1d;border-color:var(--warn);color:#fca5a5}
+  .pick{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+  .pick button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:8px 13px;border-radius:20px;cursor:pointer;font-size:13px}
+  .pick button:hover{border-color:var(--accent)}
+  .pick button.sel{background:var(--accent);border-color:var(--accent);
+    color:#04140a;font-weight:600}
+  .teamtag{display:inline-block;padding:3px 10px;border-radius:5px;
+    font-size:12px;font-weight:600;color:#04140a}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .podium{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .pod{background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+       padding:14px;text-align:center}
+  .pod .p{font-size:20px}.pod .nm{font-weight:600;margin:4px 0 2px}
+  .pod .v{color:var(--accent);font-size:13px}
+  .score{font-size:34px;font-weight:700;text-align:center;
+         font-variant-numeric:tabular-nums;margin:6px 0 2px}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+      padding:12px;overflow:auto;font-size:12px;max-height:340px;white-space:pre-wrap}
+  .ok{color:var(--accent)} .bad{color:var(--warn)}
+  .fonte{display:inline-block;padding:2px 9px;border-radius:11px;font-size:11px;
+         font-weight:600;margin-left:7px}
+  .f-ambos{background:#14351f;color:#4ade80;border:1px solid #22c55e}
+  .f-placar{background:#1e293b;color:#93c5fd;border:1px solid #3b82f6}
+  .f-audio{background:#332312;color:#fcd34d;border:1px solid #f59e0b}
+  .chip.lance{background:#332312;border-color:var(--b);color:#fcd34d}
+</style>
+
+<header>
+  <div class="ball">⚽</div>
+  <h1>Marcador de Gols e Assistências</h1>
+  <nav>
+    <button data-go="setup" class="on">1 · Partida</button>
+    <button data-go="mark">2 · Marcação</button>
+    <button data-go="out">3 · Resumo</button>
+  </nav>
+</header>
+
+<main>
+<!-- ============================ SETUP ============================ -->
+<section id="setup" class="on">
+  <div class="card">
+    <h2>Dados da partida</h2>
+    <div class="grid2">
+      <div>
+        <label>Data</label><input type="date" id="mData">
+        <label>Competição / rodada</label>
+        <input id="mComp" placeholder="Mendes Cup 2026 · Rodada 8">
+      </div>
+      <div>
+        <label>Local</label><input id="mLocal" placeholder="Sport Ball">
+        <label>Nome da pelada</label><input id="mPelada" value="Mensal FC">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Times e jogadores</h2>
+    <div class="grid2">
+      <div>
+        <div class="row">
+          <input id="tA" value="Time A" style="flex:1">
+          <input type="color" id="cA" value="#3b82f6" style="width:52px">
+        </div>
+        <label>Jogadores — um por linha</label>
+        <textarea id="pA" placeholder="Boy&#10;Scott&#10;Mendes"></textarea>
+      </div>
+      <div>
+        <div class="row">
+          <input id="tB" value="Time B" style="flex:1">
+          <input type="color" id="cB" value="#f59e0b" style="width:52px">
+        </div>
+        <label>Jogadores — um por linha</label>
+        <textarea id="pB" placeholder="Lemão&#10;Will&#10;Caio"></textarea>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="ghost" id="btnElenco">Colar elenco do site</button>
+      <span class="hint">Cole a lista completa e distribua entre os times.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Gols detectados</h2>
+    <div class="row">
+      <button class="ghost" id="btnJson">Carregar gols.json</button>
+      <input type="file" id="fJson" accept=".json" hidden>
+      <button class="ghost" id="btnClipes">Carregar clipes (mp4)</button>
+      <input type="file" id="fClipes" accept="video/*" multiple hidden>
+      <span id="stJson" class="hint">nenhum gol carregado</span>
+    </div>
+    <div class="hint">
+      Os clipes são lidos do seu computador e nunca são enviados a lugar nenhum.
+      Precisam se chamar <code>gol_01.mp4</code>, <code>gol_02.mp4</code>…
+    </div>
+  </div>
+
+  <div class="row">
+    <button class="act" id="btnIr">Começar marcação →</button>
+    <button class="ghost" id="btnLimpar">Limpar tudo</button>
+    <span id="stSalvo" class="hint"></span>
+  </div>
+</section>
+
+<!-- ============================ MARCACAO ============================ -->
+<section id="mark">
+  <div class="golnav" id="golnav"></div>
+  <div class="work">
+    <div>
+      <div class="card" style="padding:10px">
+        <video id="vid" controls></video>
+        <div class="row" style="margin-top:9px;justify-content:space-between">
+          <span id="lblGol" class="hint"></span>
+          <div class="row">
+            <button class="ghost" id="btnPrev">← anterior</button>
+            <button class="ghost" id="btnRep">repetir</button>
+            <button class="ghost" id="btnNext">próximo →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>O que é este clipe</h2>
+        <div class="pick" id="pickTipo"></div>
+
+        <div id="camposGol">
+          <label>Time</label>
+          <div class="pick" id="pickTime"></div>
+          <label>Autor do gol</label>
+          <div class="pick" id="pickAutor"></div>
+          <label>Assistência</label>
+          <div class="pick" id="pickAssist"></div>
+        </div>
+
+        <div id="camposLance" style="display:none">
+          <label>Tipo de lance</label>
+          <div class="pick" id="pickLance"></div>
+          <label>Jogador em destaque (opcional)</label>
+          <div class="pick" id="pickDestaque"></div>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+          <button class="act" id="btnSalvar">Salvar e avançar</button>
+          <button class="ghost" id="btnDescartar">Descartar este</button>
+        </div>
+        <div class="hint">
+          <b>Gol</b> conta no placar e ganha cartela com nome.
+          <b>Lance</b> entra no vídeo como melhor momento, sem contar placar.
+          <b>Descartar</b> tira do vídeo.
+        </div>
+      </div>
+      <div class="card">
+        <h2>Andamento</h2>
+        <div id="andamento" class="hint"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ RESUMO ============================ -->
+<section id="out">
+  <div class="card">
+    <h2>Placar final</h2>
+    <div class="score" id="placar">0 × 0</div>
+    <div class="hint" style="text-align:center" id="subPlacar"></div>
+  </div>
+  <div class="card">
+    <h2>Destaques</h2>
+    <div class="podium" id="podGols"></div>
+    <div class="podium" id="podAssist"></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Gols</h2><table id="tbGols"></table></div>
+    <div class="card"><h2>Assistências</h2><table id="tbAssist"></table></div>
+  </div>
+  <div class="card">
+    <h2>Cronologia</h2><table id="tbCrono"></table>
+  </div>
+  <div class="card">
+    <h2>Exportar</h2>
+    <div class="row">
+      <button class="act" id="btnExp">Baixar partida.json</button>
+      <button class="ghost" id="btnTxt">Copiar resumo em texto</button>
+    </div>
+    <div class="hint">
+      O <code>partida.json</code> alimenta a montagem do vídeo final.
+      O texto é para colar no site.
+    </div>
+    <pre id="preview"></pre>
+  </div>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const CHAVE = 'marcador:partida';
+
+let S = {
+  meta:{data:'',comp:'',local:'',pelada:'Mensal FC'},
+  times:[{nome:'Time A',cor:'#3b82f6',jogadores:[]},
+         {nome:'Time B',cor:'#f59e0b',jogadores:[]}],
+  gols:[], atual:0
+};
+let clipes = {};   // "01" -> objectURL
+let rascunho = {tipo:null,time:null,autor:null,assist:null,lance:null,destaque:null};
+const TIPOS_LANCE = ['Defesaça','Chute na trave','Quase gol','Drible','Bola perdida','Confusão'];
+const ROTULO_FONTE = {'placar+audio':['f-ambos','placar + áudio'],
+                      'placar':['f-placar','placar'],'audio':['f-audio','áudio']};
+
+/* ---------------------------------------------------- persistencia */
+async function salvar(){
+  try{
+    const copia = JSON.parse(JSON.stringify(S));
+    await window.storage.set(CHAVE, JSON.stringify(copia));
+    $('#stSalvo').textContent = 'salvo ' + new Date().toLocaleTimeString('pt-BR');
+  }catch(e){ $('#stSalvo').textContent = 'não consegui salvar'; }
+}
+async function carregar(){
+  try{
+    const r = await window.storage.get(CHAVE);
+    if(r && r.value){ S = JSON.parse(r.value); return true; }
+  }catch(e){}
+  return false;
+}
+
+/* ---------------------------------------------------- navegacao */
+$$('nav button').forEach(b => b.onclick = () => mostrar(b.dataset.go));
+function mostrar(id){
+  $$('section').forEach(s => s.classList.toggle('on', s.id===id));
+  $$('nav button').forEach(b => b.classList.toggle('on', b.dataset.go===id));
+  if(id==='mark') renderMarcacao();
+  if(id==='out') renderResumo();
+}
+
+/* ---------------------------------------------------- setup */
+function lerSetup(){
+  S.meta = {data:$('#mData').value, comp:$('#mComp').value,
+            local:$('#mLocal').value, pelada:$('#mPelada').value};
+  const lista = t => t.split('\n').map(x=>x.trim()).filter(Boolean);
+  S.times[0] = {nome:$('#tA').value||'Time A', cor:$('#cA').value, jogadores:lista($('#pA').value)};
+  S.times[1] = {nome:$('#tB').value||'Time B', cor:$('#cB').value, jogadores:lista($('#pB').value)};
+}
+function escreverSetup(){
+  $('#mData').value=S.meta.data; $('#mComp').value=S.meta.comp;
+  $('#mLocal').value=S.meta.local; $('#mPelada').value=S.meta.pelada||'Mensal FC';
+  $('#tA').value=S.times[0].nome; $('#cA').value=S.times[0].cor;
+  $('#pA').value=S.times[0].jogadores.join('\n');
+  $('#tB').value=S.times[1].nome; $('#cB').value=S.times[1].cor;
+  $('#pB').value=S.times[1].jogadores.join('\n');
+  statusGols();
+}
+$$('#setup input,#setup textarea').forEach(el =>
+  el.addEventListener('change', ()=>{lerSetup();salvar();}));
+
+$('#btnElenco').onclick = () => {
+  const t = prompt('Cole a lista de jogadores (um por linha ou separados por vírgula):');
+  if(!t) return;
+  const nomes = t.split(/[\n,;]+/).map(x=>x.replace(/[⚽🎯🛡️🧤]/g,'').trim()).filter(Boolean);
+  const meio = Math.ceil(nomes.length/2);
+  $('#pA').value = nomes.slice(0,meio).join('\n');
+  $('#pB').value = nomes.slice(meio).join('\n');
+  lerSetup(); salvar();
+  alert(nomes.length+' jogadores divididos. Ajuste a divisão entre os times.');
+};
+
+$('#btnJson').onclick = ()=>$('#fJson').click();
+$('#fJson').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const d = JSON.parse(await f.text());
+    const lista = d.gols || d;
+    if(!Array.isArray(lista)) throw new Error('formato');
+    const antigos = {};
+    S.gols.forEach(g => antigos[g.indice] = g);
+    S.gols = lista.map(g => Object.assign({
+      indice:g.indice, tempo:g.tempo, tempo_s:g.tempo_s,
+      inicio_s:g.inicio_s, fim_s:g.fim_s,
+      fonte:g.fonte||null, tipo:null, time:null, autor:null, assist:null,
+      lance:null, destaque:null, descartado:false
+    }, antigos[g.indice] ? {
+      tipo:antigos[g.indice].tipo, time:antigos[g.indice].time,
+      autor:antigos[g.indice].autor, assist:antigos[g.indice].assist,
+      lance:antigos[g.indice].lance, destaque:antigos[g.indice].destaque,
+      descartado:antigos[g.indice].descartado
+    } : {}));
+    S.atual = 0; statusGols(); salvar();
+  }catch(err){ alert('Não consegui ler o arquivo. Use o gols.json gerado pelo detector.'); }
+};
+
+$('#btnClipes').onclick = ()=>$('#fClipes').click();
+$('#fClipes').onchange = e => {
+  clipes = {};
+  [...e.target.files].forEach(f => {
+    const m = f.name.match(/(\d+)/);
+    if(m) clipes[String(parseInt(m[1],10)).padStart(2,'0')] = URL.createObjectURL(f);
+  });
+  statusGols();
+};
+
+function statusGols(){
+  const n = S.gols.length, c = Object.keys(clipes).length;
+  $('#stJson').textContent = n ? `${n} gols · ${c} clipes carregados`
+                               : 'nenhum gol carregado';
+}
+$('#btnIr').onclick = ()=>{ lerSetup(); salvar(); mostrar('mark'); };
+$('#btnLimpar').onclick = async ()=>{
+  if(!confirm('Apagar tudo e recomeçar?')) return;
+  try{ await window.storage.delete(CHAVE); }catch(e){}
+  location.reload();
+};
+
+/* ---------------------------------------------------- marcacao */
+function renderMarcacao(){
+  if(!S.gols.length){ $('#golnav').innerHTML =
+    '<span class="hint">Carregue o gols.json na aba Partida.</span>'; return; }
+  $('#golnav').innerHTML = '';
+  S.gols.forEach((g,i)=>{
+    const b = document.createElement('button');
+    const est = g.descartado ? ' skip' : (g.tipo==='gol' ? ' done' : (g.tipo==='lance' ? ' lance' : ''));
+    b.className = 'chip' + est + (i===S.atual?' cur':'');
+    b.textContent = g.indice; b.onclick = ()=>{ S.atual=i; renderMarcacao(); };
+    $('#golnav').appendChild(b);
+  });
+  const g = S.gols[S.atual];
+  rascunho = {tipo:g.tipo, time:g.time, autor:g.autor, assist:g.assist,
+              lance:g.lance, destaque:g.destaque};
+
+  const url = clipes[String(g.indice).padStart(2,'0')];
+  const v = $('#vid');
+  if(url){ v.src = url; v.load(); } else { v.removeAttribute('src'); v.load(); }
+  const f = ROTULO_FONTE[g.fonte];
+  const selo = f ? `<span class="fonte ${f[0]}">${f[1]}</span>` : '';
+  $('#lblGol').innerHTML = `Clipe #${g.indice} · <b>${g.tempo}</b>${selo}`
+    + (url ? '' : ' — <span class="bad">clipe não carregado</span>');
+
+  pickTipos(); pickTimes(); pickJogadores(); pickLances(); andamento();
+}
+function pickTipos(){
+  const el = $('#pickTipo'); el.innerHTML='';
+  [['gol','⚽ Gol'],['lance','🎬 Lance']].forEach(([v,rot])=>{
+    const b=document.createElement('button');
+    b.textContent=rot; b.className = rascunho.tipo===v?'sel':'';
+    b.onclick=()=>{ rascunho.tipo=v; pickTipos(); alternarCampos(); };
+    el.appendChild(b);
+  });
+  alternarCampos();
+}
+function alternarCampos(){
+  $('#camposGol').style.display   = rascunho.tipo==='lance' ? 'none' : '';
+  $('#camposLance').style.display = rascunho.tipo==='lance' ? '' : 'none';
+}
+function pickLances(){
+  const el=$('#pickLance'); if(!el) return;
+  el.innerHTML='';
+  TIPOS_LANCE.forEach(n=>{
+    const b=document.createElement('button');
+    b.textContent=n; b.className = rascunho.lance===n?'sel':'';
+    b.onclick=()=>{ rascunho.lance = rascunho.lance===n?null:n; pickLances(); };
+    el.appendChild(b);
+  });
+  const ed=$('#pickDestaque'); ed.innerHTML='';
+  const todos=[...S.times[0].jogadores, ...S.times[1].jogadores];
+  if(!todos.length){ ed.innerHTML='<span class="hint">Cadastre os jogadores na aba Partida.</span>'; return; }
+  todos.forEach(n=>{
+    const b=document.createElement('button');
+    b.textContent=n; b.className = rascunho.destaque===n?'sel':'';
+    b.onclick=()=>{ rascunho.destaque = rascunho.destaque===n?null:n; pickLances(); };
+    ed.appendChild(b);
+  });
+}
+function pickTimes(){
+  const el = $('#pickTime'); el.innerHTML='';
+  S.times.forEach((t,i)=>{
+    const b=document.createElement('button');
+    b.textContent=t.nome; b.className = rascunho.time===i?'sel':'';
+    if(rascunho.time===i){ b.style.background=t.cor; b.style.borderColor=t.cor; }
+    b.onclick=()=>{ rascunho.time=i; rascunho.autor=null; rascunho.assist=null;
+                    pickTimes(); pickJogadores(); };
+    el.appendChild(b);
+  });
+}
+function pickJogadores(){
+  const ea=$('#pickAutor'), es=$('#pickAssist');
+  ea.innerHTML=''; es.innerHTML='';
+  if(rascunho.time===null){ ea.innerHTML='<span class="hint">Escolha o time primeiro.</span>'; return; }
+  const nomes = S.times[rascunho.time].jogadores;
+  if(!nomes.length){ ea.innerHTML='<span class="hint">Cadastre os jogadores na aba Partida.</span>'; return; }
+  nomes.forEach(n=>{
+    const a=document.createElement('button');
+    a.textContent=n; a.className = rascunho.autor===n?'sel':'';
+    a.onclick=()=>{ rascunho.autor=n; if(rascunho.assist===n) rascunho.assist=null;
+                    pickJogadores(); };
+    ea.appendChild(a);
+    const s=document.createElement('button');
+    s.textContent=n; s.className = rascunho.assist===n?'sel':'';
+    s.disabled = rascunho.autor===n; s.style.opacity = s.disabled?.35:1;
+    s.onclick=()=>{ rascunho.assist = rascunho.assist===n?null:n; pickJogadores(); };
+    es.appendChild(s);
+  });
+  const sem=document.createElement('button');
+  sem.textContent='sem assistência';
+  sem.className = rascunho.assist==='—'?'sel':'';
+  sem.onclick=()=>{ rascunho.assist = rascunho.assist==='—'?null:'—'; pickJogadores(); };
+  es.appendChild(sem);
+}
+function andamento(){
+  const t=S.gols.length;
+  const gols=S.gols.filter(g=>g.tipo==='gol'&&!g.descartado).length;
+  const lances=S.gols.filter(g=>g.tipo==='lance'&&!g.descartado).length;
+  const desc=S.gols.filter(g=>g.descartado).length;
+  $('#andamento').innerHTML =
+    `<b>${gols}</b> gols · <b>${lances}</b> lances · ${desc} descartados · `
+    + `${t-gols-lances-desc} a revisar`;
+}
+$('#btnSalvar').onclick = ()=>{
+  const g = S.gols[S.atual];
+  if(!rascunho.tipo){ alert('Escolha se é Gol ou Lance.'); return; }
+  if(rascunho.tipo==='gol' && (rascunho.time===null || !rascunho.autor)){
+    alert('Escolha o time e o autor do gol.'); return; }
+  g.tipo=rascunho.tipo;
+  g.time = rascunho.tipo==='gol' ? rascunho.time : null;
+  g.autor = rascunho.tipo==='gol' ? rascunho.autor : null;
+  g.assist = (rascunho.tipo==='gol' && rascunho.assist!=='—') ? rascunho.assist : null;
+  g.lance = rascunho.tipo==='lance' ? rascunho.lance : null;
+  g.destaque = rascunho.tipo==='lance' ? rascunho.destaque : null;
+  g.descartado=false;
+  salvar();
+  if(S.atual < S.gols.length-1) S.atual++;
+  renderMarcacao();
+};
+$('#btnDescartar').onclick = ()=>{
+  const g=S.gols[S.atual];
+  g.descartado=!g.descartado;
+  if(g.descartado){ g.tipo=null; g.autor=null; g.assist=null; g.time=null;
+                    g.lance=null; g.destaque=null; }
+  salvar();
+  if(g.descartado && S.atual<S.gols.length-1) S.atual++;
+  renderMarcacao();
+};
+$('#btnPrev').onclick = ()=>{ if(S.atual>0){S.atual--;renderMarcacao();} };
+$('#btnNext').onclick = ()=>{ if(S.atual<S.gols.length-1){S.atual++;renderMarcacao();} };
+$('#btnRep').onclick = ()=>{ const v=$('#vid'); v.currentTime=0; v.play(); };
+
+/* ---------------------------------------------------- resumo */
+function validos(){ return S.gols.filter(g=>!g.descartado && g.tipo==='gol' && g.autor); }
+function lances(){ return S.gols.filter(g=>!g.descartado && g.tipo==='lance'); }
+function contar(campo){
+  const m={};
+  validos().forEach(g=>{ const v=g[campo]; if(v) m[v]=(m[v]||0)+1; });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+}
+function renderResumo(){
+  const v = validos();
+  const a = v.filter(g=>g.time===0).length, b = v.filter(g=>g.time===1).length;
+  $('#placar').innerHTML =
+    `<span style="color:${S.times[0].cor}">${a}</span> × <span style="color:${S.times[1].cor}">${b}</span>`;
+  const L = lances();
+  $('#subPlacar').textContent =
+    `${S.times[0].nome} × ${S.times[1].nome} · ${v.length} gols`
+    + (L.length ? ` · ${L.length} melhores momentos` : '')
+    + ` · ${v.length+L.length} clipes no vídeo final`;
+
+  const medalhas=['🥇','🥈','🥉'];
+  const pod=(el,dados,rot)=>{
+    $(el).innerHTML = dados.slice(0,3).map((d,i)=>
+      `<div class="pod"><div class="p">${medalhas[i]}</div>
+       <div class="nm">${d[0]}</div><div class="v">${d[1]} ${rot}</div></div>`).join('')
+      || `<div class="pod" style="grid-column:1/-1"><div class="hint">sem dados</div></div>`;
+  };
+  pod('#podGols', contar('autor'), 'gols');
+  pod('#podAssist', contar('assist'), 'assist.');
+
+  const tabela=(el,dados,rot)=>{
+    $(el).innerHTML = '<tr><th>Jogador</th><th style="text-align:right">'+rot+'</th></tr>' +
+      (dados.map(d=>`<tr><td>${d[0]}</td><td class="n">${d[1]}</td></tr>`).join('')
+       || '<tr><td colspan="2" class="hint">sem dados</td></tr>');
+  };
+  tabela('#tbGols', contar('autor'), 'Gols');
+  tabela('#tbAssist', contar('assist'), 'Assist.');
+
+  const parseTempoSeg = g => {
+    if(!g) return 0;
+    if(g.tempo_s != null && !isNaN(g.tempo_s)) return Number(g.tempo_s);
+    if(g.inicio_s != null && !isNaN(g.inicio_s)) return Number(g.inicio_s);
+    const s = g.tempo;
+    if(!s) return 0;
+    const p = s.split(':').map(Number);
+    return p.length === 2 ? p[0]*60 + p[1] : (p.length === 3 ? p[0]*3600 + p[1]*60 + p[2] : 0);
+  };
+  const todosCrono = [
+    ...v.map(g => ({...g, tipoEvento: 'gol'})),
+    ...lances().map(g => ({...g, tipoEvento: 'lance'}))
+  ].sort((a, b) => parseTempoSeg(a) - parseTempoSeg(b));
+
+  $('#tbCrono').innerHTML =
+    '<tr><th>#</th><th>Tempo</th><th>Time</th><th>Lance / Gol</th><th>Assistência / Detalhes</th></tr>' +
+    (todosCrono.map((g, idx)=>{
+      if(g.tipoEvento === 'gol'){
+        const t=S.times[g.time];
+        return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td>
+          <td><span class="teamtag" style="background:${t.cor}">${t.nome}</span></td>
+          <td><b>⚽ GOL: ${g.autor}</b></td><td>${g.assist||'—'}</td></tr>`;
+      } else {
+        return `<tr><td><b>${idx + 1}</b></td><td><b>${g.tempo}</b></td>
+          <td><span class="fonte f-audio">lance</span></td>
+          <td colspan="2">${g.lance||'melhor momento'}${g.destaque?' — <b>'+g.destaque+'</b>':''}</td></tr>`;
+      }
+    }).join('') || '<tr><td colspan="5" class="hint">nenhum gol marcado ainda</td></tr>');
+
+  $('#preview').textContent = JSON.stringify(exportar(), null, 2);
+}
+function exportar(){
+  const parseTempoSeg = g => {
+    if(!g) return 0;
+    if(g.tempo_s != null && !isNaN(g.tempo_s)) return Number(g.tempo_s);
+    if(g.inicio_s != null && !isNaN(g.inicio_s)) return Number(g.inicio_s);
+    const s = g.tempo;
+    if(!s) return 0;
+    const p = s.split(':').map(Number);
+    return p.length === 2 ? p[0]*60 + p[1] : (p.length === 3 ? p[0]*3600 + p[1]*60 + p[2] : 0);
+  };
+  const v=[...validos()].sort((a,b)=>parseTempoSeg(a)-parseTempoSeg(b));
+  const l=[...lances()].sort((a,b)=>parseTempoSeg(a)-parseTempoSeg(b));
+  const todos=[...v, ...l].sort((a,b)=>parseTempoSeg(a)-parseTempoSeg(b));
+
+  return {
+    meta: Object.assign({}, S.meta, {
+      placar:[v.filter(g=>g.time===0).length, v.filter(g=>g.time===1).length]
+    }),
+    times: S.times,
+    gols: v.map(g=>({indice:g.indice, tempo:g.tempo, tempo_s:parseTempoSeg(g),
+      inicio_s:g.inicio_s, fim_s:g.fim_s, tipo:'gol', time:g.time,
+      time_nome:S.times[g.time].nome, autor:g.autor, assist:g.assist,
+      fonte:g.fonte||null})),
+    lances: l.map(g=>({indice:g.indice, tempo:g.tempo, tempo_s:parseTempoSeg(g),
+      inicio_s:g.inicio_s, fim_s:g.fim_s, tipo:'lance',
+      lance:g.lance, destaque:g.destaque, fonte:g.fonte||null})),
+    roteiro: todos.map(g=>({i:g.indice,t:parseTempoSeg(g),tipo:g.tipo})),
+    artilheiros: contar('autor').map(d=>({jogador:d[0],gols:d[1]})),
+    garcons: contar('assist').map(d=>({jogador:d[0],assistencias:d[1]})),
+    descartados: S.gols.filter(g=>g.descartado).map(g=>g.indice)
+  };
+}
+$('#btnExp').onclick = ()=>{
+  const blob = new Blob([JSON.stringify(exportar(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='partida.json'; a.click();
+};
+$('#btnTxt').onclick = async ()=>{
+  const d=exportar();
+  let t = `${d.meta.pelada} · ${d.meta.comp||''}\n${d.meta.data||''} · ${d.meta.local||''}\n`;
+  t += `${d.times[0].nome} ${d.meta.placar[0]} x ${d.meta.placar[1]} ${d.times[1].nome}\n\nGOLS\n`;
+  d.gols.forEach(g=> t += `${g.tempo}  ${g.autor}${g.assist?' (assist. '+g.assist+')':''} — ${g.time_nome}\n`);
+  if(d.lances.length){
+    t += `\nMELHORES MOMENTOS\n`;
+    d.lances.forEach(l=> t += `${l.tempo}  ${l.lance||'lance'}${l.destaque?' — '+l.destaque:''}\n`);
+  }
+  t += `\nARTILHEIROS\n` + d.artilheiros.map(x=>`${x.jogador}: ${x.gols}`).join('\n');
+  t += `\n\nASSISTÊNCIAS\n` + d.garcons.map(x=>`${x.jogador}: ${x.assistencias}`).join('\n');
+  try{ await navigator.clipboard.writeText(t); alert('Resumo copiado.'); }
+  catch(e){ $('#preview').textContent = t; alert('Copie do quadro abaixo.'); }
+};
+
+/* ---------------------------------------------------- atalhos */
+document.addEventListener('keydown', e=>{
+  if(!$('#mark').classList.contains('on')) return;
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if(e.key==='ArrowLeft') $('#btnPrev').click();
+  if(e.key==='ArrowRight') $('#btnNext').click();
+  if(e.key==='Enter') $('#btnSalvar').click();
+  if(e.key.toLowerCase()==='g'){ rascunho.tipo='gol'; pickTipos(); }
+  if(e.key.toLowerCase()==='l'){ rascunho.tipo='lance'; pickTipos(); pickLances(); }
+  if(e.key.toLowerCase()==='d') $('#btnDescartar').click();
+  if(e.key.toLowerCase()==='r') $('#btnRep').click();
+});
+
+/* ---------------------------------------------------- boot */
+(async()=>{
+  await carregar();
+  if(!S.meta.data) S.meta.data = new Date().toISOString().slice(0,10);
+  escreverSetup();
+})();
+</script>

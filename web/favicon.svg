@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#112519" />
+      <stop offset="50%" stop-color="#0a1810" />
+      <stop offset="100%" stop-color="#050c08" />
+    </linearGradient>
+
+    <radialGradient id="ballShade" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="55%" stop-color="#e2e8f0" />
+      <stop offset="85%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#475569" />
+    </radialGradient>
+
+    <linearGradient id="patchGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80" />
+      <stop offset="100%" stop-color="#16a34a" />
+    </linearGradient>
+
+    <filter id="ballDropShadow" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="4" dy="12" stdDeviation="14" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+
+    <filter id="badgeShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="2" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.7" />
+    </filter>
+
+    <clipPath id="ballClip">
+      <circle cx="232" cy="228" r="150" />
+    </clipPath>
+  </defs>
+
+  <!-- Fundo Squircle Pop!_OS Style -->
+  <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#bgGrad)" stroke="#22c55e" stroke-width="4" stroke-opacity="0.55" />
+
+  <!-- Linhas sutis de gramado / campo de futebol -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#22c55e" stroke-width="2" stroke-opacity="0.08" />
+  <line x1="24" y1="256" x2="488" y2="256" stroke="#22c55e" stroke-width="2" stroke-opacity="0.08" />
+  <circle cx="256" cy="256" r="20" fill="none" stroke="#22c55e" stroke-width="2" stroke-opacity="0.08" />
+
+  <!-- Bola de Futebol com Sombra -->
+  <g filter="url(#ballDropShadow)">
+    <circle cx="232" cy="228" r="150" fill="url(#ballShade)" stroke="#1e293b" stroke-width="5" />
+  </g>
+
+  <!-- Painéis da Bola (Clipados na esfera) -->
+  <g clip-path="url(#ballClip)">
+    <!-- Costuras internas -->
+    <line x1="281.5" y1="211.9" x2="321.4" y2="199.0" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="262.6" y1="270.1" x2="287.3" y2="304.0" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="201.4" y1="270.1" x2="176.7" y2="304.0" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="182.5" y1="211.9" x2="142.6" y2="199.0" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="232.0" y1="176.0" x2="232.0" y2="134.0" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="321.4" y1="199.0" x2="344.2" y2="264.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="321.4" y1="199.0" x2="301.4" y2="132.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="287.3" y1="304.0" x2="232.0" y2="346.0" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="287.3" y1="304.0" x2="344.2" y2="264.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="176.7" y1="304.0" x2="119.8" y2="264.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="176.7" y1="304.0" x2="232.0" y2="346.0" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="142.6" y1="199.0" x2="162.6" y2="132.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="142.6" y1="199.0" x2="119.8" y2="264.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="232.0" y1="134.0" x2="301.4" y2="132.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <line x1="232.0" y1="134.0" x2="162.6" y2="132.5" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+    <polygon points="321.4,199.0 344.2,264.5 381.7,237.4 358.6,308.4 287.3,304.0" fill="url(#patchGrad)" stroke="#1e293b" stroke-width="4" />
+    <polygon points="287.3,304.0 232.0,346.0 269.3,373.3 194.7,373.3 176.7,304.0" fill="url(#patchGrad)" stroke="#1e293b" stroke-width="4" />
+    <polygon points="176.7,304.0 119.8,264.5 105.4,308.4 82.3,237.4 142.6,199.0" fill="url(#patchGrad)" stroke="#1e293b" stroke-width="4" />
+    <polygon points="142.6,199.0 162.6,132.5 116.4,132.4 176.8,88.5 232.0,134.0" fill="url(#patchGrad)" stroke="#1e293b" stroke-width="4" />
+    <polygon points="232.0,134.0 301.4,132.5 287.2,88.5 347.6,132.4 321.4,199.0" fill="url(#patchGrad)" stroke="#1e293b" stroke-width="4" />
+    <!-- Pentágono Central Preto -->
+    <polygon points="281.5,211.9 262.6,270.1 201.4,270.1 182.5,211.9 232.0,176.0" fill="url(#patchGrad)" stroke="#0f172a" stroke-width="5" />
+  </g>
+
+  <!-- Badge de Destaques / Play Vídeo (Sobreposto na parte inferior direita) -->
+  <g filter="url(#badgeShadow)">
+    <circle cx="362" cy="362" r="76" fill="url(#badgeGrad)" stroke="#f8fafc" stroke-width="6" />
+    <circle cx="362" cy="362" r="68" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.4" />
+    <!-- Ícone Play -->
+    <polygon points="348,328 392,362 348,396" fill="#052e16" />
+  </g>
+</svg>
