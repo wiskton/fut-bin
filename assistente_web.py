@@ -1348,7 +1348,7 @@ def api_salvar_fundo_cartela(body: AjustarFundoPayload):
             if "meta" not in p:
                 p["meta"] = {}
             p["meta"]["fundo_cartela"] = "fundo_cartela.png"
-            p["meta"]["fundo_config"] = body.dict()
+            p["meta"]["fundo_config"] = body.model_dump() if hasattr(body, "model_dump") else body.dict()
             with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
                 json.dump(p, f, indent=2, ensure_ascii=False)
         except Exception:
