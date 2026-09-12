@@ -1904,11 +1904,24 @@ async function acompanharJob(job_id, elLog, btnCancelar = null){
 
 /* ------------------------------------------------------------ passo 3: detectar e cortar */
 $('#btnDetectar').onclick = async ()=>{
-  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
-  if(clipesAtuais.length > 0 || (ESTADO.gols && ESTADO.gols.length > 0)){
-    const conf = confirm("Atenção: Rodar a detecção novamente irá substituir os clipes existentes!\n\nSe você já tem clipes e deseja apenas adicionar lances ou gols faltantes, use o player do vídeo completo ou o corte manual no Passo 4 (Revisar cortes).\n\nDeseja realmente rodar a detecção novamente?");
-    if(!conf) return;
+  const logEl = $('#detLog');
+  const btnCanc = $('#btnCancelarDetectar');
+
+  if(!ESTADO.video){
+    try {
+      const rg = await fetch('/api/gols');
+      const dg = await rg.json();
+      if(dg && dg.video){
+        selecionarVideo({nome: dg.video.split(/[\\/]/).pop(), caminho: dg.video, duracao_s: null});
+      }
+    } catch(e){}
   }
+  if(!ESTADO.video){
+    logEl.style.display = 'block';
+    logEl.textContent = '⚠ Escolha um vídeo no passo 1 antes de detectar.';
+    return;
+  }
+
   const body = {
     video: ESTADO.video.caminho,
     gols_totais: $('#golsTotais').value ? parseInt($('#golsTotais').value,10) : null,
@@ -1916,12 +1929,14 @@ $('#btnDetectar').onclick = async ()=>{
     inicio: $('#inicioJogo').value || null,
     fim: $('#fimJogo').value || null,
   };
-  const logEl = $('#detLog');
-  const btnCanc = $('#btnCancelarDetectar');
   $('#btnDetectar').disabled = true;
   try{
     let r = await fetch('/api/detectar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-    if(!r.ok){ alert('Não consegui iniciar a detecção.'); return; }
+    if(!r.ok){
+      logEl.style.display = 'block';
+      logEl.textContent = '❌ Não consegui iniciar a detecção.';
+      return;
+    }
     let {job_id} = await r.json();
     if(!await acompanharJob(job_id, logEl, btnCanc)) return;
 
@@ -1935,40 +1950,73 @@ $('#btnDetectar').onclick = async ()=>{
 
     r = await fetch('/api/cortar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({video: ESTADO.video.caminho})});
-    if(!r.ok){ alert('Não consegui iniciar o corte.'); return; }
+    if(!r.ok){
+      logEl.style.display = 'block';
+      logEl.textContent = '❌ Não consegui iniciar o corte.';
+      return;
+    }
     ({job_id} = await r.json());
     if(!await acompanharJob(job_id, logEl, btnCanc)) return;
     await carregarClipes();
     $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
-  }catch(e){ alert('Erro: '+e); }
+  }catch(e){
+    logEl.style.display = 'block';
+    logEl.textContent = '❌ Erro: ' + e;
+  }
   finally{ $('#btnDetectar').disabled = false; btnCanc.style.display = 'none'; }
 };
 
 $('#btnDetectarZonas').onclick = async ()=>{
-  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
+  const logEl = $('#zonasDetLog');
+  const btnCanc = $('#btnCancelarZonas');
+
+  if(!ESTADO.video){
+    try {
+      const rg = await fetch('/api/gols');
+      const dg = await rg.json();
+      if(dg && dg.video){
+        selecionarVideo({nome: dg.video.split(/[\\/]/).pop(), caminho: dg.video, duracao_s: null});
+      }
+    } catch(e){}
+  }
+  if(!ESTADO.video){
+    logEl.style.display = 'block';
+    logEl.textContent = '⚠ Escolha um vídeo no passo 1 antes de detectar.';
+    return;
+  }
+
   const body = {
     video: ESTADO.video.caminho,
     eventos_esperados: $('#zonasEventos').value ? parseInt($('#zonasEventos').value, 10) : null,
     inicio: $('#inicioJogo').value || null,
     fim: $('#fimJogo').value || null,
   };
-  const logEl = $('#zonasDetLog');
-  const btnCanc = $('#btnCancelarZonas');
   $('#btnDetectarZonas').disabled = true;
   try{
     let r = await fetch('/api/zonas/detectar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-    if(!r.ok){ alert('Não consegui iniciar a detecção pelas zonas.'); return; }
+    if(!r.ok){
+      logEl.style.display = 'block';
+      logEl.textContent = '❌ Não consegui iniciar a detecção pelas zonas.';
+      return;
+    }
     let {job_id} = await r.json();
     if(!await acompanharJob(job_id, logEl, btnCanc)) return;
 
     r = await fetch('/api/cortar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({video: ESTADO.video.caminho})});
-    if(!r.ok){ alert('Não consegui iniciar o corte.'); return; }
+    if(!r.ok){
+      logEl.style.display = 'block';
+      logEl.textContent = '❌ Não consegui iniciar o corte.';
+      return;
+    }
     ({job_id} = await r.json());
     if(!await acompanharJob(job_id, logEl, btnCanc)) return;
     await carregarClipes();
     $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
-  }catch(e){ alert('Erro: '+e); }
+  }catch(e){
+    logEl.style.display = 'block';
+    logEl.textContent = '❌ Erro: ' + e;
+  }
   finally{ $('#btnDetectarZonas').disabled = false; btnCanc.style.display = 'none'; }
 };
 $('#btnIrRevisar').onclick = ()=>irPara('s-revisar');
