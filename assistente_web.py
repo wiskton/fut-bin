@@ -20,6 +20,20 @@ Uso:
 
 from __future__ import annotations
 
+import ctypes
+
+try:
+    import setproctitle
+    setproctitle.setproctitle("fut-bin")
+except Exception:
+    pass
+
+try:
+    libc = ctypes.CDLL("libc.so.6")
+    libc.prctl(15, b"fut-bin", 0, 0, 0)
+except Exception:
+    pass
+
 import argparse
 import base64
 import json
@@ -1566,6 +1580,13 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--reload", action="store_true", default=False)
     args = ap.parse_args()
+    try:
+        data_dir = os.path.expanduser("~/.local/share/fut-bin")
+        os.makedirs(data_dir, exist_ok=True)
+        with open(os.path.join(data_dir, "server.pid"), "w") as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
     print(f"⚽ fut-bin assistente em http://{args.host}:{args.port}")
     if args.reload:
         uvicorn.run("assistente_web:app", host=args.host, port=args.port, reload=True, log_level="info")

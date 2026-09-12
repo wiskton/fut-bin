@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=fut-bin
+GenericName=Assistente de Melhores Momentos
+Comment=Corte e edição de vídeos de futebol e lances esportivos
+Exec=/home/willem/.local/bin/fut-bin
+Icon=fut-bin
+Terminal=false
+Categories=AudioVideo;Video;Graphics;Development;
+Keywords=futebol;pelada;gols;video;corte;futbin;fut-bin;
+StartupNotify=true
+StartupWMClass=fut-bin

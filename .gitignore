@@ -11,3 +11,4 @@ final/
 videos/
 *.json
 !config*.json
+/fut-bin

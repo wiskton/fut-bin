@@ -191,7 +191,10 @@ run.bat                   # menu interativo de comandos
 .\run.ps1 detectar_gols --source_video_path pelada.mp4 --cortar --output_dir gols
 
 # Linux / macOS:
-./run.sh site              # recomendado: assistente no navegador
+./run.sh tray              # recomendado: servidor com ícone na bandeja do sistema
+./run.sh site              # assistente no navegador
+./run.sh stop              # para o servidor e fecha a bandeja
+./run.sh status            # exibe PIDs e uso de memória em tempo real
 ./run.sh folha_placar --source_video_path pelada.mp4 --fim 58:23 --intervalo 10
 ./run.sh detectar_gols --source_video_path pelada.mp4 --cortar --output_dir gols
 ./run.sh montar_video --partida partida.json --clipes gols/clipes
@@ -210,7 +213,9 @@ fut-bin/
 ├── run.bat                 atalho Windows (CMD / duplo clique no Explorer)
 ├── run.ps1                 atalho Windows (PowerShell)
 ├── run.sh                  atalho Linux / macOS (bash)
-├── requirements.txt        dependências (opencv, numpy, tqdm, pillow, fastapi, uvicorn)
+├── fut-bin.desktop         lançador com ícone para o sistema operacional / menu de aplicativos
+├── tray.py                 bandeja do sistema (StatusNotifierItem) com controle e monitor de RAM
+├── requirements.txt        dependências (opencv, numpy, tqdm, pillow, fastapi, uvicorn, setproctitle)
 ├── assistente_web.py      backend do assistente no navegador (`run.bat site` / `./run.sh site`)
 ├── web/assistente.html    frontend do assistente (passo a passo único)
 ├── detectar_gols.py       corta os clipes / detecção automática

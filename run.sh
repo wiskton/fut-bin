@@ -30,6 +30,9 @@ Uso: ./run.sh <comando> [opções do script]
 
 Comandos (ver README.md para o fluxo completo):
   site               Assistente completo no navegador (passo a passo, sem rodar nada na mão)
+  tray               Inicia o servidor e coloca o ícone na bandeja do sistema
+  stop               Para os servidores e a bandeja do sistema com segurança
+  status             Exibe status, PIDs e uso de memória em tempo real
   folha_placar       Corte manual - folhas de contato do placar / conversão de horários -> gols.json
   detectar_gols      Corte manual - corta os clipes de gol (ou detecção automática do placar)
   montar_video       Corte manual - monta o vídeo final a partir de partida.json
@@ -38,7 +41,10 @@ Comandos (ver README.md para o fluxo completo):
   shell              Só ativa o ambiente virtual num subshell (sem rodar nada)
 
 Exemplos:
-  ./run.sh site                          # recomendado: assistente com todos os passos no navegador
+  ./run.sh tray                          # recomendado: servidor com ícone na bandeja do sistema
+  ./run.sh site                          # assistente com todos os passos no navegador
+  ./run.sh stop                          # para o servidor e fecha a bandeja
+  ./run.sh status                        # confere PIDs e uso de memória
   ./run.sh site --port 8000
   ./run.sh folha_placar --source_video_path pelada.mp4 --fim 58:23 --intervalo 10
   ./run.sh detectar_gols --source_video_path pelada.mp4 --cortar --output_dir gols
@@ -51,6 +57,27 @@ cmd="${1:-}"
 [ $# -gt 0 ] && shift || true
 
 case "$cmd" in
+    tray)
+        if [ -x "$HOME/.local/bin/fut-bin" ]; then
+            exec "$HOME/.local/bin/fut-bin" start "$@"
+        else
+            exec python "$SCRIPT_DIR/tray.py" start "$@"
+        fi
+        ;;
+    stop)
+        if [ -x "$HOME/.local/bin/fut-bin" ]; then
+            exec "$HOME/.local/bin/fut-bin" stop "$@"
+        else
+            exec python "$SCRIPT_DIR/tray.py" stop "$@"
+        fi
+        ;;
+    status)
+        if [ -x "$HOME/.local/bin/fut-bin" ]; then
+            exec "$HOME/.local/bin/fut-bin" status "$@"
+        else
+            exec python "$SCRIPT_DIR/tray.py" status "$@"
+        fi
+        ;;
     site)
         host="127.0.0.1"; port="8000"
         # extrai --host/--port dos args (se vierem) só pra montar a URL do xdg-open;
