@@ -72,6 +72,34 @@ FINAL_DIR = os.path.join(PROJECT_DIR, "final")
 FINAL_VIDEO = os.path.join(FINAL_DIR, "melhores_momentos.mp4")
 FINAL_VIDEO_GOLS = os.path.join(FINAL_DIR, "apenas_gols.mp4")
 
+
+def _obter_python_exec() -> str:
+    """Retorna o caminho do interpretador Python correto para rodar scripts do fut-bin.
+    Evita usar sys.executable quando este aponta para o wrapper binário nativo 'fut-bin'."""
+    # 1. Procura o ambiente virtual local do projeto (.venv)
+    if sys.platform == "win32":
+        venv_py = os.path.join(PROJECT_DIR, ".venv", "Scripts", "python.exe")
+    else:
+        venv_py = os.path.join(PROJECT_DIR, ".venv", "bin", "python")
+    if os.path.isfile(venv_py) and os.access(venv_py, os.X_OK):
+        return venv_py
+
+    # 2. Se sys.executable for um interpretador python real (e não fut-bin)
+    exe_name = os.path.basename(sys.executable).lower()
+    if "python" in exe_name:
+        return sys.executable
+
+    # 3. Procura python3 ou python no PATH
+    import shutil
+    py_path = shutil.which("python3") or shutil.which("python")
+    if py_path:
+        return py_path
+
+    return sys.executable
+
+
+PYTHON_EXEC = _obter_python_exec()
+
 os.makedirs(VIDEOS_DIR, exist_ok=True)
 GOLS_LOCK = threading.Lock()
 
@@ -194,6 +222,14 @@ def _rodar_job(job: dict, cmd: List[str]) -> None:
             kwargs["start_new_session"] = True
         else:
             kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        venv_dir = os.path.join(PROJECT_DIR, ".venv")
+        if os.path.isdir(venv_dir):
+            env["VIRTUAL_ENV"] = venv_dir
+            venv_bin = os.path.join(venv_dir, "Scripts" if sys.platform == "win32" else "bin")
+            env["PATH"] = f"{venv_bin}{os.pathsep}{env.get('PATH', '')}"
+        kwargs["env"] = env
         proc = subprocess.Popen(
             cmd, cwd=PROJECT_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, encoding="utf-8", errors="replace", bufsize=1,
@@ -428,7 +464,7 @@ def api_baixar_youtube(body: YoutubeDownload):
 
     meta_file = os.path.join(VIDEOS_DIR, f".yt_job_{uuid.uuid4().hex[:8]}.json")
     cmd = [
-        sys.executable, "baixar_youtube.py",
+        PYTHON_EXEC, os.path.join(PROJECT_DIR, "baixar_youtube.py"),
         "--url", url,
         "--output_dir", VIDEOS_DIR,
         "--meta_file", meta_file
@@ -566,7 +602,7 @@ def api_iniciar_deteccao(body: IniciarDeteccao):
     video = _resolver_video(body.video)
     if not os.path.exists(PLACAR_FILE):
         raise HTTPException(400, "marque a regiao do placar antes")
-    cmd = [sys.executable, "detectar_gols.py", "--source_video_path", video,
+    cmd = [PYTHON_EXEC, os.path.join(PROJECT_DIR, "detectar_gols.py"), "--source_video_path", video,
            "--output_dir", "gols", "--placar_file", "placar.json",
            "--metade", body.metade]
     if body.fixo:
@@ -601,7 +637,7 @@ def api_iniciar_deteccao_zonas(body: IniciarDeteccaoZonas):
     video = _resolver_video(body.video)
     if not _carregar_zonas():
         raise HTTPException(400, "marque ao menos uma zona-gatilho antes (passo 2)")
-    cmd = [sys.executable, "detectar_zonas.py", "--source_video_path", video,
+    cmd = [PYTHON_EXEC, os.path.join(PROJECT_DIR, "detectar_zonas.py"), "--source_video_path", video,
            "--zonas_file", "zonas.json", "--output_dir", "gols"]
     if body.eventos_esperados:
         cmd += ["--eventos", str(body.eventos_esperados)]
@@ -672,7 +708,7 @@ def api_iniciar_corte(body: IniciarCorte):
     video = _resolver_video(body.video)
     if not os.path.exists(GOLS_JSON):
         raise HTTPException(400, "confirme os gols antes de cortar")
-    cmd = [sys.executable, "detectar_gols.py", "--source_video_path", video,
+    cmd = [PYTHON_EXEC, os.path.join(PROJECT_DIR, "detectar_gols.py"), "--source_video_path", video,
            "--cortar", "--output_dir", "gols", "--placar_file", "placar.json"]
     return {"job_id": _iniciar_job(cmd)}
 
@@ -1473,7 +1509,7 @@ class IniciarMontagem(BaseModel):
 def api_iniciar_montagem(body: IniciarMontagem):
     if not os.path.exists(PARTIDA_JSON):
         raise HTTPException(400, "marque autor/assistencia antes de montar")
-    cmd = [sys.executable, "montar_video.py", "--partida", "partida.json",
+    cmd = [PYTHON_EXEC, os.path.join(PROJECT_DIR, "montar_video.py"), "--partida", "partida.json",
            "--clipes", "gols/clipes", "--saida", "final/melhores_momentos.mp4",
            "--saida_gols", "final/apenas_gols.mp4",
            "--abertura", str(body.abertura), "--fechamento", str(body.fechamento)]

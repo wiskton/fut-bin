@@ -919,8 +919,48 @@ def main():
         time.sleep(1.0)
         sys.exit(0)
 
+    elif action == "site":
+        open_browser()
+        sys.argv = [sys.argv[0]] + sys.argv[2:]
+        import assistente_web
+        assistente_web.main()
+
+    elif (
+        action.endswith(".py")
+        or (SCRIPT_DIR / f"{action}.py").is_file()
+        or (SCRIPT_DIR / action).is_file()
+        or os.path.isfile(action)
+        or action.startswith("-")
+    ):
+        venv_python = SCRIPT_DIR / ".venv" / "bin" / "python"
+        import shutil
+        py_bin = str(venv_python) if venv_python.exists() else (shutil.which("python3") or sys.executable)
+
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        if (SCRIPT_DIR / ".venv").exists():
+            env["VIRTUAL_ENV"] = str(SCRIPT_DIR / ".venv")
+            env["PATH"] = f"{SCRIPT_DIR}/.venv/bin:{env.get('PATH', '')}"
+
+        if action.startswith("-"):
+            args = [py_bin] + sys.argv[1:]
+        else:
+            if (SCRIPT_DIR / action).is_file():
+                script_path = SCRIPT_DIR / action
+            elif (SCRIPT_DIR / f"{action}.py").is_file():
+                script_path = SCRIPT_DIR / f"{action}.py"
+            else:
+                script_path = Path(action).resolve()
+            args = [py_bin, str(script_path)] + sys.argv[2:]
+
+        try:
+            os.execve(py_bin, args, env)
+        except Exception:
+            res = subprocess.run(args, env=env)
+            sys.exit(res.returncode)
+
     else:
-        print(f"Uso: {sys.argv[0]} [start|tray|stop|kill|restart|status|open|server]")
+        print(f"Uso: {sys.argv[0]} [start|tray|stop|kill|restart|status|open|server|site|<script.py>]")
         sys.exit(1)
 
 
