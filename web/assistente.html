@@ -1349,26 +1349,6 @@ function fmtTempo(s){
   return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0');
 }
 
-function tocarSomNotificacao(){
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if(!AudioCtx) return;
-    const ctx = new AudioCtx();
-    if(ctx.state === 'suspended') ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.36);
-  } catch(e){}
-}
-
 function mostrarAlertaClipePronto({ indice, inicio_s, fim_s, dur, tipo, infoTipo, clipe, restantesNaFila = 0 }){
   let container = document.getElementById('hudToastContainer');
   if(!container){
@@ -1377,8 +1357,6 @@ function mostrarAlertaClipePronto({ indice, inicio_s, fim_s, dur, tipo, infoTipo
     container.className = 'hud-toast-container';
     document.body.appendChild(container);
   }
-
-  tocarSomNotificacao();
 
   const toast = document.createElement('div');
   toast.className = 'hud-toast';
@@ -1438,8 +1416,6 @@ function mostrarAlertaFilaAdicionada(posicaoFila, job){
     document.body.appendChild(container);
   }
 
-  tocarSomNotificacao();
-
   const toast = document.createElement('div');
   toast.className = 'hud-toast';
   toast.style.borderColor = 'var(--cyan)';
@@ -1497,6 +1473,7 @@ function inicializarVideoCompleto(){
   const vc = $('#videoCompleto');
   const st = $('#statusVideoCompleto');
   if(!vc) return;
+  if(vc.getAttribute('data-carregado') && vc.src) return;
   const caminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : '';
   const urlEsperada = '/video/completo' + (caminho ? ('?video=' + encodeURIComponent(caminho)) : '');
   if(vc.getAttribute('data-carregado') !== urlEsperada){
@@ -2481,11 +2458,6 @@ async function processarFilaCortes(){
 
       await carregarClipes();
 
-      const vc = $('#videoCompleto');
-      if(vc && vc.paused && vc.dataset.deveriaEstarTocando === 'true'){
-        vc.play().catch(()=>{});
-      }
-
       const novoClipe = clipesAtuais.find(c => c.indice === res.indice);
       mostrarAlertaClipePronto({
         indice: res.indice,
@@ -2522,10 +2494,6 @@ async function processarFilaCortes(){
 $('#btnGerarClipeCompleto').onclick = () => {
   if(!ESTADO.video){ alert('Selecione um vídeo primeiro no passo 1.'); return; }
   const vc = $('#videoCompleto');
-  const estavaTocando = vc && !vc.paused;
-  if(vc && estavaTocando){
-    vc.dataset.deveriaEstarTocando = 'true';
-  }
   const t = vc ? (vc.currentTime || 0) : 0;
 
   // Evita duplo-clique acidental exato no mesmo segundo dentro de 350ms
@@ -2704,7 +2672,10 @@ async function carregarClipes(){
   await sincronizarGolsComBackend();
   renderGradeClipes(clipes);
 
-  inicializarVideoCompleto();
+  const vc = $('#videoCompleto');
+  if(vc && (!vc.src || !vc.getAttribute('data-carregado'))){
+    inicializarVideoCompleto();
+  }
   $('#btnIrDados').disabled = (ESTADO.gols||[]).length===0;
 }
 
