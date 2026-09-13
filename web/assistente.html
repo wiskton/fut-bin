@@ -180,6 +180,192 @@
   .btnVel{padding:4px 10px;font-size:12px;font-weight:700}
   .btnVel.sel{background:var(--accent);color:#04140a;border-color:var(--accent)}
 
+  /* ================= ALERTA HUD ELETRÔNICO (CLIPE PRONTO) ================= */
+  .hud-toast-container{
+    position:fixed;
+    top:24px;
+    right:24px;
+    z-index:999999;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    pointer-events:none;
+  }
+  .hud-toast{
+    pointer-events:auto;
+    position:relative;
+    width:380px;
+    max-width:calc(100vw - 32px);
+    background:linear-gradient(135deg, rgba(14,24,38,0.96) 0%, rgba(8,14,24,0.98) 100%);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    border:1.5px solid var(--accent);
+    border-radius:12px;
+    padding:14px 16px;
+    box-shadow:0 16px 40px rgba(0,0,0,0.85), 0 0 25px rgba(0,255,135,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+    display:flex;
+    align-items:center;
+    gap:14px;
+    color:var(--txt);
+    overflow:hidden;
+    animation:hudToastIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards;
+    transition:all 0.35s ease;
+  }
+  .hud-toast.saindo{
+    animation:hudToastOut 0.35s cubic-bezier(0.7,0,0.84,0) forwards;
+  }
+  @keyframes hudToastIn{
+    0%{opacity:0; transform:translateX(50px) scale(0.92);}
+    70%{transform:translateX(-4px) scale(1.02);}
+    100%{opacity:1; transform:translateX(0) scale(1);}
+  }
+  @keyframes hudToastOut{
+    0%{opacity:1; transform:translateX(0) scale(1);}
+    100%{opacity:0; transform:translateX(60px) scale(0.9);}
+  }
+  .hud-toast-icon-wrap{
+    position:relative;
+    flex-shrink:0;
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(0,255,135,0.25) 0%, rgba(0,240,255,0.1) 70%, transparent 100%);
+    border:2px solid var(--accent);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    box-shadow:0 0 16px rgba(0,255,135,0.5);
+    animation:hudPulseGlow 2s infinite ease-in-out;
+  }
+  @keyframes hudPulseGlow{
+    0%,100%{box-shadow:0 0 14px rgba(0,255,135,0.4); transform:scale(1);}
+    50%{box-shadow:0 0 24px rgba(0,255,135,0.8); transform:scale(1.06);}
+  }
+  .hud-toast-check{
+    position:absolute;
+    bottom:-2px;
+    right:-2px;
+    width:18px;
+    height:18px;
+    background:#00ff87;
+    color:#04140a;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    font-weight:900;
+    border:2px solid #080e18;
+    box-shadow:0 2px 6px rgba(0,0,0,0.5);
+  }
+  .hud-toast-body{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .hud-toast-tag{
+    font-size:10px;
+    font-weight:900;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .hud-toast-tag::before{
+    content:'';
+    display:inline-block;
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+  }
+  .hud-toast-title{
+    font-size:15px;
+    font-weight:800;
+    color:#fff;
+    letter-spacing:0.3px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .hud-toast-time{
+    font-size:12px;
+    color:var(--dim);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .hud-toast-time b{
+    color:#ffd700;
+    font-family:ui-monospace,monospace;
+  }
+  .hud-toast-actions{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+    margin-left:4px;
+  }
+  .hud-toast-btn-ver{
+    background:rgba(0,255,135,0.15);
+    border:1px solid var(--accent);
+    color:var(--accent);
+    font-size:11px;
+    font-weight:800;
+    padding:5px 9px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:all 0.2s ease;
+    display:flex;
+    align-items:center;
+    gap:4px;
+    white-space:nowrap;
+  }
+  .hud-toast-btn-ver:hover{
+    background:var(--accent);
+    color:#04140a;
+    transform:translateY(-1px);
+    box-shadow:0 0 12px rgba(0,255,135,0.5);
+  }
+  .hud-toast-btn-close{
+    background:transparent;
+    border:none;
+    color:var(--dim);
+    font-size:16px;
+    cursor:pointer;
+    padding:4px;
+    line-height:1;
+    border-radius:4px;
+    transition:all 0.2s;
+  }
+  .hud-toast-btn-close:hover{
+    color:#fff;
+    background:rgba(255,255,255,0.1);
+  }
+  .hud-toast-timer-bar{
+    position:absolute;
+    bottom:0;
+    left:0;
+    height:3px;
+    background:linear-gradient(90deg, var(--accent) 0%, var(--cyan) 100%);
+    box-shadow:0 0 8px var(--accent);
+    width:100%;
+    animation:hudTimerBar 4.5s linear forwards;
+  }
+  @keyframes hudTimerBar{
+    from{width:100%;}
+    to{width:0%;}
+  }
+
   .item-video{padding:12px 16px;border-radius:8px;border:1px solid var(--line);margin-bottom:6px;cursor:pointer;
     background:linear-gradient(150deg, #131c2a 0%, #0c1219 100%);
     display:flex;justify-content:space-between;align-items:center;transition:all 0.2s ease}
@@ -503,7 +689,8 @@
         <option value="gol">⚽ Gol</option>
         <option value="lance">🎬 Outro lance</option>
       </select>
-      <div class="row" style="gap:8px; margin-left:auto">
+      <div class="row" style="gap:8px; margin-left:auto; align-items:center">
+        <span id="badgeFilaCortes" style="display:none; background:linear-gradient(135deg, #00f0ff, #00ff87); color:#04140a; font-weight:800; font-size:11px; padding:4px 10px; border-radius:20px; box-shadow:0 0 12px rgba(0,240,255,0.4); animation:hudPulseGlow 1.5s infinite">⚡ 1 na fila</span>
         <button type="button" class="ghost" id="btnGerarClipeCompletoMaisTras" style="font-weight:700; font-size:12px; padding:8px 14px; border-color:var(--accent)" title="Gera clipe dos 15 segundos anteriores ao instante atual">⏪ Gerar 15s mais pra trás</button>
         <button type="button" class="act" id="btnGerarClipeCompleto">🎬 Gerar clipe deste instante</button>
       </div>
@@ -1160,6 +1347,134 @@ function fmtTempo(s){
   s = Math.max(0, s|0);
   const m = Math.floor(s/60), r = s%60;
   return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0');
+}
+
+function tocarSomNotificacao(){
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if(!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if(ctx.state === 'suspended') ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.36);
+  } catch(e){}
+}
+
+function mostrarAlertaClipePronto({ indice, inicio_s, fim_s, dur, tipo, infoTipo, clipe, restantesNaFila = 0 }){
+  let container = document.getElementById('hudToastContainer');
+  if(!container){
+    container = document.createElement('div');
+    container.id = 'hudToastContainer';
+    container.className = 'hud-toast-container';
+    document.body.appendChild(container);
+  }
+
+  tocarSomNotificacao();
+
+  const toast = document.createElement('div');
+  toast.className = 'hud-toast';
+
+  const icon = (infoTipo && infoTipo.icon) ? infoTipo.icon : (tipo === 'gol' ? '⚽' : '🎬');
+  const rotulo = (infoTipo && infoTipo.rotulo) ? infoTipo.rotulo : (tipo === 'gol' ? 'Gol' : 'Lance');
+  const idxStr = String(indice).padStart(2, '0');
+  const durSec = (dur != null && !isNaN(dur)) ? Math.round(dur) : Math.round(fim_s - inicio_s);
+  const tempoStr = `${fmtTempo(inicio_s)} ➔ ${fmtTempo(fim_s)}`;
+  const badgeFila = (restantesNaFila > 0)
+    ? `<span style="background:rgba(0,240,255,0.22); color:var(--cyan); border:1px solid var(--cyan); padding:1px 7px; border-radius:10px; font-size:10px; font-weight:800; margin-left:6px">+${restantesNaFila} na fila</span>`
+    : '';
+
+  toast.innerHTML = `
+    <div class="hud-toast-icon-wrap">
+      <span>${icon}</span>
+      <div class="hud-toast-check">✓</div>
+    </div>
+    <div class="hud-toast-body">
+      <div class="hud-toast-tag">Corte Concluído · ${rotulo} ${badgeFila}</div>
+      <div class="hud-toast-title">Clipe #${idxStr} pronto!</div>
+      <div class="hud-toast-time"><span>⏱</span> <b>${tempoStr}</b> (${durSec}s)</div>
+    </div>
+    <div class="hud-toast-actions">
+      ${clipe ? `<button type="button" class="hud-toast-btn-ver" title="Abrir clipe para conferir">👁️ Ver</button>` : ''}
+      <button type="button" class="hud-toast-btn-close" title="Fechar alerta">✕</button>
+    </div>
+    <div class="hud-toast-timer-bar"></div>
+  `;
+
+  const btnClose = toast.querySelector('.hud-toast-btn-close');
+  const fechar = () => {
+    if(toast.classList.contains('saindo')) return;
+    toast.classList.add('saindo');
+    setTimeout(() => { toast.remove(); }, 350);
+  };
+  btnClose.onclick = fechar;
+
+  const btnVer = toast.querySelector('.hud-toast-btn-ver');
+  if(btnVer && clipe){
+    btnVer.onclick = () => {
+      fechar();
+      abrirModalClipe(clipe);
+    };
+  }
+
+  container.appendChild(toast);
+  setTimeout(fechar, 4500);
+}
+
+function mostrarAlertaFilaAdicionada(posicaoFila, job){
+  let container = document.getElementById('hudToastContainer');
+  if(!container){
+    container = document.createElement('div');
+    container.id = 'hudToastContainer';
+    container.className = 'hud-toast-container';
+    document.body.appendChild(container);
+  }
+
+  tocarSomNotificacao();
+
+  const toast = document.createElement('div');
+  toast.className = 'hud-toast';
+  toast.style.borderColor = 'var(--cyan)';
+  toast.style.boxShadow = '0 16px 40px rgba(0,0,0,0.85), 0 0 25px rgba(0,240,255,0.35)';
+
+  const icon = (job.infoTipo && job.infoTipo.icon) ? job.infoTipo.icon : (job.tipo === 'gol' ? '⚽' : '🎬');
+  const rotulo = (job.infoTipo && job.infoTipo.rotulo) ? job.infoTipo.rotulo : (job.tipo === 'gol' ? 'Gol' : 'Lance');
+  const tempoStr = `${fmtTempo(job.inicio_s)} ➔ ${fmtTempo(job.fim_s)}`;
+
+  toast.innerHTML = `
+    <div class="hud-toast-icon-wrap" style="border-color:var(--cyan); background:radial-gradient(circle, rgba(0,240,255,0.25) 0%, transparent 100%)">
+      <span>📥</span>
+      <div class="hud-toast-check" style="background:var(--cyan); color:#041416">#${posicaoFila}</div>
+    </div>
+    <div class="hud-toast-body">
+      <div class="hud-toast-tag" style="color:var(--cyan)">Na Fila · ${posicaoFila}º corte pendente</div>
+      <div class="hud-toast-title">Corte agendado (${rotulo})</div>
+      <div class="hud-toast-time"><span>⏱</span> <b>${tempoStr}</b> (${Math.round(job.dur)}s)</div>
+    </div>
+    <div class="hud-toast-actions">
+      <button type="button" class="hud-toast-btn-close" title="Fechar alerta">✕</button>
+    </div>
+    <div class="hud-toast-timer-bar" style="background:linear-gradient(90deg, var(--cyan) 0%, var(--accent) 100%); animation-duration:3.2s"></div>
+  `;
+
+  const btnClose = toast.querySelector('.hud-toast-btn-close');
+  const fechar = () => {
+    if(toast.classList.contains('saindo')) return;
+    toast.classList.add('saindo');
+    setTimeout(() => { toast.remove(); }, 350);
+  };
+  btnClose.onclick = fechar;
+
+  container.appendChild(toast);
+  setTimeout(fechar, 3200);
 }
 
 /* ------------------------------------------------------------ navegacao */
@@ -2107,11 +2422,119 @@ if(btnMaisTrasCompleto){
   };
 }
 
-$('#btnGerarClipeCompleto').onclick = async () => {
+/* Fila de processamento de cortes do vídeo completo */
+const filaCortes = [];
+let processandoFilaCortes = false;
+let _ultimoCliqueCorte = null;
+
+function atualizarIndicadorFila(){
+  const badge = $('#badgeFilaCortes');
+  const total = (processandoFilaCortes ? 1 : 0) + filaCortes.length;
+  if(badge){
+    if(total > 0){
+      badge.style.display = 'inline-flex';
+      if(filaCortes.length > 0){
+        badge.innerHTML = `⚡ Processando (+${filaCortes.length} na fila)`;
+      } else {
+        badge.innerHTML = `⚡ Cortando clipe...`;
+      }
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+async function processarFilaCortes(){
+  if(processandoFilaCortes) return;
+  processandoFilaCortes = true;
+
+  const logEl = $('#logCorteCompleto');
+
+  while(filaCortes.length > 0){
+    const job = filaCortes.shift();
+    atualizarIndicadorFila();
+
+    if(logEl){
+      logEl.style.display = 'block';
+      const filaMsg = filaCortes.length > 0 ? ` (+${filaCortes.length} na fila)` : '';
+      logEl.innerHTML = `<span class="spinner"></span> <b>Cortando clipe (${job.rotuloClipe})</b> de ${fmtTempo(job.inicio_s)} até ${fmtTempo(job.fim_s)} (${job.dur}s)${filaMsg}...`;
+    }
+
+    try {
+      const r = await fetch('/api/gols/adicionar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          video: job.videoCaminho,
+          inicio_s: job.inicio_s,
+          fim_s: job.fim_s,
+          tempo_s: job.tempo_s,
+          status: job.status,
+          lance: job.lanceNome,
+        })
+      });
+      const res = await r.json();
+      if(!r.ok){
+        if(logEl) logEl.innerHTML = `<span class="bad">❌ Erro ao cortar (${fmtTempo(job.inicio_s)}): ${res.detail || 'falha no servidor'}</span>`;
+        continue;
+      }
+
+      await carregarClipes();
+
+      const vc = $('#videoCompleto');
+      if(vc && vc.paused && vc.dataset.deveriaEstarTocando === 'true'){
+        vc.play().catch(()=>{});
+      }
+
+      const novoClipe = clipesAtuais.find(c => c.indice === res.indice);
+      mostrarAlertaClipePronto({
+        indice: res.indice,
+        inicio_s: job.inicio_s,
+        fim_s: job.fim_s,
+        dur: job.dur,
+        tipo: job.tipo,
+        infoTipo: job.infoTipo,
+        clipe: novoClipe,
+        restantesNaFila: filaCortes.length
+      });
+
+      if(logEl){
+        const resto = filaCortes.length > 0 ? ` · restam ${filaCortes.length} na fila` : '';
+        logEl.innerHTML = `<span class="ok">✓ Clipe #${String(res.indice).padStart(2,'0')} inserido com sucesso (${fmtTempo(job.inicio_s)} a ${fmtTempo(job.fim_s)})${resto}!</span>`;
+      }
+    } catch(e) {
+      if(logEl) logEl.innerHTML = `<span class="bad">❌ Erro ao comunicar com o servidor: ${e}</span>`;
+    }
+  }
+
+  processandoFilaCortes = false;
+  atualizarIndicadorFila();
+
+  if(logEl){
+    setTimeout(() => {
+      if(!processandoFilaCortes && filaCortes.length === 0){
+        logEl.style.display = 'none';
+      }
+    }, 4500);
+  }
+}
+
+$('#btnGerarClipeCompleto').onclick = () => {
   if(!ESTADO.video){ alert('Selecione um vídeo primeiro no passo 1.'); return; }
   const vc = $('#videoCompleto');
-  if(vc && !vc.paused) vc.pause();
+  const estavaTocando = vc && !vc.paused;
+  if(vc && estavaTocando){
+    vc.dataset.deveriaEstarTocando = 'true';
+  }
   const t = vc ? (vc.currentTime || 0) : 0;
+
+  // Evita duplo-clique acidental exato no mesmo segundo dentro de 350ms
+  const agora = Date.now();
+  if(_ultimoCliqueCorte && (agora - _ultimoCliqueCorte.ts < 350) && Math.abs(_ultimoCliqueCorte.t - t) < 0.2){
+    return;
+  }
+  _ultimoCliqueCorte = { ts: agora, t: t };
+
   const dur = Math.max(2, parseFloat($('#duracaoCorteCompleto').value) || 15);
   const pos = $('#posicaoCorteCompleto').value;
   const tipo = $('#tipoCorteCompleto').value || 'gol';
@@ -2133,43 +2556,40 @@ $('#btnGerarClipeCompleto').onclick = async () => {
   }
   inicio_s = Math.round(inicio_s * 100) / 100;
   fim_s = Math.round(fim_s * 100) / 100;
+  if(fim_s <= inicio_s) fim_s = inicio_s + 2;
 
+  const job = {
+    id: agora + '_' + Math.random().toString(36).substr(2, 5),
+    videoCaminho: ESTADO.video.caminho,
+    inicio_s,
+    fim_s,
+    tempo_s: t,
+    dur,
+    pos,
+    tipo,
+    status,
+    lanceNome,
+    rotuloClipe,
+    infoTipo,
+    criadoEm: agora
+  };
+
+  const jaEstaProcessando = processandoFilaCortes;
+  filaCortes.push(job);
+  atualizarIndicadorFila();
+
+  // Feedback visual no botão
   const btn = $('#btnGerarClipeCompleto');
-  const logEl = $('#logCorteCompleto');
-  btn.disabled = true;
-  logEl.style.display = 'block';
-  logEl.textContent = `Cortando clipe (${rotuloClipe}) de ${fmtTempo(inicio_s)} até ${fmtTempo(fim_s)} (${dur}s)...`;
-
-  try {
-    const r = await fetch('/api/gols/adicionar', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        video: ESTADO.video.caminho,
-        inicio_s: inicio_s,
-        fim_s: fim_s,
-        tempo_s: t,
-        status: status,
-        lance: lanceNome,
-      })
-    });
-    const res = await r.json();
-    if(!r.ok){
-      logEl.textContent = 'Erro ao cortar: ' + (res.detail || 'falha no servidor');
-      return;
-    }
-    logEl.textContent = `✓ Clipe #${String(res.indice).padStart(2,'0')} inserido com sucesso! Abrindo para visualização...`;
-    await carregarClipes();
-    const novoClipe = clipesAtuais.find(c => c.indice === res.indice);
-    if(novoClipe){
-      abrirModalClipe(novoClipe);
-    }
-    setTimeout(() => { logEl.style.display = 'none'; }, 4000);
-  } catch(e) {
-    logEl.textContent = 'Erro ao comunicar com o servidor: ' + e;
-  } finally {
-    btn.disabled = false;
+  if(btn){
+    btn.style.transform = 'scale(0.95)';
+    setTimeout(() => { btn.style.transform = ''; }, 120);
   }
+
+  if(jaEstaProcessando){
+    mostrarAlertaFilaAdicionada(filaCortes.length, job);
+  }
+
+  processarFilaCortes();
 };
 
 let _descartandoClipe = false;
@@ -2608,6 +3028,15 @@ function abrirModalClipe(c){
       logEl.innerHTML = `<span class="ok">✓ Clipe #${String(res.indice).padStart(2,'0')} gerado com sucesso! Abrindo...</span>`;
       await carregarClipes();
       const novoClipe = clipesAtuais.find(x => x.indice === res.indice);
+      mostrarAlertaClipePronto({
+        indice: res.indice,
+        inicio_s: novoIni,
+        fim_s: novoFim,
+        dur: (novoFim - novoIni),
+        tipo: status,
+        infoTipo: infoTipo,
+        clipe: novoClipe
+      });
       if(novoClipe){
         setTimeout(() => {
           abrirModalClipe(novoClipe);
