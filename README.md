@@ -29,10 +29,25 @@ Placar final com todos os gols marcados, minutos de cada gol e assistências.
 Ranking com os artilheiros do jogo e líderes em assistências com medalhas de ouro, prata e bronze.
 ![Destaques da Partida](docs/screenshots/04_destaques_partida.png)
 
-### 5. Assistente Web — Estilo FIFA & Presets em 1 Clique
-Interface moderna no navegador com tema escuro esportivo, upload de logo do torneio, fotos dos jogadores e ajustes de imagem (saturação, brilho e presets como *Claro & Vívido*, *Estilo FIFA* e *Super Iluminado*).
+### 5. Assistente Web — Dados da Partida & Escudo Oficial
+Interface moderna no navegador com tema escuro esportivo, upload da logo oficial do campeonato, fotos dos jogadores, uniformes e definição tática das posições.
 ![Assistente Web - Dados da Partida e Logo](docs/screenshots/05_assistente_dados_partida.png)
+
+### 6. Ajuste de Imagem, Cores & Presets de Transmissão em 1 Clique
+Escolha de frame da partida e ajuste fino de saturação, brilho, contraste e desfoque com presets rápidos (*Claro & Vívido*, *Super Iluminado*, *Estilo FIFA*, *Transmissão TV*).
 ![Assistente Web - Ajuste de Imagem e Presets](docs/screenshots/06_assistente_ajuste_frame.png)
+
+### 7. Marcação de Lances — Modo Teatro (Estilo YouTube)
+Player expandido em tela ampla de ponta a ponta com atalho de teclado <kbd>T</kbd>, facilitando a identificação rápida dos autores dos gols e assistências com botões posicionados confortavelmente abaixo do vídeo.
+![Assistente Web - Modo Teatro na Marcação](docs/screenshots/07_assistente_marcacao_teatro.png)
+
+### 8. Montagem Final — Perfis de Compressão (CRF) & Estimativa de Duração em Tempo Real
+Seletor intuitivo com 4 perfis de compressão (Otimizado CRF 24 economizando ~50% de espaço mantendo visual 1080p broadcast, Compacto para WhatsApp, Ultra Leve e Máxima Qualidade). Exibição em tempo real da previsão de duração dos vídeos e players integrados com download imediato.
+![Assistente Web - Perfis de Compressão e Estimativa de Duração](docs/screenshots/08_assistente_montagem_qualidade.png)
+
+### 9. Notificação & Alerta Comemorativo de Vídeos Prontos
+Ao término da renderização, um alerta visual com troféu, confetes animados, som de vitória e notificação nativa do sistema operacional avisam que os vídeos em 1080p estão prontos para assistir ou baixar.
+![Assistente Web - Alerta de Renderização Concluída](docs/screenshots/09_assistente_alerta_conclusao.png)
 
 ---
 
@@ -83,14 +98,13 @@ Abre `http://127.0.0.1:8000` automaticamente e guia por 7 passos:
    ajustar o começo/fim exato de um lance), a seção **"Cortar várias jogadas de uma vez"** deixa
    digitar início e fim (mm:ss) de quantas jogadas quiser numa lista e corta todas de uma vez, com a
    região exata escolhida - sem depender da janela fixa usada pros gols.
-5. **Marcação** — pra cada clipe, digita quem fez o gol e quem deu assistência (texto livre, sem
-   precisar cadastrar elenco antes) - os clipes já vêm carregados sozinhos (sem selecionar
-   arquivo) e tudo é salvo automaticamente a cada clique.
-6. **Dados da partida** — data, competição, local, nome de cada time (com cor) e o elenco
-   completo de cada um (opcional) - só usados na cartela de abertura e nos créditos do vídeo
-   final, não afetam os nomes já digitados na marcação.
-7. **Resumo & montagem** — placar, artilheiros, cronologia, e o botão que monta o vídeo final e
-   mostra o resultado pronto pra baixar.
+5. **Dados da partida** — data, competição, local, escudo oficial, cores dos uniformes e escalação
+   completa com foto e posições para o campinho tático da abertura.
+6. **Marcação com Modo Teatro** — player em tela ampla (estilo YouTube com atalho <kbd>T</kbd>),
+   selecionando autor do gol e assistência de forma rápida e confortável com salvamento instantâneo.
+7. **Resumo & montagem** — escolha do perfil de compressão (CRF 24 otimizado, WhatsApp ou super leve),
+   estimativa de duração calculada em tempo real, renderização com alerta comemorativo e download dos
+   vídeos finais prontos em Full HD.
 
 **Onde fica o vídeo**: em qualquer pasta do seu computador - o navegador de pastas do passo 1
 alcança o disco inteiro (a mesma conta que roda o `./run.sh site`). O assistente lê o arquivo
