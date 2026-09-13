@@ -807,6 +807,8 @@ def api_adicionar_gol(body: AdicionarGol):
     while os.path.exists(os.path.join(CLIPES_DIR, f"gol_{novo_indice:02d}.mp4")):
         novo_indice += 1
 
+    novo_status = None if body.status in ("pendente", "revisar", "sem_marcar", None) else body.status
+    novo_lance = None if body.status in ("pendente", "revisar", "sem_marcar", None) else body.lance
     novo_evento = {
         "indice": novo_indice,
         "tempo_s": round(tempo_s, 2),
@@ -814,8 +816,8 @@ def api_adicionar_gol(body: AdicionarGol):
         "inicio_s": round(inicio_s, 2),
         "fim_s": round(fim_s, 2),
         "fonte": "manual",
-        "status": body.status,
-        "lance": body.lance,
+        "status": novo_status,
+        "lance": novo_lance,
     }
     existentes.append(novo_evento)
 
@@ -842,7 +844,13 @@ def api_adicionar_gol(body: AdicionarGol):
                 partida = json.load(f)
             if "_todosGols" in partida and isinstance(partida["_todosGols"], list):
                 novo_p = dict(novo_evento)
-                novo_p["tipo"] = "gol" if (body.status == "gol" or not body.status) else "lance"
+                if body.status in ("pendente", "revisar", "sem_marcar", None):
+                    novo_p["tipo"] = "revisar"
+                    novo_p["status"] = None
+                elif body.status == "gol":
+                    novo_p["tipo"] = "gol"
+                else:
+                    novo_p["tipo"] = "lance"
                 novo_p["descartado"] = False
                 novo_p["time"] = None
                 novo_p["autor"] = None

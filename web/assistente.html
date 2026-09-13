@@ -685,7 +685,8 @@
         <option value="depois">15s a partir daqui (início do lance)</option>
         <option value="centro">Centralizado no instante atual</option>
       </select>
-      <select id="tipoCorteCompleto" style="max-width:160px">
+      <select id="tipoCorteCompleto" style="max-width:235px">
+        <option value="pendente" selected>⏳ Sem marcação (ver depois)</option>
         <option value="gol">⚽ Gol</option>
         <option value="lance">🎬 Outro lance</option>
       </select>
@@ -1361,8 +1362,9 @@ function mostrarAlertaClipePronto({ indice, inicio_s, fim_s, dur, tipo, infoTipo
   const toast = document.createElement('div');
   toast.className = 'hud-toast';
 
-  const icon = (infoTipo && infoTipo.icon) ? infoTipo.icon : (tipo === 'gol' ? '⚽' : '🎬');
-  const rotulo = (infoTipo && infoTipo.rotulo) ? infoTipo.rotulo : (tipo === 'gol' ? 'Gol' : 'Lance');
+  const ehPendente = !infoTipo && (tipo === 'pendente' || tipo === 'sem_marcar' || !tipo);
+  const icon = (infoTipo && infoTipo.icon) ? infoTipo.icon : (tipo === 'gol' ? '⚽' : (tipo === 'lance' ? '🎬' : '⏳'));
+  const rotulo = (infoTipo && infoTipo.rotulo) ? infoTipo.rotulo : (tipo === 'gol' ? 'Gol' : (tipo === 'lance' ? 'Lance' : 'Sem marcação'));
   const idxStr = String(indice).padStart(2, '0');
   const durSec = (dur != null && !isNaN(dur)) ? Math.round(dur) : Math.round(fim_s - inicio_s);
   const tempoStr = `${fmtTempo(inicio_s)} ➔ ${fmtTempo(fim_s)}`;
@@ -1371,20 +1373,20 @@ function mostrarAlertaClipePronto({ indice, inicio_s, fim_s, dur, tipo, infoTipo
     : '';
 
   toast.innerHTML = `
-    <div class="hud-toast-icon-wrap">
+    <div class="hud-toast-icon-wrap" style="${ehPendente ? 'border-color:var(--gold); box-shadow:0 0 16px rgba(255,215,0,0.4); background:radial-gradient(circle, rgba(255,215,0,0.2) 0%, transparent 100%)' : ''}">
       <span>${icon}</span>
-      <div class="hud-toast-check">✓</div>
+      <div class="hud-toast-check" style="${ehPendente ? 'background:var(--gold); color:#04140a' : ''}">✓</div>
     </div>
     <div class="hud-toast-body">
-      <div class="hud-toast-tag">Corte Concluído · ${rotulo} ${badgeFila}</div>
+      <div class="hud-toast-tag" style="${ehPendente ? 'color:var(--gold)' : ''}">Corte Salvo · ${rotulo} ${badgeFila}</div>
       <div class="hud-toast-title">Clipe #${idxStr} pronto!</div>
-      <div class="hud-toast-time"><span>⏱</span> <b>${tempoStr}</b> (${durSec}s)</div>
+      <div class="hud-toast-time"><span>⏱</span> <b>${tempoStr}</b> (${durSec}s)${ehPendente ? ' · definir depois' : ''}</div>
     </div>
     <div class="hud-toast-actions">
       ${clipe ? `<button type="button" class="hud-toast-btn-ver" title="Abrir clipe para conferir">👁️ Ver</button>` : ''}
       <button type="button" class="hud-toast-btn-close" title="Fechar alerta">✕</button>
     </div>
-    <div class="hud-toast-timer-bar"></div>
+    <div class="hud-toast-timer-bar" style="${ehPendente ? 'background:linear-gradient(90deg, var(--gold) 0%, var(--cyan) 100%)' : ''}"></div>
   `;
 
   const btnClose = toast.querySelector('.hud-toast-btn-close');
@@ -1421,13 +1423,14 @@ function mostrarAlertaFilaAdicionada(posicaoFila, job){
   toast.style.borderColor = 'var(--cyan)';
   toast.style.boxShadow = '0 16px 40px rgba(0,0,0,0.85), 0 0 25px rgba(0,240,255,0.35)';
 
-  const icon = (job.infoTipo && job.infoTipo.icon) ? job.infoTipo.icon : (job.tipo === 'gol' ? '⚽' : '🎬');
-  const rotulo = (job.infoTipo && job.infoTipo.rotulo) ? job.infoTipo.rotulo : (job.tipo === 'gol' ? 'Gol' : 'Lance');
+  const ehPendente = !job.infoTipo && (job.tipo === 'pendente' || job.tipo === 'sem_marcar' || !job.tipo);
+  const icon = (job.infoTipo && job.infoTipo.icon) ? job.infoTipo.icon : (job.tipo === 'gol' ? '⚽' : (job.tipo === 'lance' ? '🎬' : '⏳'));
+  const rotulo = (job.infoTipo && job.infoTipo.rotulo) ? job.infoTipo.rotulo : (job.tipo === 'gol' ? 'Gol' : (job.tipo === 'lance' ? 'Lance' : 'Sem marcação'));
   const tempoStr = `${fmtTempo(job.inicio_s)} ➔ ${fmtTempo(job.fim_s)}`;
 
   toast.innerHTML = `
     <div class="hud-toast-icon-wrap" style="border-color:var(--cyan); background:radial-gradient(circle, rgba(0,240,255,0.25) 0%, transparent 100%)">
-      <span>📥</span>
+      <span>${ehPendente ? '⏳' : '📥'}</span>
       <div class="hud-toast-check" style="background:var(--cyan); color:#041416">#${posicaoFila}</div>
     </div>
     <div class="hud-toast-body">
@@ -2505,11 +2508,12 @@ $('#btnGerarClipeCompleto').onclick = () => {
 
   const dur = Math.max(2, parseFloat($('#duracaoCorteCompleto').value) || 15);
   const pos = $('#posicaoCorteCompleto').value;
-  const tipo = $('#tipoCorteCompleto').value || 'gol';
-  const infoTipo = obterInfoTipo(tipo);
-  const status = tipo;
+  const tipo = $('#tipoCorteCompleto').value || 'pendente';
+  const ehPendente = (tipo === 'pendente' || tipo === 'sem_marcar');
+  const infoTipo = ehPendente ? null : obterInfoTipo(tipo);
+  const status = ehPendente ? 'pendente' : tipo;
   const lanceNome = (infoTipo && !infoTipo.isGol) ? infoTipo.lanceNome : null;
-  const rotuloClipe = infoTipo ? `${infoTipo.icon} ${infoTipo.rotulo}` : tipo;
+  const rotuloClipe = ehPendente ? '⏳ Sem marcação' : (infoTipo ? `${infoTipo.icon} ${infoTipo.rotulo}` : tipo);
 
   let inicio_s = 0, fim_s = 0;
   if(pos === 'antes'){
@@ -2624,7 +2628,8 @@ async function sincronizarGolsComBackend(){
     ESTADO.gols = clipes.map(c => {
       const meta = mapaMeta[c.indice] || {};
       const prev = antigos[c.indice] || {};
-      const statusFinal = c.status || meta.status || prev.status || null;
+      const rawStatus = c.status || meta.status || prev.status || null;
+      const statusFinal = (rawStatus && rawStatus !== 'pendente' && rawStatus !== 'revisar') ? rawStatus : null;
       const lanceFinal = c.lance || meta.lance || prev.lance || null;
       const info = obterInfoTipo(statusFinal, lanceFinal);
       const ehGol = info ? info.isGol : (statusFinal === 'gol');
