@@ -979,18 +979,19 @@ def roda(cmd):
         raise SystemExit(1)
 
 
-def seg_de_imagem(img_path, dur, saida, fade=0.5):
+def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec="libx264"):
+    c_v = codec if codec in ("libx264", "libx265") else "libx264"
     roda(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", img_path,
           "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
           "-t", str(dur), "-r", str(FPS),
           "-vf", f"format=yuv420p,fade=t=in:st=0:d={fade},"
                  f"fade=t=out:st={max(dur - fade, 0.1)}:d={fade}",
-          "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+          "-c:v", c_v, "-preset", str(preset), "-crf", str(crf),
           "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-          "-c:a", "aac", "-b:a", "160k", "-shortest", saida])
+          "-c:a", "aac", "-b:a", "128k", "-shortest", saida])
 
 
-def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None):
+def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None, crf=24, preset="medium", codec="libx264"):
     dur = float(subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "csv=p=0", clipe], capture_output=True, text=True).stdout.strip() or 6)
@@ -1030,9 +1031,10 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
                 filtro + f";[0:a]afade=t=in:st=0:d={fade},"
                          f"afade=t=out:st={max(dur - fade, 0.1):.2f}:d={fade}[a]",
                 "-map", "[v]", "-map", "[a]"]
-    cmd += ["-t", str(dur), "-r", str(FPS), "-c:v", "libx264", "-preset", "medium",
-            "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-            "-c:a", "aac", "-b:a", "160k", saida]
+    c_v = codec if codec in ("libx264", "libx265") else "libx264"
+    cmd += ["-t", str(dur), "-r", str(FPS), "-c:v", c_v, "-preset", str(preset),
+            "-crf", str(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            "-c:a", "aac", "-b:a", "128k", saida]
     roda(cmd)
 
 
@@ -1090,6 +1092,9 @@ def main():
     ap.add_argument("--brilho", type=float, default=None, help="Ajuste de brilho dos clipes (1.0 = normal)")
     ap.add_argument("--saturacao", type=float, default=None, help="Ajuste de saturacao dos clipes (1.0 = normal)")
     ap.add_argument("--contraste", type=float, default=None, help="Ajuste de contraste dos clipes (1.0 = normal)")
+    ap.add_argument("--crf", type=int, default=24, help="Nível de compressão CRF (20=original/pesado, 24=otimizado/recomendado, 27=compacto, 29=ultraleve)")
+    ap.add_argument("--preset", default="medium", help="Preset do encoder (ultrafast, fast, medium, slow)")
+    ap.add_argument("--codec", default="libx264", help="Codec de vídeo (libx264, libx265)")
     args = ap.parse_args()
 
     with open(args.partida, encoding="utf-8-sig") as f:
@@ -1127,13 +1132,13 @@ def main():
     partes = []
     partes_gols = []
     try:
-        print("gerando cartelas...")
+        print(f"gerando cartelas e clipes (codec={args.codec}, crf={args.crf}, preset={args.preset})...")
         if not args.sem_abertura:
             print("  gerando cartela de abertura (campo tático e escalação)...")
             p = os.path.join(tmp, "abertura.png")
             cartela_abertura(d).save(p)
             s = os.path.join(tmp, "s000.mp4")
-            seg_de_imagem(p, args.abertura, s)
+            seg_de_imagem(p, args.abertura, s, crf=args.crf, preset=args.preset, codec=args.codec)
             partes.append(s)
             partes_gols.append(s)
 
@@ -1169,7 +1174,7 @@ def main():
             rot = ev.get("autor") or ev.get("lance") or "lance"
             status_placar = f"[{placar_a} × {placar_b}]"
             print(f"  [{n:02d}/{len(roteiro)}] {ev.get('tempo','')} {status_placar} {tipo}: {rot}")
-            seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor)
+            seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor, crf=args.crf, preset=args.preset, codec=args.codec)
             partes.append(s)
             if tipo == "gol":
                 partes_gols.append(s)
@@ -1188,7 +1193,7 @@ def main():
                 p = os.path.join(tmp, f"{nome}.png")
                 func(d).save(p)
                 s = os.path.join(tmp, f"z_{nome}.mp4")
-                seg_de_imagem(p, dur, s)
+                seg_de_imagem(p, dur, s, crf=args.crf, preset=args.preset, codec=args.codec)
                 partes.append(s)
                 partes_gols.append(s)
 
@@ -1223,6 +1228,21 @@ def main():
             if dur_g:
                 tg = float(dur_g)
                 print(f"duracao só gols: {int(tg // 60)}min {int(tg % 60)}s | {len(partes_gols)} segmentos")
+
+        try:
+            if sys.platform != "win32":
+                icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+                cmd_notif = ["notify-send", "-a", "fut-bin"]
+                if os.path.isfile(icon_path):
+                    cmd_notif.extend(["-i", icon_path])
+                cmd_notif.extend([
+                    "-u", "normal",
+                    "⚽ Renderização Concluída! — fut-bin",
+                    "A montagem dos vídeos de melhores momentos e gols foi finalizada com sucesso!"
+                ])
+                subprocess.Popen(cmd_notif)
+        except Exception:
+            pass
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

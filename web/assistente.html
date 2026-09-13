@@ -166,8 +166,83 @@
   .chip.skip{background:#3a1d1d;border-color:var(--warn);color:#fca5a5}
   .chip.lance{background:rgba(0,240,255,0.16);border-color:var(--cyan);color:var(--cyan)}
 
-  .work{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+  .work{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;transition:all 0.25s ease}
   @media(max-width:900px){.work{grid-template-columns:1fr}}
+
+  /* Modo Teatro (Estilo YouTube) para a tela de Marcação */
+  main.teatro-ativo {
+    max-width: 1480px !important;
+    transition: max-width 0.25s ease-out;
+  }
+  #s-marcar.modo-teatro .work {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+  #s-marcar.modo-teatro .card-video-marcar {
+    padding: 12px 14px 14px;
+    background: linear-gradient(180deg, #101a28 0%, #080d15 100%);
+    border: 1.5px solid var(--accent);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 255, 135, 0.15);
+  }
+  #s-marcar.modo-teatro #vid {
+    width: 100%;
+    max-height: calc(100vh - 220px);
+    min-height: 480px;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    background: #000;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.9);
+  }
+  #s-marcar.modo-teatro .coluna-paineis-marcar {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 16px;
+    align-items: start;
+    animation: painelFadeIn 0.25s ease-out;
+  }
+  @media (max-width: 1024px) {
+    #s-marcar.modo-teatro .coluna-paineis-marcar {
+      grid-template-columns: 1fr;
+    }
+  }
+  @keyframes painelFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .btn-modo-teatro {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: rgba(0, 255, 135, 0.08);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-modo-teatro:hover {
+    background: rgba(0, 255, 135, 0.2);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(0, 255, 135, 0.35);
+    transform: translateY(-1px);
+  }
+  .btn-modo-teatro.ativo {
+    background: linear-gradient(135deg, #00ff87 0%, #00df74 100%);
+    color: #04140a;
+    border-color: #00ff87;
+    font-weight: 800;
+    box-shadow: 0 0 16px rgba(0, 255, 135, 0.5);
+  }
+  .btn-modo-teatro.ativo:hover {
+    background: #00df74;
+    color: #04140a;
+  }
 
   .pick{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
   .pick button{background:rgba(18,26,38,0.85);border:1px solid var(--line);color:var(--txt);
@@ -364,6 +439,233 @@
   @keyframes hudTimerBar{
     from{width:100%;}
     to{width:0%;}
+  }
+
+  /* ================= MODAL RENDERIZAÇÃO CONCLUÍDA ================= */
+  .modal-render-sucesso {
+    background: radial-gradient(circle at 50% 0%, #15273b 0%, #0c1522 55%, #060a12 100%) !important;
+    border: 2px solid var(--accent) !important;
+    border-top: 4px solid var(--accent) !important;
+    border-radius: 18px !important;
+    padding: 28px 24px !important;
+    max-width: 680px !important;
+    width: 100%;
+    box-shadow: 0 0 50px rgba(0, 255, 135, 0.35), 0 24px 70px rgba(0, 0, 0, 0.9) !important;
+    position: relative;
+    text-align: center;
+    animation: modalRenderIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    overflow: hidden;
+  }
+  @keyframes modalRenderIn {
+    0% { transform: scale(0.88) translateY(20px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .render-sucesso-trofeu-wrap {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .render-sucesso-trofeu-glow {
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,255,135,0.4) 0%, rgba(255,215,0,0.15) 50%, transparent 70%);
+    animation: pulseGlowSucesso 2s infinite ease-in-out;
+  }
+  @keyframes pulseGlowSucesso {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+  .render-sucesso-trofeu-icon {
+    font-size: 44px;
+    position: relative;
+    z-index: 2;
+    filter: drop-shadow(0 4px 12px rgba(255,215,0,0.4));
+  }
+  .render-sucesso-trofeu-badge {
+    position: absolute;
+    bottom: -2px;
+    right: 2px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #04140a;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #060a12;
+    box-shadow: 0 0 10px rgba(0,255,135,0.8);
+    z-index: 3;
+    animation: bounceBadge 2s infinite ease-in-out;
+  }
+  @keyframes bounceBadge {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .render-sucesso-tag {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 12px;
+    background: rgba(0,255,135,0.15);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .render-sucesso-titulo {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 6px;
+    letter-spacing: -0.3px;
+  }
+  .render-sucesso-sub {
+    font-size: 13px;
+    color: var(--dim);
+    margin: 0 0 20px;
+    line-height: 1.45;
+  }
+
+  .render-sucesso-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    text-align: left;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 600px) {
+    .render-sucesso-grid { grid-template-columns: 1fr; }
+  }
+  .render-sucesso-card {
+    background: rgba(14, 23, 36, 0.85);
+    border: 1px solid var(--line-bright);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+  }
+  .render-sucesso-card:hover {
+    border-color: var(--accent);
+    background: rgba(18, 30, 48, 0.95);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .render-card-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+  .render-card-tipo {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--dim);
+    letter-spacing: 0.5px;
+  }
+  .render-card-nome {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--txt);
+    margin: 2px 0 4px;
+  }
+  .render-card-desc {
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 12px;
+    line-height: 1.35;
+  }
+  .render-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+  }
+  .render-card-actions .btn-assistir {
+    flex: 1;
+    background: var(--accent);
+    color: #04140a;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .render-card-actions .btn-assistir:hover {
+    background: var(--accent2);
+    box-shadow: 0 0 12px rgba(0,255,135,0.4);
+    transform: translateY(-1px);
+  }
+  .render-card-actions .btn-baixar {
+    background: rgba(255,255,255,0.08);
+    color: var(--txt);
+    border: 1px solid var(--line-bright);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .render-card-actions .btn-baixar:hover {
+    border-color: #fff;
+    color: #fff;
+    background: rgba(255,255,255,0.15);
+  }
+
+  .render-sucesso-footer {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+  .btn-fechar-sucesso {
+    background: transparent;
+    border: 1px solid var(--line-bright);
+    color: var(--dim);
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-fechar-sucesso:hover {
+    border-color: var(--txt);
+    color: var(--txt);
+  }
+
+  /* Confetes / Partículas */
+  .render-confetti-wrap {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    opacity: 0;
+    animation: confettiFall 2.5s ease-out forwards;
+  }
+  @keyframes confettiFall {
+    0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translateY(420px) rotate(720deg) scale(0.6); }
   }
 
   .item-video{padding:12px 16px;border-radius:8px;border:1px solid var(--line);margin-bottom:6px;cursor:pointer;
@@ -812,9 +1114,18 @@
 <section id="s-marcar">
   <div id="placarMarcacaoTopo"></div>
   <div class="golnav" id="golnav"></div>
-  <div class="work">
-    <div>
-      <div class="card" style="padding:10px">
+  <div class="work" id="workMarcar">
+    <div class="coluna-video-marcar">
+      <div class="card card-video-marcar" style="padding:10px">
+        <div class="row header-video-marcar" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+          <div style="font-weight:700; font-size:13px; color:var(--txt); display:flex; align-items:center; gap:6px">
+            <span>📺</span> <span>Clipe do Lance</span>
+          </div>
+          <button type="button" id="btnTeatroMarcar" class="ghost btn-modo-teatro" title="Modo Teatro (expandir vídeo e mover marcação para baixo) · Atalho: T" onclick="alternarModoTeatroMarcar()">
+            <span class="icone-teatro">🗖</span>
+            <span class="texto-teatro">Expandir Vídeo (Modo Teatro)</span>
+          </button>
+        </div>
         <video id="vid" controls></video>
         <div class="row" style="margin-top:6px; align-items:center; gap:8px; background:var(--panel2); padding:5px 10px; border-radius:6px; border:1px solid var(--line); flex-wrap:wrap">
           <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho:</span>
@@ -833,7 +1144,7 @@
         </div>
       </div>
     </div>
-    <div>
+    <div class="coluna-paineis-marcar">
       <div class="card">
         <h2>O que é este clipe</h2>
         <div class="pick" id="pickTipo"></div>
@@ -1068,6 +1379,67 @@
     <label class="row"><input type="checkbox" id="semAbertura" style="width:auto"> Sem cartela de abertura</label>
     <label class="row"><input type="checkbox" id="semFechamento" style="width:auto"> Sem cartelas de fechamento</label>
     <label class="row"><input type="checkbox" id="semAudio" style="width:auto"> Silenciar os clipes</label>
+
+    <div style="margin:14px 0 16px; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:14px 16px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px">
+        <label style="font-weight:700; font-size:13px; color:var(--txt); margin:0; display:flex; align-items:center; gap:6px">
+          <span>⚡</span> Qualidade da Renderização & Tamanho do Arquivo
+        </label>
+        <span id="badgeTamanhoEstimado" style="font-size:11px; font-weight:800; color:var(--accent); background:rgba(0,255,135,0.12); border:1px solid var(--accent); padding:2px 8px; border-radius:10px">~50% menor (~600MB)</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px" id="gridPerfisQualidade">
+        <div class="perfil-qualidade-card sel" data-crf="24" data-codec="libx264" data-estimativa="~50% menor (~600MB)" style="display:flex; flex-direction:column; gap:4px; padding:10px 12px; border-radius:8px; border:1.5px solid var(--accent); background:rgba(0,255,135,0.08); cursor:pointer; transition:all 0.15s ease">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <span style="font-size:12px; font-weight:800; color:var(--accent)">🟢 Otimizado</span>
+            <span style="font-size:10px; font-weight:800; background:var(--accent); color:#04140a; padding:1px 6px; border-radius:4px">Recomendado</span>
+          </div>
+          <span style="font-size:11px; color:var(--txt); line-height:1.25">Full HD 1080p nítido, ~50% menor (~600MB)</span>
+        </div>
+
+        <div class="perfil-qualidade-card" data-crf="27" data-codec="libx264" data-estimativa="~65% menor (~450MB)" style="display:flex; flex-direction:column; gap:4px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); cursor:pointer; transition:all 0.15s ease">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <span style="font-size:12px; font-weight:800; color:var(--gold-light)">🟡 Compacto</span>
+            <span style="font-size:10px; font-weight:700; color:var(--dim)">WhatsApp</span>
+          </div>
+          <span style="font-size:11px; color:var(--dim); line-height:1.25">Leve para envio rápido (~450MB)</span>
+        </div>
+
+        <div class="perfil-qualidade-card" data-crf="29" data-codec="libx264" data-estimativa="~75% menor (~320MB)" style="display:flex; flex-direction:column; gap:4px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); cursor:pointer; transition:all 0.15s ease">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <span style="font-size:12px; font-weight:800; color:var(--cyan)">🟣 Ultra Leve</span>
+            <span style="font-size:10px; font-weight:700; color:var(--dim)">Reduzido</span>
+          </div>
+          <span style="font-size:11px; color:var(--dim); line-height:1.25">Arquivo super compacto (~320MB)</span>
+        </div>
+
+        <div class="perfil-qualidade-card" data-crf="20" data-codec="libx264" data-estimativa="Original (~1.4GB)" style="display:flex; flex-direction:column; gap:4px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); cursor:pointer; transition:all 0.15s ease">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <span style="font-size:12px; font-weight:800; color:#38bdf8">🔵 Máxima Qualidade</span>
+            <span style="font-size:10px; font-weight:700; color:var(--dim)">Original</span>
+          </div>
+          <span style="font-size:11px; color:var(--dim); line-height:1.25">Taxa de dados bruta, pesado (~1.4GB)</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin:12px 0 16px; background:linear-gradient(145deg, #131f2f 0%, #0c1420 100%); border:1px solid var(--line-bright); border-radius:10px; padding:12px 16px">
+      <div style="font-size:12px; font-weight:700; color:var(--txt); margin-bottom:8px; display:flex; align-items:center; gap:6px">
+        <span>⏱️</span> Duração Prevista dos Vídeos a Renderizar:
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px" id="gridPrevisaoDuracao">
+        <div style="background:rgba(8,13,20,0.75); border:1px solid var(--line); border-radius:8px; padding:10px 14px">
+          <div style="font-size:11px; font-weight:700; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px">🎬 Melhores Momentos (Gols + Lances)</div>
+          <div style="font-size:19px; font-weight:800; color:var(--accent); margin-top:2px" id="durEstMelhores">Calculando...</div>
+          <div style="font-size:11px; color:var(--dim); margin-top:2px" id="detEstMelhores">Todos os clipes + abertura e encerramento</div>
+        </div>
+        <div style="background:rgba(8,13,20,0.75); border:1px solid var(--line); border-radius:8px; padding:10px 14px">
+          <div style="font-size:11px; font-weight:700; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px">⚽ Apenas Gols</div>
+          <div style="font-size:19px; font-weight:800; color:var(--gold-light); margin-top:2px" id="durEstGols">Calculando...</div>
+          <div style="font-size:11px; color:var(--dim); margin-top:2px" id="detEstGols">Somente os gols com cartelas oficiais</div>
+        </div>
+      </div>
+    </div>
+
     <div class="row" style="margin-top:8px; gap:8px">
       <button class="act" id="btnMontar">Montar vídeo final</button>
       <button type="button" class="warnb" id="btnCancelarMontar" style="display:none">✕ Cancelar montagem</button>
@@ -1161,6 +1533,59 @@
       </div>
       <div class="row" style="gap:8px; align-items:center">
         <button type="button" class="okb" id="modalConfirmarOk" onclick="fecharModalClipe()" style="font-size:12px; padding:6px 14px">✓ Concluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Notificação de Renderização Concluída -->
+<div class="modal-overlay" id="modalRenderConcluido" hidden>
+  <div class="modal-box modal-render-sucesso">
+    <div class="render-confetti-wrap" id="renderConfettiWrap"></div>
+
+    <div style="position:relative; z-index:2">
+      <div class="render-sucesso-trofeu-wrap">
+        <div class="render-sucesso-trofeu-glow"></div>
+        <div class="render-sucesso-trofeu-icon">🏆</div>
+        <div class="render-sucesso-trofeu-badge">⚽</div>
+      </div>
+
+      <div class="render-sucesso-tag">Processo Concluído · Full HD 1080p</div>
+      <h2 class="render-sucesso-titulo">Renderização Concluída com Sucesso!</h2>
+      <p class="render-sucesso-sub">
+        Os vídeos finais da sua pelada foram montados com todas as cartelas, placares e transições oficiais.
+      </p>
+
+      <div class="render-sucesso-grid">
+        <div class="render-sucesso-card">
+          <div>
+            <div class="render-card-icon">🎬</div>
+            <div class="render-card-tipo">Vídeo Oficial Completo</div>
+            <div class="render-card-nome">Melhores Momentos</div>
+            <div class="render-card-desc">Abertura tática, gols com cartela, lances e artilheiros</div>
+          </div>
+          <div class="render-card-actions">
+            <button type="button" class="btn-assistir" onclick="fecharModalRenderEAssistir('melhores')">▶ Assistir</button>
+            <a href="/video/final" download="melhores_momentos.mp4" class="btn-baixar">⬇ Baixar</a>
+          </div>
+        </div>
+
+        <div class="render-sucesso-card">
+          <div>
+            <div class="render-card-icon">⚽</div>
+            <div class="render-card-tipo">Versão Resumo</div>
+            <div class="render-card-nome">Apenas Gols</div>
+            <div class="render-card-desc">Corte direto e dinâmico somente dos gols com cartelas</div>
+          </div>
+          <div class="render-card-actions">
+            <button type="button" class="btn-assistir" onclick="fecharModalRenderEAssistir('gols')">▶ Assistir</button>
+            <a href="/video/final/gols" download="apenas_gols.mp4" class="btn-baixar">⬇ Baixar</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="render-sucesso-footer">
+        <button type="button" class="btn-fechar-sucesso" onclick="fecharModalRender()">✕ Fechar e Ver no Assistente</button>
       </div>
     </div>
   </div>
@@ -1456,6 +1881,142 @@ function mostrarAlertaFilaAdicionada(posicaoFila, job){
   setTimeout(fechar, 3200);
 }
 
+/* ================= ALERTA DE RENDERIZAÇÃO CONCLUÍDA ================= */
+function tocarSomVitoria(){
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if(ctx.state === 'suspended') ctx.resume();
+    const notas = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 (Acorde de vitória)
+    notas.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.11));
+      gain.gain.setValueAtTime(0.18, ctx.currentTime + (i * 0.11));
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (i * 0.11) + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + (i * 0.11));
+      osc.stop(ctx.currentTime + (i * 0.11) + 0.65);
+    });
+  } catch(e){
+    console.log('AudioContext indisponível:', e);
+  }
+}
+
+function dispararConfetes(){
+  const wrap = document.getElementById('renderConfettiWrap');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  const cores = ['#00ff87', '#00f0ff', '#ffd700', '#ff3366', '#ffffff'];
+  for(let i = 0; i < 45; i++){
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.top = (Math.random() * 20 - 10) + 'px';
+    piece.style.backgroundColor = cores[Math.floor(Math.random() * cores.length)];
+    piece.style.width = (Math.random() * 6 + 6) + 'px';
+    piece.style.height = (Math.random() * 8 + 6) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    piece.style.animationDelay = (Math.random() * 0.8) + 's';
+    piece.style.animationDuration = (Math.random() * 1.5 + 2) + 's';
+    wrap.appendChild(piece);
+  }
+}
+
+function fecharModalRender(){
+  const m = document.getElementById('modalRenderConcluido');
+  if(m) m.hidden = true;
+}
+
+function fecharModalRenderEAssistir(qual){
+  fecharModalRender();
+  irPara('s-resumo');
+  const resFinal = document.getElementById('resultadoFinal');
+  if(resFinal){
+    resFinal.scrollIntoView({behavior:'smooth', block:'start'});
+    const vidId = (qual === 'gols') ? 'videoPlayerApenasGols' : 'videoPlayerMelhoresMomentos';
+    const v = document.getElementById(vidId);
+    if(v){
+      setTimeout(() => {
+        try { v.play(); } catch(e){}
+      }, 400);
+    }
+  }
+}
+
+function mostrarAlertaHUDVideoFinal(){
+  let container = document.getElementById('hudToastContainer');
+  if(!container){
+    container = document.createElement('div');
+    container.id = 'hudToastContainer';
+    container.className = 'hud-toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'hud-toast';
+  toast.style.borderColor = 'var(--accent)';
+  toast.style.boxShadow = '0 16px 40px rgba(0,0,0,0.85), 0 0 28px rgba(0,255,135,0.45)';
+
+  toast.innerHTML = `
+    <div class="hud-toast-icon-wrap" style="border-color:var(--gold); background:radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)">
+      <span>🏆</span>
+      <div class="hud-toast-check" style="background:var(--accent); color:#04140a">⚽</div>
+    </div>
+    <div class="hud-toast-body">
+      <div class="hud-toast-tag" style="color:var(--accent)">Processo Finalizado · Full HD</div>
+      <div class="hud-toast-title">Vídeos Finais Prontos!</div>
+      <div class="hud-toast-time"><span>🎬</span> Melhores Momentos e Apenas Gols gerados</div>
+    </div>
+    <div class="hud-toast-actions">
+      <button type="button" class="hud-toast-btn-ver" style="background:var(--accent); color:#04140a; border:none; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer" title="Ver vídeos gerados">👁️ Ver</button>
+      <button type="button" class="hud-toast-btn-close" title="Fechar alerta">✕</button>
+    </div>
+    <div class="hud-toast-timer-bar" style="background:linear-gradient(90deg, var(--accent) 0%, var(--gold) 100%); animation-duration:10s"></div>
+  `;
+
+  const btnClose = toast.querySelector('.hud-toast-btn-close');
+  const fechar = () => {
+    if(toast.classList.contains('saindo')) return;
+    toast.classList.add('saindo');
+    setTimeout(() => { toast.remove(); }, 350);
+  };
+  btnClose.onclick = fechar;
+
+  const btnVer = toast.querySelector('.hud-toast-btn-ver');
+  if(btnVer){
+    btnVer.onclick = () => {
+      fechar();
+      fecharModalRenderEAssistir('melhores');
+    };
+  }
+
+  container.appendChild(toast);
+  setTimeout(fechar, 10000);
+}
+
+function mostrarAlertaRenderizacaoConcluida(){
+  tocarSomVitoria();
+
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('⚽ Vídeos Prontos! — fut-bin', {
+        body: 'A renderização dos melhores momentos e dos gols foi concluída com sucesso!',
+        icon: '/web/icon.png'
+      });
+    }
+  } catch(e){}
+
+  const modal = document.getElementById('modalRenderConcluido');
+  if(modal){
+    modal.hidden = false;
+    dispararConfetes();
+  }
+
+  mostrarAlertaHUDVideoFinal();
+}
+
 /* ------------------------------------------------------------ navegacao */
 function montarNav(){
   const nav = $('#nav'); nav.innerHTML='';
@@ -1498,6 +2059,12 @@ function irPara(id){
   if(id==='s-marcar'){
     renderMarcacao();
     sincronizarGolsComBackend().then(() => renderMarcacao());
+    if(localStorage.getItem('futbin_modo_teatro_marcar') === '1'){
+      alternarModoTeatroMarcar(true);
+    }
+  } else {
+    const mainEl = document.querySelector('main');
+    if(mainEl) mainEl.classList.remove('teatro-ativo');
   }
   if(id==='s-resumo') renderResumo();
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
@@ -3248,7 +3815,14 @@ function fecharModalClipe(){
 }
 $('#modalFechar').onclick = fecharModalClipe;
 $('#modalClipe').addEventListener('click', (e)=>{ if(e.target.id==='modalClipe') fecharModalClipe(); });
+const modalRenderEl = document.getElementById('modalRenderConcluido');
+if(modalRenderEl) modalRenderEl.addEventListener('click', (e)=>{ if(e.target.id==='modalRenderConcluido') fecharModalRender(); });
+
 document.addEventListener('keydown', (e)=>{
+  const mRender = document.getElementById('modalRenderConcluido');
+  if(mRender && !mRender.hidden){
+    if(e.key === 'Escape'){ fecharModalRender(); return; }
+  }
   if(!$('#modalClipe').hidden){
     if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'){
       if(e.key === 'Escape') fecharModalClipe();
@@ -3910,6 +4484,41 @@ $('#btnNext').onclick = ()=>{
     renderMarcacao();
   }
 };
+function alternarModoTeatroMarcar(forcar = null){
+  const sec = document.getElementById('s-marcar');
+  const btn = document.getElementById('btnTeatroMarcar');
+  const mainEl = document.querySelector('main');
+  if(!sec) return;
+
+  const ativar = (forcar !== null) ? forcar : !sec.classList.contains('modo-teatro');
+
+  if(ativar){
+    sec.classList.add('modo-teatro');
+    if(mainEl) mainEl.classList.add('teatro-ativo');
+    if(btn){
+      btn.classList.add('ativo');
+      const ic = btn.querySelector('.icone-teatro');
+      const tx = btn.querySelector('.texto-teatro');
+      if(ic) ic.textContent = '🗗';
+      if(tx) tx.textContent = 'Reduzir (Lado a Lado)';
+      btn.title = 'Voltar para visualização lado a lado · Atalho: T';
+    }
+    localStorage.setItem('futbin_modo_teatro_marcar', '1');
+  } else {
+    sec.classList.remove('modo-teatro');
+    if(mainEl) mainEl.classList.remove('teatro-ativo');
+    if(btn){
+      btn.classList.remove('ativo');
+      const ic = btn.querySelector('.icone-teatro');
+      const tx = btn.querySelector('.texto-teatro');
+      if(ic) ic.textContent = '🗖';
+      if(tx) tx.textContent = 'Expandir Vídeo (Modo Teatro)';
+      btn.title = 'Modo Teatro (expandir vídeo e mover marcação para baixo) · Atalho: T';
+    }
+    localStorage.setItem('futbin_modo_teatro_marcar', '0');
+  }
+}
+
 $('#btnRep').onclick = ()=>{ const v=$('#vid'); v.currentTime=0; v.play(); };
 document.addEventListener('keydown', e=>{
   if(passoAtual!=='s-marcar') return;
@@ -3919,6 +4528,7 @@ document.addEventListener('keydown', e=>{
   else if(e.key==='ArrowRight') $('#btnNext').click();
   else if(e.key==='Enter') $('#btnSalvar').click();
   else if(k==='r') $('#btnRep').click();
+  else if(k==='t') alternarModoTeatroMarcar();
   else {
     let match = TIPOS_CLIPE.find(t => t.hotkey === k);
     if(!match && (k === 'l' || k === 'o')){
@@ -4383,30 +4993,153 @@ function renderResumo(){
   }
 
   atualizarFiltrosCssFundo();
+  atualizarPrevisaoDuracao();
+}
+
+function atualizarPrevisaoDuracao(){
+  const elMelhores = $('#durEstMelhores');
+  const elGols = $('#durEstGols');
+  const detMelhores = $('#detEstMelhores');
+  const detGols = $('#detEstGols');
+  if(!elMelhores || !elGols) return;
+
+  const ab = ($('#semAbertura') && $('#semAbertura').checked) ? 0 : (parseFloat($('#abertura').value) || 7);
+  const fech = ($('#semFechamento') && $('#semFechamento').checked) ? 0 : ((parseFloat($('#fechamento').value) || 8) * 3);
+
+  const todosGols = validos();
+  const todosLances = lances();
+  const totalClipes = [...todosGols, ...todosLances];
+
+  let durTotalMelhores = ab + fech;
+  totalClipes.forEach(c => {
+    let d = (c.fim_s != null && c.inicio_s != null && c.fim_s > c.inicio_s) ? (c.fim_s - c.inicio_s) : 24;
+    durTotalMelhores += d;
+  });
+
+  let durTotalGols = ab + fech;
+  todosGols.forEach(c => {
+    let d = (c.fim_s != null && c.inicio_s != null && c.fim_s > c.inicio_s) ? (c.fim_s - c.inicio_s) : 24;
+    durTotalGols += d;
+  });
+
+  const mMelhores = Math.floor(durTotalMelhores / 60);
+  const sMelhores = Math.round(durTotalMelhores % 60);
+  elMelhores.textContent = `${mMelhores}min ${String(sMelhores).padStart(2,'0')}s`;
+  if(detMelhores) detMelhores.textContent = `${totalClipes.length} clipes (${todosGols.length} gols + ${todosLances.length} lances)`;
+
+  const mGols = Math.floor(durTotalGols / 60);
+  const sGols = Math.round(durTotalGols % 60);
+  elGols.textContent = `${mGols}min ${String(sGols).padStart(2,'0')}s`;
+  if(detGols) detGols.textContent = `${todosGols.length} gols com cartelas oficiais`;
 }
 
 function renderResultadosVideosFinais(){
   $('#resultadoFinal').innerHTML = `
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px">
-      <div class="card" style="margin:0; background:var(--panel2)">
-        <h3 style="margin:0 0 8px; font-size:14px; color:var(--accent)">🎬 Melhores Momentos (Gols + Lances)</h3>
-        <video src="/video/final" controls style="border-radius:8px; width:100%; max-height:280px; background:#000"></video>
-        <div class="row" style="margin-top:10px">
-          <a class="act" style="text-decoration:none; display:inline-block; text-align:center; font-size:12px" href="/video/final" download>⬇ Baixar melhores_momentos.mp4</a>
+    <div style="background:linear-gradient(135deg, rgba(0,255,135,0.12) 0%, rgba(14,23,36,0.95) 100%); border:1.5px solid var(--accent); border-radius:12px; padding:16px 20px; margin-top:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; box-shadow:0 0 25px rgba(0,255,135,0.2)">
+      <div style="display:flex; align-items:center; gap:14px">
+        <span style="font-size:32px; filter:drop-shadow(0 2px 8px rgba(0,255,135,0.5))">🏆</span>
+        <div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <span style="font-size:16px; font-weight:800; color:var(--accent)">Vídeos Finais Prontos em Full HD!</span>
+            <span style="background:var(--accent); color:#04140a; font-size:10px; font-weight:900; padding:2px 8px; border-radius:10px">1080p Broadcast</span>
+          </div>
+          <div style="font-size:12px; color:var(--dim); margin-top:2px">Melhores Momentos e Apenas Gols gerados com sucesso. Assista ou baixe abaixo:</div>
         </div>
       </div>
-      <div class="card" style="margin:0; background:var(--panel2)">
-        <h3 style="margin:0 0 8px; font-size:14px; color:var(--accent)">⚽ Apenas Gols</h3>
-        <video src="/video/final/gols" controls style="border-radius:8px; width:100%; max-height:280px; background:#000"></video>
+      <button type="button" class="act" onclick="mostrarAlertaRenderizacaoConcluida()" style="font-size:12px; padding:8px 16px; border-radius:8px; display:flex; align-items:center; gap:6px; font-weight:800" title="Reabrir alerta de comemoração e opções de download">
+        <span>🎉</span> Ver Notificação Completa
+      </button>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px">
+      <div class="card" style="margin:0; background:var(--panel2); border:1px solid var(--line-bright)">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+          <h3 style="margin:0; font-size:14px; color:var(--accent); display:flex; align-items:center; gap:6px">
+            <span>🎬</span> Melhores Momentos (Gols + Lances)
+          </h3>
+          <span id="durRealMelhores" style="font-size:12px; font-weight:800; color:var(--accent); background:rgba(0,255,135,0.12); padding:2px 8px; border-radius:6px; border:1px solid rgba(0,255,135,0.3)">⏱ 17min 45s</span>
+        </div>
+        <video id="videoPlayerMelhoresMomentos" src="/video/final" controls style="border-radius:8px; width:100%; max-height:280px; background:#000"></video>
         <div class="row" style="margin-top:10px">
-          <a class="act" style="text-decoration:none; display:inline-block; text-align:center; font-size:12px" href="/video/final/gols" download>⬇ Baixar apenas_gols.mp4</a>
+          <a class="act" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; text-align:center; font-size:13px; padding:10px 14px; border-radius:8px" href="/video/final" download>⬇ Baixar melhores_momentos.mp4</a>
+        </div>
+      </div>
+      <div class="card" style="margin:0; background:var(--panel2); border:1px solid var(--line-bright)">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+          <h3 style="margin:0; font-size:14px; color:var(--accent); display:flex; align-items:center; gap:6px">
+            <span>⚽</span> Apenas Gols
+          </h3>
+          <span id="durRealGols" style="font-size:12px; font-weight:800; color:var(--gold-light); background:rgba(255,215,0,0.12); padding:2px 8px; border-radius:6px; border:1px solid rgba(255,215,0,0.3)">⏱ 7min 46s</span>
+        </div>
+        <video id="videoPlayerApenasGols" src="/video/final/gols" controls style="border-radius:8px; width:100%; max-height:280px; background:#000"></video>
+        <div class="row" style="margin-top:10px">
+          <a class="act" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; text-align:center; font-size:13px; padding:10px 14px; border-radius:8px" href="/video/final/gols" download>⬇ Baixar apenas_gols.mp4</a>
         </div>
       </div>
     </div>
   `;
+
+  const vm = $('#videoPlayerMelhoresMomentos');
+  if(vm){
+    vm.onloadedmetadata = () => {
+      if(vm.duration && !isNaN(vm.duration)){
+        const m = Math.floor(vm.duration / 60);
+        const s = Math.round(vm.duration % 60);
+        const el = $('#durRealMelhores');
+        if(el) el.textContent = `⏱ ${m}min ${String(s).padStart(2,'0')}s`;
+      }
+    };
+  }
+  const vg = $('#videoPlayerApenasGols');
+  if(vg){
+    vg.onloadedmetadata = () => {
+      if(vg.duration && !isNaN(vg.duration)){
+        const m = Math.floor(vg.duration / 60);
+        const s = Math.round(vg.duration % 60);
+        const el = $('#durRealGols');
+        if(el) el.textContent = `⏱ ${m}min ${String(s).padStart(2,'0')}s`;
+      }
+    };
+  }
+}
+
+function inicializarSeletorQualidade(){
+  const savedCrf = localStorage.getItem('futbin_perfil_qualidade') || '24';
+  const cards = document.querySelectorAll('.perfil-qualidade-card');
+  const badge = document.getElementById('badgeTamanhoEstimado');
+
+  cards.forEach(card => {
+    if(card.dataset.crf === savedCrf){
+      cards.forEach(c => {
+        c.classList.remove('sel');
+        c.style.borderColor = 'var(--line)';
+        c.style.background = 'var(--panel)';
+      });
+      card.classList.add('sel');
+      card.style.borderColor = 'var(--accent)';
+      card.style.background = 'rgba(0,255,135,0.08)';
+      if(badge) badge.textContent = card.dataset.estimativa;
+    }
+
+    card.onclick = () => {
+      cards.forEach(c => {
+        c.classList.remove('sel');
+        c.style.borderColor = 'var(--line)';
+        c.style.background = 'var(--panel)';
+      });
+      card.classList.add('sel');
+      card.style.borderColor = 'var(--accent)';
+      card.style.background = 'rgba(0,255,135,0.08)';
+      if(badge) badge.textContent = card.dataset.estimativa;
+      localStorage.setItem('futbin_perfil_qualidade', card.dataset.crf);
+    };
+  });
 }
 
 $('#btnMontar').onclick = async ()=>{
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch(e){}
+  }
   await salvarPartida();
   try { await salvarFundoCartela(true); } catch(e){}
   $('#btnMontar').disabled = true;
@@ -4437,6 +5170,10 @@ $('#btnMontar').onclick = async ()=>{
     return;
   }
 
+  const cardSel = document.querySelector('.perfil-qualidade-card.sel');
+  const crf = cardSel ? parseInt(cardSel.dataset.crf, 10) : 24;
+  const codec = cardSel ? (cardSel.dataset.codec || 'libx264') : 'libx264';
+
   const body = {
     abertura: parseFloat($('#abertura').value)||7,
     fechamento: parseFloat($('#fechamento').value)||8,
@@ -4444,6 +5181,8 @@ $('#btnMontar').onclick = async ()=>{
     sem_abertura: $('#semAbertura').checked,
     sem_fechamento: $('#semFechamento').checked,
     roteiro: roteiro.length ? roteiro : todos,
+    crf: crf,
+    codec: codec,
   };
 
   const btnCanc = $('#btnCancelarMontar');
@@ -4454,6 +5193,7 @@ $('#btnMontar').onclick = async ()=>{
   $('#btnMontar').disabled = false;
   if(ok){
     renderResultadosVideosFinais();
+    mostrarAlertaRenderizacaoConcluida();
   }
 };
 
@@ -4503,5 +5243,6 @@ $('#btnMontar').onclick = async ()=>{
   if(estado.final_ok || estado.final_gols_ok){
     renderResultadosVideosFinais();
   }
+  inicializarSeletorQualidade();
 })();
 </script>

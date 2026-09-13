@@ -264,11 +264,30 @@ def _rodar_job(job: dict, cmd: List[str]) -> None:
             job["linha_atual"] = ""
             job["status"] = "done" if proc.returncode == 0 else "error"
             job["returncode"] = proc.returncode
+
+        if proc.returncode == 0 and any("montar_video.py" in str(arg) for arg in cmd):
+            _notificar_sistema(
+                "⚽ Vídeos Prontos! — fut-bin",
+                "A montagem dos vídeos de melhores momentos e gols foi concluída com sucesso!"
+            )
     except Exception as exc:  # processo nao subiu, script sumiu, etc.
         with job["lock"]:
             if job["status"] != "canceled":
                 job["status"] = "error"
                 job["log"].append(f"ERRO: {exc}")
+
+
+def _notificar_sistema(titulo: str, msg: str) -> None:
+    try:
+        if sys.platform != "win32":
+            icon_path = os.path.join(PROJECT_DIR, "icon.png")
+            args = ["notify-send", "-a", "fut-bin"]
+            if os.path.isfile(icon_path):
+                args.extend(["-i", icon_path])
+            args.extend(["-u", "normal", titulo, msg])
+            subprocess.Popen(args)
+    except Exception:
+        pass
 
 
 @app.get("/api/job/{job_id}")
@@ -1511,6 +1530,9 @@ class IniciarMontagem(BaseModel):
     sem_abertura: bool = False
     sem_fechamento: bool = False
     roteiro: list[int] | None = None
+    crf: int | None = None
+    preset: str | None = None
+    codec: str | None = None
 
 
 @app.post("/api/montar/iniciar")
@@ -1529,6 +1551,12 @@ def api_iniciar_montagem(body: IniciarMontagem):
         cmd.append("--sem_abertura")
     if body.sem_fechamento:
         cmd.append("--sem_fechamento")
+    if body.crf is not None:
+        cmd.extend(["--crf", str(body.crf)])
+    if body.preset:
+        cmd.extend(["--preset", str(body.preset)])
+    if body.codec:
+        cmd.extend(["--codec", str(body.codec)])
     
     fc = {}
     if os.path.exists(PARTIDA_JSON):
