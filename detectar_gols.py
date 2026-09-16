@@ -560,9 +560,37 @@ def main():
     ranking(tempos, dist, os.path.join(args.output_dir, "ranking_picos.txt"), limiar, ruido)
 
     limpos = [{k: v for k, v in ev.items() if not k.startswith("_")} for ev in eventos]
+
+    # NUNCA sobrescreve marcacoes ja feitas (gol/assistencia/tempo revisados a
+    # mao): o que ja existe em gols.json - de qualquer fonte (placar, zona,
+    # revisado) - e preservado tal como esta, e so entram como eventos NOVOS
+    # os que nao caem perto (MIN_INTERVALO_S) de nenhum tempo ja conhecido.
+    # Mesma logica de "so acrescenta" que detectar_zonas.py ja usa.
+    existentes = []
+    if os.path.exists(caminho_json):
+        try:
+            with open(caminho_json, encoding="utf-8-sig") as f:
+                existentes = json.load(f).get("gols", [])
+        except Exception:
+            existentes = []
+    tempos_existentes = [ev.get("tempo_s") for ev in existentes if ev.get("tempo_s") is not None]
+    indice_base = max([ev["indice"] for ev in existentes], default=0)
+
+    novos = []
+    for ev in limpos:
+        if any(abs(ev["tempo_s"] - t_ex) < MIN_INTERVALO_S for t_ex in tempos_existentes):
+            continue  # ja tem um evento marcado perto desse instante - preserva o que ja existe
+        indice_base += 1
+        ev["indice"] = indice_base
+        novos.append(ev)
+
+    print(f"\n{len(novos)} eventos novos (de {len(limpos)} detectados agora); "
+          f"{len(limpos) - len(novos)} ja estavam marcados e foram preservados.")
+
     with open(caminho_json, "w", encoding="utf-8") as f:
         json.dump({"video": os.path.basename(args.source_video_path), "fps": fps,
-                   "limiar": limiar, "fonte": "placar", "gols": limpos}, f, indent=2, ensure_ascii=False)
+                   "limiar": limiar, "fonte": "misto" if existentes else "placar",
+                   "gols": existentes + novos}, f, indent=2, ensure_ascii=False)
 
     print("\nCONFIRA contato_placar.png: cada linha mostra o placar antes -> depois.")
     print("Se o numero de eventos nao bate com o placar final do jogo, abra")

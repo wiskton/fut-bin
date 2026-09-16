@@ -57,7 +57,7 @@ from pydantic import BaseModel
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-from detectar_gols import ANTES_S, DEPOIS_S
+from detectar_gols import ANTES_S, DEPOIS_S, MIN_INTERVALO_S
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(PROJECT_DIR, "web")
@@ -699,21 +699,62 @@ class ConfirmarGols(BaseModel):
 
 @app.post("/api/gols")
 def api_confirmar_gols(body: ConfirmarGols):
+    """Grava a lista confirmada de eventos SEM perder marcacoes ja feitas.
+
+    Cada nova deteccao (passo 3) manda aqui os tempos de TODOS os eventos
+    conhecidos (antigos + novos). Reescrever tudo do zero com indices
+    1..N, como acontecia antes, desalinhava o partida.json (autor, gol,
+    assistencia sao guardados por indice) toda vez que se procurava novas
+    jogadas. Agora: quem ja existe perto de um tempo enviado (dentro de
+    MIN_INTERVALO_S) mantem indice/status/autor/tudo; so tempo genuinamente
+    novo ganha indice novo.
+    """
     video = _resolver_video(body.video)
-    tempos = sorted(ev.tempo_s for ev in body.eventos)
-    eventos = []
-    for k, t in enumerate(tempos, 1):
-        eventos.append({
-            "indice": k, "tempo_s": round(t, 2), "tempo": _fmt_tempo(t),
-            "inicio_s": round(max(t - ANTES_S, 0), 2),
-            "fim_s": round(t + DEPOIS_S, 2), "fonte": "revisado",
-            "status": None, "lance": None,
-        })
+
+    existentes = []
+    if os.path.exists(GOLS_JSON):
+        try:
+            with open(GOLS_JSON, encoding="utf-8-sig") as f:
+                existentes = json.load(f).get("gols", [])
+        except Exception:
+            existentes = []
+    usados = [False] * len(existentes)
+    indice_base = max([ev.get("indice", 0) for ev in existentes], default=0)
+
+    finais = []
+    for gol in body.eventos:
+        t = gol.tempo_s
+        melhor_i, melhor_d = None, None
+        for i, ev in enumerate(existentes):
+            if usados[i] or ev.get("tempo_s") is None:
+                continue
+            d = abs(ev["tempo_s"] - t)
+            if d < MIN_INTERVALO_S and (melhor_d is None or d < melhor_d):
+                melhor_i, melhor_d = i, d
+        if melhor_i is not None:
+            usados[melhor_i] = True
+            finais.append(existentes[melhor_i])
+        else:
+            indice_base += 1
+            finais.append({
+                "indice": indice_base, "tempo_s": round(t, 2), "tempo": _fmt_tempo(t),
+                "inicio_s": round(max(t - ANTES_S, 0), 2),
+                "fim_s": round(t + DEPOIS_S, 2), "fonte": "revisado",
+                "status": None, "lance": None,
+            })
+    # eventos existentes que nao vieram na lista confirmada (ex: descartados
+    # manualmente) tambem sao preservados aqui - descarte de verdade e feito
+    # por /api/gols/descartar, nunca implicitamente por uma nova deteccao.
+    for i, ev in enumerate(existentes):
+        if not usados[i]:
+            finais.append(ev)
+
+    finais.sort(key=lambda ev: ev.get("indice", 0))
     os.makedirs(GOLS_DIR, exist_ok=True)
     with open(GOLS_JSON, "w", encoding="utf-8") as f:
-        json.dump({"video": os.path.basename(video), "fonte": "revisado",
-                   "gols": eventos}, f, indent=2, ensure_ascii=False)
-    return {"ok": True, "total": len(eventos)}
+        json.dump({"video": os.path.basename(video), "fonte": "misto" if existentes else "revisado",
+                   "gols": finais}, f, indent=2, ensure_ascii=False)
+    return {"ok": True, "total": len(finais)}
 
 
 # --------------------------------------------------------------- corte dos clipes
