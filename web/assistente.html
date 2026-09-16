@@ -117,7 +117,7 @@
   .evcard.status-quase_gol{border-color:#f97316;border-top-color:#f97316}
   .evcard.status-drible{border-color:#a855f7;border-top-color:#a855f7}
   .evcard.status-bola_perdida{border-color:#f43f5e;border-top-color:#f43f5e}
-  .evcard.status-confusao{border-color:#ec4899;border-top-color:#ec4899}
+  .evcard.status-confusao{border-color:#a855f7;border-top-color:#a855f7;box-shadow:0 0 14px rgba(168,85,247,0.25)}
   .evcard .badge-ok{display:none;align-items:center;gap:4px;font-weight:700}
   .evcard[class*="status-"] .badge-ok{display:flex}
   .thumb-wrap .check{position:absolute;top:6px;right:6px;min-width:24px;height:24px;padding:0 6px;
@@ -156,9 +156,10 @@
   @keyframes girar{to{transform:rotate(360deg)}}
 
   .golnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-  .chip{min-width:54px;width:auto;padding:0 10px;height:34px;border-radius:6px;border:1px solid var(--line);
+  .chip{min-width:54px;width:auto;padding:4px 10px;min-height:34px;border-radius:6px;border:1px solid var(--line);
     background:rgba(20,30,44,0.8);color:var(--dim);cursor:pointer;font-size:12px;font-weight:700;
-    display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;transition:all 0.15s ease}
+    display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;white-space:nowrap;transition:all 0.15s ease}
+  .chip-tempo{font-size:10px;font-weight:600;opacity:0.75}
   .chip:hover{border-color:var(--accent);color:#fff}
   .chip.done{background:rgba(0,255,135,0.16);border-color:var(--accent);color:var(--accent)}
   .chip.pending-gol{background:rgba(245,158,11,0.18);border-color:var(--gold-light);color:#fde047}
@@ -943,9 +944,15 @@
     <p class="hint">Assista ao jogo na íntegra para conferir os lances e cortar jogadas faltantes.</p>
     <video id="videoCompleto" controls preload="metadata" style="width:100%; max-height:460px; border-radius:9px; background:#000; margin-top:6px"></video>
     <div class="row" style="margin-top:6px; align-items:center; gap:10px; background:var(--panel2); padding:6px 12px; border-radius:7px; border:1px solid var(--line); flex-wrap:wrap">
-      <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho do vídeo:</span>
-      <input type="range" class="slider-brilho-sync" min="15" max="180" value="100" step="5" style="width:110px; cursor:pointer" title="Diminua para ler placar com reflexo/estourado">
+      <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho:</span>
+      <input type="range" class="slider-brilho-sync" min="15" max="180" value="100" step="5" style="width:100px; cursor:pointer" title="Diminua para ler placar com reflexo/estourado">
       <span class="txt-brilho-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
+      <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">◐ Contraste:</span>
+      <input type="range" class="slider-contraste-sync" min="50" max="250" value="100" step="5" style="width:100px; cursor:pointer" title="Aumente o contraste para destacar números">
+      <span class="txt-contraste-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
+      <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🎨 Saturação:</span>
+      <input type="range" class="slider-saturacao-sync" min="0" max="200" value="100" step="5" style="width:100px; cursor:pointer" title="Ajuste a saturação das cores do vídeo">
+      <span class="txt-saturacao-sync" style="font-size:12px; font-weight:700; width:36px; color:var(--accent)">100%</span>
       <button type="button" class="ghost btn-brilho-diminuir" style="font-size:11px; padding:2px 8px">💡 Diminuir brilho (-55%)</button>
       <button type="button" class="ghost btn-brilho-reset" style="font-size:11px; padding:2px 8px">Normal (100%)</button>
     </div>
@@ -1757,6 +1764,10 @@ function obterInfoTipo(status, lance){
   if(s === 'revisar' || s === 'pendente' || s === 'null' || s === 'none' || s === 'undefined') return null;
 
   if(s === 'gol' || (!s && l === 'gol')) return TIPOS_CLIPE[0];
+  if(s === 'confusao' || (s !== 'gol' && l === 'confusao')){
+    return { id: 'confusao', rotulo: 'Confusão', icon: '🥊', cor: '#a855f7',
+             bg: 'rgba(168,85,247,0.18)', border: '#a855f7', lanceNome: 'Confusão', isGol: false };
+  }
   if(s || l) return TIPOS_CLIPE[1];
   return null;
 }
@@ -2339,10 +2350,18 @@ function lerSetup(){
   const lista = t => t.split('\n').map(x=>x.trim()).filter(Boolean);
   const jA = lista($('#pA').value);
   const jB = lista($('#pB').value);
-  const posA = S.times[0]?.posicoes || {};
-  const posB = S.times[1]?.posicoes || {};
-  const fotosA = S.times[0]?.fotos || {};
-  const fotosB = S.times[1]?.fotos || {};
+  const filtrarPorElenco = (mapa, elenco) => {
+    const nomesNorm = new Set(elenco.map(n => n.trim().toLowerCase()));
+    const out = {};
+    for(const [k, v] of Object.entries(mapa || {})){
+      if(nomesNorm.has(k.trim().toLowerCase())) out[k] = v;
+    }
+    return out;
+  };
+  const posA = filtrarPorElenco(S.times[0]?.posicoes, jA);
+  const posB = filtrarPorElenco(S.times[1]?.posicoes, jB);
+  const fotosA = filtrarPorElenco(S.times[0]?.fotos, jA);
+  const fotosB = filtrarPorElenco(S.times[1]?.fotos, jB);
   S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA, fotos:fotosA};
   S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB, fotos:fotosB};
   atualizarEstilosTimes();
@@ -2551,12 +2570,13 @@ $('#btnIrMarcar').onclick = async ()=>{
 $('#btnIrResumo').onclick = ()=>{ salvarPartida(); irPara('s-resumo'); };
 
 /* ------------------------------------------------------------ ajuste de brilho e contraste */
-let filtroBrilho = { brilho: 100, contraste: 100 };
+let filtroBrilho = { brilho: 100, contraste: 100, saturacao: 100 };
 
-function aplicarFiltroBrilho(b = filtroBrilho.brilho, c = filtroBrilho.contraste){
+function aplicarFiltroBrilho(b = filtroBrilho.brilho, c = filtroBrilho.contraste, s = filtroBrilho.saturacao){
   filtroBrilho.brilho = b;
   filtroBrilho.contraste = c;
-  const valFiltro = (b === 100 && c === 100) ? 'none' : `brightness(${b}%) contrast(${c}%)`;
+  filtroBrilho.saturacao = s;
+  const valFiltro = (b === 100 && c === 100 && s === 100) ? 'none' : `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
 
   const elementos = [
     $('#frameImg'),
@@ -2569,24 +2589,28 @@ function aplicarFiltroBrilho(b = filtroBrilho.brilho, c = filtroBrilho.contraste
     if(el) el.style.filter = valFiltro;
   });
 
-  $$('.slider-brilho-sync').forEach(s => { s.value = b; });
-  $$('.slider-contraste-sync').forEach(s => { s.value = c; });
+  $$('.slider-brilho-sync').forEach(el => { el.value = b; });
+  $$('.slider-contraste-sync').forEach(el => { el.value = c; });
+  $$('.slider-saturacao-sync').forEach(el => { el.value = s; });
   $$('.txt-brilho-sync').forEach(el => { el.textContent = `${b}%`; });
   $$('.txt-contraste-sync').forEach(el => { el.textContent = `${c}%`; });
+  $$('.txt-saturacao-sync').forEach(el => { el.textContent = `${s}%`; });
 }
 
 document.addEventListener('input', e => {
   if(e.target.classList.contains('slider-brilho-sync')){
-    aplicarFiltroBrilho(parseInt(e.target.value, 10), filtroBrilho.contraste);
+    aplicarFiltroBrilho(parseInt(e.target.value, 10), filtroBrilho.contraste, filtroBrilho.saturacao);
   } else if(e.target.classList.contains('slider-contraste-sync')){
-    aplicarFiltroBrilho(filtroBrilho.brilho, parseInt(e.target.value, 10));
+    aplicarFiltroBrilho(filtroBrilho.brilho, parseInt(e.target.value, 10), filtroBrilho.saturacao);
+  } else if(e.target.classList.contains('slider-saturacao-sync')){
+    aplicarFiltroBrilho(filtroBrilho.brilho, filtroBrilho.contraste, parseInt(e.target.value, 10));
   }
 });
 document.addEventListener('click', e => {
   if(e.target.classList.contains('btn-brilho-diminuir')){
-    aplicarFiltroBrilho(45, 150);
+    aplicarFiltroBrilho(45, 150, filtroBrilho.saturacao);
   } else if(e.target.classList.contains('btn-brilho-reset')){
-    aplicarFiltroBrilho(100, 100);
+    aplicarFiltroBrilho(100, 100, 100);
   }
 });
 
@@ -3878,6 +3902,11 @@ function renderMarcacao(){
     if(item.indice === ESTADO.indiceAtual) classe += ' cur';
 
     b.className = classe;
+    if(inf && inf.id === 'confusao' && !item.descartado){
+      b.style.borderColor = inf.border;
+      b.style.color = inf.cor;
+      b.style.background = inf.bg;
+    }
     const icone = item.descartado ? '🗑' : (inf ? inf.icon : (temTipo ? (ehGol ? '⚽' : '🎬') : '⏳'));
     const rotulo = String(item.indice).padStart(2,'0');
     let autorTexto = '';
@@ -3887,7 +3916,9 @@ function renderMarcacao(){
     } else if(item.tipo === 'lance' && item.destaque){
       autorTexto = `<span style="font-size:10px; opacity:0.85; margin-left:3px">(${item.destaque})</span>`;
     }
-    b.innerHTML = `<span>${icone} #${rotulo}</span>${autorTexto}`;
+    const segundosChip = obterTempoSegundosClipe(item);
+    const tempoChip = item.tempo || (segundosChip !== -1 ? fmtTempo(segundosChip) : '');
+    b.innerHTML = `<span>${icone} #${rotulo}</span>${autorTexto}<span class="chip-tempo">${tempoChip}</span>`;
     b.title = `Clipe #${item.indice} · ${inf ? inf.rotulo : (temTipo ? (ehGol ? 'Gol' : 'Lance') : 'Sem marcação')}` + (item.autor ? ` (${item.autor})` : '');
     b.onclick = ()=>{ ESTADO.indiceAtual = item.indice; renderMarcacao(); };
     $('#golnav').appendChild(b);
