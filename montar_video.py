@@ -1117,6 +1117,22 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
     roda(cmd)
 
 
+def _cameras_do_lance(ev):
+    """Câmeras (1 a 3) marcadas para o lance, sem repetir e na ordem escolhida."""
+    bruto = ev.get("cameras_clipe")
+    if not isinstance(bruto, list) or not bruto:
+        bruto = [ev.get("camera") or 1]
+    cams = []
+    for c in bruto:
+        try:
+            c = int(c)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= c <= 3 and c not in cams:
+            cams.append(c)
+    return cams or [1]
+
+
 def clipe_da_camera_sincronizada(ev, cameras, pasta_tmp):
     """Cria o trecho equivalente numa câmera alternativa.
 
@@ -1309,16 +1325,31 @@ def main():
             if idx not in por_indice:
                 continue
             tipo, ev = por_indice[idx]
-            clipe = os.path.join(args.clipes, f"gol_{idx:02d}.mp4")
-            if not os.path.exists(clipe):
-                faltando.append(os.path.basename(clipe))
+            # Câmeras marcadas para este lance: o lance é repetido, uma câmera depois da outra.
+            cams = _cameras_do_lance(ev)
+            fontes = []
+            for cam in cams:
+                if cam == 1:
+                    principal = os.path.join(args.clipes, f"gol_{idx:02d}.mp4")
+                    if os.path.exists(principal):
+                        fontes.append((1, principal))
+                    else:
+                        faltando.append(os.path.basename(principal))
+                    continue
+                # Pasta própria de cada câmera (gols/clipes_cam2, clipes_cam3); se o
+                # clipe ainda não foi cortado lá, corta agora a partir do vídeo da câmera.
+                pasta_cam = os.path.join(os.path.dirname(os.path.abspath(args.clipes)), f"clipes_cam{cam}")
+                arq_cam = os.path.join(pasta_cam, f"gol_{idx:02d}.mp4")
+                if os.path.exists(arq_cam):
+                    fontes.append((cam, arq_cam))
+                    continue
+                alternativo = clipe_da_camera_sincronizada(dict(ev, camera=cam), d.get("meta", {}).get("cameras", []), tmp)
+                if alternativo:
+                    fontes.append((cam, alternativo))
+                else:
+                    print(f"  AVISO: clipe #{idx} sem a camera {cam}; pulando essa camera.")
+            if not fontes:
                 continue
-
-            # A câmera escolhida na marcação substitui apenas este trecho.
-            # Sem escolha (ou se o arquivo alternativo faltar), usa a principal.
-            alternativo = clipe_da_camera_sincronizada(ev, d.get("meta", {}).get("cameras", []), tmp)
-            if alternativo:
-                clipe = alternativo
 
             gol_neste_clipe = tipo == "gol"
             time_gol = ev.get("time") if gol_neste_clipe else None
@@ -1328,16 +1359,18 @@ def main():
             cartela_lance(ev, d["times"], tipo, placar_a, placar_b,
                           gol_neste_clipe=gol_neste_clipe, time_gol=time_gol, d_=d).save(png)
 
-            s = os.path.join(tmp, f"s{n:03d}.mp4")
             rot = ev.get("autor") or ev.get("lance") or "lance"
             status_placar = f"[{placar_a} × {placar_b}]"
-            print(f"  [{n:02d}/{len(roteiro)}] {ev.get('tempo','')} {status_placar} {tipo}: {rot}")
-            seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor,
-                          zoom=ev.get("zoom", 1.0), zoom_x=ev.get("zoom_x", 0.5), zoom_y=ev.get("zoom_y", 0.5),
-                          crf=args.crf, preset=args.preset, codec=args.codec)
-            partes.append(s)
-            if tipo == "gol":
-                partes_gols.append(s)
+            for cam, clipe in fontes:
+                s = os.path.join(tmp, f"s{n:03d}_c{cam}.mp4")
+                sufixo = f" (câmera {cam})" if len(fontes) > 1 else ""
+                print(f"  [{n:02d}/{len(roteiro)}] {ev.get('tempo','')} {status_placar} {tipo}: {rot}{sufixo}")
+                seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor,
+                              zoom=ev.get("zoom", 1.0), zoom_x=ev.get("zoom_x", 0.5), zoom_y=ev.get("zoom_y", 0.5),
+                              crf=args.crf, preset=args.preset, codec=args.codec)
+                partes.append(s)
+                if tipo == "gol":
+                    partes_gols.append(s)
 
         if faltando:
             print("AVISO: clipes nao encontrados:", ", ".join(faltando))

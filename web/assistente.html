@@ -1195,9 +1195,14 @@
           <label>Jogador em destaque (opcional)</label><div class="pick" id="pickDestaque"></div>
         </div>
         <div class="row" style="margin-top:14px; gap:8px; align-items:center; flex-wrap:wrap">
-          <label style="margin:0; font-size:12px">Câmera para este clipe
-            <select id="selCameraClipe" style="width:auto; margin-left:5px"><option value="1">Câmera 1</option><option value="2">Câmera 2</option><option value="3">Câmera 3</option></select>
-          </label>
+          <div id="blocoCameraClipe" style="display:none; flex-direction:column; gap:6px; width:100%">
+            <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap">
+              <span style="font-size:12px; font-weight:700">📹 Câmeras no vídeo final:</span>
+              <span id="pickCameraClipe" class="row" style="gap:8px"></span>
+              <span id="statusCameraClipe" class="hint" style="margin:0; font-size:11px"></span>
+            </div>
+            <span class="hint" style="margin:0; font-size:11px">Marque uma ou mais câmeras. Cada câmera marcada entra no vídeo final, uma depois da outra, repetindo o lance. Use “Ver” para assistir o clipe naquela câmera.</span>
+          </div>
           <button class="act" id="btnSalvar">Salvar e avançar</button>
           <button type="button" class="warnb" id="btnExcluirClipeStep6" style="font-size:12px; padding:7px 12px" title="Apaga permanentemente o clipe selecionado do computador">🗑 Excluir clipe do disco</button>
           <button type="button" class="ghost" id="btnDescartar" style="font-size:12px; padding:7px 12px" title="Apenas pula este lance da súmula sem apagar o arquivo de vídeo">🚫 Pular da súmula</button>
@@ -2200,7 +2205,7 @@ function estadoParaPartida(){
     })),
     gols: v.map(g=>({indice:g.indice, tempo:g.tempo,
       tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
-      inicio_s:g.inicio_s, fim_s:g.fim_s, camera:g.camera || 1, tipo:'gol', status:'gol', time:g.time,
+      inicio_s:g.inicio_s, fim_s:g.fim_s, camera:g.camera || 1, cameras_clipe:g.cameras_clipe || [g.camera || 1], tipo:'gol', status:'gol', time:g.time,
       time_nome:S.times[g.time]?.nome || '', autor:g.autor, assist:g.assist, fonte:g.fonte||null,
       zoom:g.zoom ?? 1, zoom_x:g.zoom_x ?? 0.5, zoom_y:g.zoom_y ?? 0.5})),
     lances: l.map(g=>{
@@ -2210,7 +2215,7 @@ function estadoParaPartida(){
         tempo: g.tempo,
         tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
         inicio_s: g.inicio_s,
-        fim_s: g.fim_s, camera:g.camera || 1,
+        fim_s: g.fim_s, camera:g.camera || 1, cameras_clipe:g.cameras_clipe || [g.camera || 1],
         tipo: 'lance',
         status: g.status || (inf ? inf.id : 'lance'),
         lance: g.lance || (inf ? inf.lanceNome : 'Lance'),
@@ -3376,6 +3381,7 @@ async function sincronizarGolsComBackend(){
         assist: (ehGol && temTime) ? assistFinal : null,
         destaque: (!ehGol && temTime) ? destaqueFinal : null,
         camera: Number(c.camera || meta.camera || prev.camera || 1),
+        cameras_clipe: (Array.isArray(prev.cameras_clipe) && prev.cameras_clipe.length) ? prev.cameras_clipe : (Array.isArray(c.cameras_clipe) && c.cameras_clipe.length ? c.cameras_clipe : [Number(c.camera || meta.camera || 1)]),
         descartado: Boolean(prev.descartado),
       };
     });
@@ -4214,14 +4220,62 @@ function renderMarcacao(){
     assist: temTime ? g.assist : null,
     destaque: temTime ? g.destaque : null
   };
-  const seletorCameraClipe = $('#selCameraClipe');
-  if(seletorCameraClipe){
-    Array.from(seletorCameraClipe.options).forEach((op, i) => {
-      const disponivel = Boolean(camerasSelecionadas()[i]);
-      op.disabled = !disponivel;
-      op.textContent = `Câmera ${i + 1}${i === 0 ? ' · principal' : ''}${disponivel ? '' : ' · não enviada'}`;
+  const camerasDisponiveis = [0,1,2].filter(i => Boolean(camerasSelecionadas()[i])).map(i => i + 1);
+  // Câmeras marcadas para este clipe (só as que existem); sempre pelo menos a 1.
+  let marcadas = (Array.isArray(g.cameras_clipe) && g.cameras_clipe.length ? g.cameras_clipe : [Number(g.camera) || 1])
+    .map(Number).filter((c, k, a) => camerasDisponiveis.includes(c) && a.indexOf(c) === k);
+  if(!marcadas.length) marcadas = [1];
+  g.cameras_clipe = marcadas;
+  g.camera = marcadas[0];
+  let cameraVendo = marcadas[0];
+  const urlClipeCamera = (cam) => cam <= 1 ? null : `/video/clipes/${g.indice}/camera/${cam}`;
+  const blocoCam = $('#blocoCameraClipe');
+  const desenharCameras = () => {
+    const pick = $('#pickCameraClipe');
+    pick.innerHTML = '';
+    [1, 2, 3].forEach(cam => {
+      const enviada = camerasDisponiveis.includes(cam);
+      const wrap = document.createElement('span');
+      wrap.style.cssText = 'display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:8px; border:1px solid ' + (cam === cameraVendo ? 'var(--accent)' : 'var(--line)') + '; background:var(--panel2)' + (enviada ? '' : '; opacity:.55');
+      if(!enviada) wrap.title = 'Câmera ' + cam + ' não enviada. Envie o vídeo dela no passo 1 (Vídeo) para poder usar aqui.';
+      const lab = document.createElement('label');
+      lab.style.cssText = 'display:inline-flex; align-items:center; gap:5px; margin:0; font-size:12px; font-weight:700; cursor:pointer';
+      const chk = document.createElement('input');
+      chk.type = 'checkbox'; chk.checked = enviada && marcadas.includes(cam); chk.style.width = 'auto'; chk.disabled = !enviada;
+      chk.onchange = () => {
+        if(chk.checked) marcadas = [...marcadas, cam];
+        else if(marcadas.length > 1) marcadas = marcadas.filter(c => c !== cam);
+        else { chk.checked = true; return; }   // ao menos uma câmera
+        marcadas.sort((x, y) => x - y);
+        g.cameras_clipe = marcadas; g.camera = marcadas[0];
+        agendarSalvar();
+        desenharCameras();
+      };
+      lab.appendChild(chk);
+      lab.appendChild(document.createTextNode(`Câmera ${cam}${cam === 1 ? ' · principal' : ''}${enviada ? '' : ' · não enviada'}`));
+      const ver = document.createElement('button');
+      ver.type = 'button'; ver.className = cam === cameraVendo ? 'act' : 'ghost';
+      ver.style.cssText = 'font-size:11px; padding:3px 9px';
+      ver.disabled = !enviada;
+      ver.textContent = cam === cameraVendo ? '▶ Vendo' : 'Ver';
+      ver.onclick = () => { cameraVendo = cam; trocarVideoCamera(cam); desenharCameras(); };
+      wrap.appendChild(lab); wrap.appendChild(ver);
+      pick.appendChild(wrap);
     });
-    seletorCameraClipe.value = String(Math.max(1, Math.min(3, Number(g.camera) || 1)));
+  };
+  function trocarVideoCamera(cam){
+    const vv = $('#vid'); const st = $('#statusCameraClipe');
+    const alvo = urlClipeCamera(cam) || ESTADO.clipes[String(g.indice).padStart(2,'0')];
+    if(!alvo) return;
+    if(st) st.textContent = cam > 1 ? 'carregando a câmera ' + cam + '…' : '';
+    vv.onloadeddata = () => { if(st) st.textContent = ''; vv.play().catch(()=>{}); };
+    vv.onerror = () => { if(st) st.textContent = 'não consegui carregar a câmera ' + cam; };
+    vv.src = alvo; vv.load();
+  }
+  if(blocoCam){
+    // Sempre visível: as câmeras ainda não enviadas aparecem desabilitadas.
+    blocoCam.style.display = 'flex';
+    desenharCameras();
   }
 
   const url = ESTADO.clipes[String(g.indice).padStart(2,'0')];
@@ -4235,7 +4289,10 @@ function renderMarcacao(){
     });
   }
   const v = $('#vid');
-  if(url){ v.src=url; v.load(); } else { v.removeAttribute('src'); v.load(); }
+  if(url){
+    if(cameraVendo > 1) trocarVideoCamera(cameraVendo);
+    else { v.onloadeddata = null; v.onerror = null; v.src=url; v.load(); }
+  } else { v.removeAttribute('src'); v.load(); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
   configurarZoomMarcacao(g);
 
@@ -4730,7 +4787,8 @@ $('#btnSalvar').onclick = ()=>{
   g.autor = (ehGol && temTime) ? rascunho.autor : null;
   g.assist = (ehGol && temTime && rascunho.assist !== '—') ? rascunho.assist : null;
   g.destaque = (!ehGol && temTime) ? rascunho.destaque : null;
-  g.camera = Number($('#selCameraClipe')?.value || 1);
+  g.cameras_clipe = (Array.isArray(g.cameras_clipe) && g.cameras_clipe.length) ? g.cameras_clipe : [Number(g.camera) || 1];
+  g.camera = g.cameras_clipe[0];
   g.descartado = false;
 
   fetch('/api/gols/confirmar', {
@@ -4744,7 +4802,8 @@ $('#btnSalvar').onclick = ()=>{
       autor: g.autor,
       assist: g.assist,
       destaque: g.destaque,
-      camera: g.camera
+      camera: g.camera,
+      cameras: g.cameras_clipe
     })
   }).catch(()=>{});
 
@@ -5417,7 +5476,7 @@ function gerarComentarioYoutube(apenasGols=false, jogador=null){
       descricao = `🎬 ${c.lance || 'Melhor momento'}${time ? ` — ${time}` : ''}${c.destaque ? ` · ${c.destaque}` : ''}`;
     }
     linhas.push(`${fmtTempoYoutube(tempoVideo)} ${descricao}`);
-    tempoVideo += duracaoDoClipeFinal(c);
+    tempoVideo += duracaoDoClipeFinal(c) * ((Array.isArray(c.cameras_clipe) && c.cameras_clipe.length) || 1);
   });
   return linhas.join('\n');
 }

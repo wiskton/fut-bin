@@ -934,6 +934,13 @@ def api_adicionar_gol(body: AdicionarGol):
         "-c:a", "aac", "-avoid_negative_ts", "make_zero", saida_clipe,
     ], check=False)
 
+    # Uma pasta de clipes por câmera: corta o mesmo instante nas câmeras 2 e 3, se existirem.
+    for cam_extra in (2, 3):
+        try:
+            _cortar_clipe_camera(novo_indice, cam_extra, inicio_s, fim_s)
+        except Exception:
+            pass
+
     # Se partida.json existir, inclui o novo evento sem alterar os existentes
     if os.path.exists(PARTIDA_JSON):
         try:
@@ -962,6 +969,18 @@ def api_adicionar_gol(body: AdicionarGol):
     return {"ok": True, "indice": novo_indice, "total": len(existentes)}
 
 
+def _normaliza_cameras(lista, padrao=1) -> list:
+    cams = []
+    for c in (lista or [padrao or 1]):
+        try:
+            c = int(c)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= c <= 3 and c not in cams:
+            cams.append(c)
+    return cams or [1]
+
+
 class ConfirmarGol(BaseModel):
     indice: int
     status: Optional[str] = None  # "gol", "defesaca", "trave", "quase_gol", "drible", "bola_perdida", "confusao", "engracado", "lance" ou None (limpa)
@@ -971,6 +990,7 @@ class ConfirmarGol(BaseModel):
     assist: Optional[str] = None
     destaque: Optional[str] = None
     camera: Optional[int] = 1
+    cameras: Optional[List[int]] = None
 
 
 class AjustarZoomClipe(BaseModel):
@@ -1041,6 +1061,8 @@ def api_confirmar_gol(body: ConfirmarGol):
                     ev["status"] = body.status
                     if "camera" in fields:
                         ev["camera"] = min(3, max(1, int(body.camera or 1)))
+                    if "cameras" in fields:
+                        ev["cameras_clipe"] = _normaliza_cameras(body.cameras, body.camera)
                     if "lance" in fields:
                         if body.lance is not None: ev["lance"] = body.lance
                         else: ev.pop("lance", None)
@@ -1126,6 +1148,8 @@ def api_confirmar_gol(body: ConfirmarGol):
                             g["status"] = body.status
                             if "camera" in fields:
                                 g["camera"] = min(3, max(1, int(body.camera or 1)))
+                            if "cameras" in fields:
+                                g["cameras_clipe"] = _normaliza_cameras(body.cameras, body.camera)
                             if body.status is None:
                                 g["tipo"] = None
                                 g["lance"] = None
@@ -1234,6 +1258,13 @@ def api_descartar_gol(body: DescartarGol):
                     except Exception:
                         pass
 
+        for cam_extra in (2, 3):
+            for ext in ("", ".corte"):
+                try:
+                    os.remove(os.path.join(_pasta_clipes_camera(cam_extra), f"gol_{body.indice:02d}.mp4{ext}"))
+                except OSError:
+                    pass
+
         restantes = []
         if os.path.exists(GOLS_JSON):
             try:
@@ -1335,11 +1366,94 @@ def api_clipes():
             "status": status_val, "lance": lance_val, "placar": ev.get("placar"),
             "time": time_val, "autor": autor_val, "assist": assist_val, "destaque": destaque_val,
             "camera": ev.get("camera") or p_ev.get("camera") or 1,
+            "cameras_clipe": ev.get("cameras_clipe") or p_ev.get("cameras_clipe") or [ev.get("camera") or p_ev.get("camera") or 1],
             "zoom": zoom_val,
             "zoom_x": zoom_x_val, "zoom_y": zoom_y_val,
         })
     # Ordenado cronologicamente pelo tempo_s (ou inicio_s) do clip
     return {"clipes": sorted(clipes, key=lambda c: (c.get("tempo_s") if c.get("tempo_s") is not None else 999999, c["indice"]))}
+
+
+_CAM_LOCK = threading.Lock()
+
+
+def _pasta_clipes_camera(camera: int) -> str:
+    """Câmera 1 usa gols/clipes; as demais têm pasta própria (gols/clipes_cam2, clipes_cam3)."""
+    return CLIPES_DIR if camera <= 1 else os.path.join(GOLS_DIR, f"clipes_cam{camera}")
+
+
+def _cameras_da_partida() -> list:
+    if not os.path.exists(PARTIDA_JSON):
+        return []
+    try:
+        with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+            return (json.load(f).get("meta") or {}).get("cameras") or []
+    except Exception:
+        return []
+
+
+def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: float) -> Optional[str]:
+    """Corta o mesmo trecho do clipe na câmera indicada, sincronizada por inicio_jogo_s.
+
+    O arquivo fica em gols/clipes_camN/gol_XX.mp4. Um arquivo .corte ao lado guarda os
+    parâmetros: se o corte ou a sincronia mudarem, o clipe é refeito.
+    """
+    cameras = _cameras_da_partida()
+    if camera < 2 or camera > 3 or len(cameras) < camera or not cameras[0] or not cameras[camera - 1]:
+        return None
+    ref, alt = cameras[0], cameras[camera - 1]
+    origem = alt.get("caminho")
+    if not origem or not os.path.isfile(origem) or fim_ref <= inicio_ref:
+        return None
+    inicio_cam = max(0.0, inicio_ref - float(ref.get("inicio_jogo_s") or 0) + float(alt.get("inicio_jogo_s") or 0))
+    duracao = fim_ref - inicio_ref
+    pasta = _pasta_clipes_camera(camera)
+    os.makedirs(pasta, exist_ok=True)
+    saida = os.path.join(pasta, f"gol_{indice:02d}.mp4")
+    marca = f"{inicio_cam:.2f}|{duracao:.2f}|{origem}"
+    arq_marca = saida + ".corte"
+    with _CAM_LOCK:
+        if os.path.isfile(saida) and os.path.isfile(arq_marca):
+            try:
+                with open(arq_marca, encoding="utf-8") as f:
+                    if f.read() == marca:
+                        return saida
+            except OSError:
+                pass
+        tmp = saida + ".part.mp4"
+        r = subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{inicio_cam:.3f}", "-i", origem,
+             "-t", f"{duracao:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+             "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", tmp],
+            capture_output=True, text=True)
+        if r.returncode != 0 or not os.path.isfile(tmp):
+            return None
+        os.replace(tmp, saida)
+        with open(arq_marca, "w", encoding="utf-8") as f:
+            f.write(marca)
+    return saida
+
+
+@app.api_route("/video/clipes/{indice}/camera/{camera}", methods=["GET", "HEAD"])
+def video_clipe_camera(indice: int, camera: int):
+    """Clipe visto pela câmera pedida (a 1 é o clipe principal)."""
+    if camera <= 1:
+        principal = os.path.join(CLIPES_DIR, f"gol_{indice:02d}.mp4")
+        if not os.path.isfile(principal):
+            raise HTTPException(404, "clipe nao encontrado")
+        return FileResponse(principal, media_type="video/mp4")
+    if camera > 3 or not os.path.exists(GOLS_JSON):
+        raise HTTPException(404, "camera nao disponivel")
+    with open(GOLS_JSON, encoding="utf-8-sig") as f:
+        ev = next((e for e in json.load(f).get("gols", []) if e.get("indice") == indice), None)
+    try:
+        ini, fim = float(ev["inicio_s"]), float(ev["fim_s"])
+    except (TypeError, KeyError, ValueError):
+        raise HTTPException(404, "clipe sem inicio/fim")
+    saida = _cortar_clipe_camera(indice, camera, ini, fim)
+    if not saida:
+        raise HTTPException(404, "camera nao disponivel para este clipe")
+    return FileResponse(saida, media_type="video/mp4")
 
 
 @app.api_route("/video/clipes/{nome}", methods=["GET", "HEAD"])
