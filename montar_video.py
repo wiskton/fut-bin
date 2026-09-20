@@ -741,7 +741,16 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
 
 # --------------------------------------------------------------- CARTELAS FINAIS
 
-def cartela_fim_de_jogo(d_):
+FIM_DE_JOGO_GOLS_POR_TELA = 15
+
+
+def paginas_fim_de_jogo(d_):
+    n_a = sum(1 for g in d_.get("gols", []) if g.get("time") == 0)
+    n_b = sum(1 for g in d_.get("gols", []) if g.get("time") == 1)
+    return max(1, -(-n_a // FIM_DE_JOGO_GOLS_POR_TELA), -(-n_b // FIM_DE_JOGO_GOLS_POR_TELA))
+
+
+def cartela_fim_de_jogo(d_, pagina=0):
     """
     Placar final profissional estilo transmissão esportiva pós-jogo (SporTV / Premiere).
     Mostra o placar oficial e a lista de todos os gols de cada time.
@@ -768,7 +777,11 @@ def cartela_fim_de_jogo(d_):
     else:
         y_textos = 28
 
-    centralizado(d, y_textos, "FIM DE JOGO · PLACAR FINAL", fonte(38), DOURADO)
+    total_pag = paginas_fim_de_jogo(d_)
+    titulo_fim = "FIM DE JOGO · PLACAR FINAL"
+    if total_pag > 1:
+        titulo_fim += f" ({pagina + 1}/{total_pag})"
+    centralizado(d, y_textos, titulo_fim, fonte(38), DOURADO)
     sub = " · ".join(x for x in [meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
     if sub:
         # Dados da partida precisam permanecer legíveis mesmo no fundo da quadra.
@@ -778,6 +791,9 @@ def cartela_fim_de_jogo(d_):
     gols_ordenados = sorted(d_.get("gols", []), key=_tempo_em_segundos)
     gols_a = [g for g in gols_ordenados if g.get("time") == 0]
     gols_b = [g for g in gols_ordenados if g.get("time") == 1]
+    n_por = FIM_DE_JOGO_GOLS_POR_TELA
+    gols_a_pag = gols_a[pagina * n_por:(pagina + 1) * n_por]
+    gols_b_pag = gols_b[pagina * n_por:(pagina + 1) * n_por]
     total_a = len(gols_a)
     total_b = len(gols_b)
     if meta.get("placar_jogo"):
@@ -813,6 +829,7 @@ def cartela_fim_de_jogo(d_):
         altura_col = fim_col - topo_col
         espaco_itens = max(1, altura_col - 76)
         passo_item = max(27, min(38, espaco_itens // max(len(lista_gols), 1)))
+        total_time = len(gols_a) if time_obj is times[0] else len(gols_b)
         tam_autor = max(17, min(19, passo_item - 12))
         tam_assist = max(12, min(14, passo_item - 17))
         tam_tempo = max(11, min(13, passo_item - 18))
@@ -822,7 +839,7 @@ def cartela_fim_de_jogo(d_):
                             fill=PAINEL, outline=PAINEL_BORDA, width=1)
         d.rectangle([x0, topo_col, x0 + col_w, topo_col + 6], fill=cor)
         d.text((x0 + 24, topo_col + 22), f"GOLS · {time_obj['nome'].upper()}", font=fonte(22), fill=cor)
-        d.text((x0 + col_w - 24, topo_col + 24), f"{len(lista_gols)} gol(s)", font=fonte(16, False), fill=FRACO, anchor="ra")
+        d.text((x0 + col_w - 24, topo_col + 24), f"{total_time} gol(s)", font=fonte(16, False), fill=FRACO, anchor="ra")
 
         y_item = topo_col + 64
         if not lista_gols:
@@ -851,13 +868,21 @@ def cartela_fim_de_jogo(d_):
                 d.text((x0 + col_w - 24, y_item + 2), f"assist. {g['assist']}", font=fonte(tam_assist, False), fill=FRACO, anchor="ra")
             y_item += passo_item
 
-    desenhar_coluna_gols(170, times[0], gols_a, ca)
-    desenhar_coluna_gols(L // 2 + 60, times[1], gols_b, cb)
+    desenhar_coluna_gols(170, times[0], gols_a_pag, ca)
+    desenhar_coluna_gols(L // 2 + 60, times[1], gols_b_pag, cb)
 
     return img
 
 
-def cartela_cronologia(d_):
+CRONOLOGIA_POR_TELA = 20
+
+
+def paginas_cronologia(d_):
+    n = len(d_.get("gols", []))
+    return max(1, -(-n // CRONOLOGIA_POR_TELA))
+
+
+def cartela_cronologia(d_, pagina=0):
     img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, L, 6], fill=VERDE)
@@ -876,19 +901,26 @@ def cartela_cronologia(d_):
     else:
         y_textos = 28
 
-    centralizado(d, y_textos, "COMO FOI O JOGO · CRONOLOGIA COMPLETA", fonte(38), DOURADO)
+    total_pag = paginas_cronologia(d_)
+    titulo = "COMO FOI O JOGO · CRONOLOGIA COMPLETA"
+    if total_pag > 1:
+        titulo += f" ({pagina + 1}/{total_pag})"
+    centralizado(d, y_textos, titulo, fonte(38), DOURADO)
 
     gols_ordenados = sorted(d_.get("gols", []), key=_tempo_em_segundos)
+    ini = pagina * CRONOLOGIA_POR_TELA
+    gols_ordenados = gols_ordenados[ini:ini + CRONOLOGIA_POR_TELA]
 
     card_w = 1400
     card_x0 = (L - card_w) // 2
     card_y0 = y_textos + 65
-    card_h = 750
+    card_h = A - card_y0 - 25
+    passo = (card_h - 30) // CRONOLOGIA_POR_TELA
     d.rounded_rectangle([card_x0, card_y0, card_x0 + card_w, card_y0 + card_h], radius=14,
                         fill=PAINEL, outline=PAINEL_BORDA, width=1)
 
     y = card_y0 + 25
-    for g in gols_ordenados[:14]:
+    for g in gols_ordenados:
         t_idx = g.get("time", 0)
         t_obj = d_["times"][t_idx] if 0 <= t_idx < len(d_["times"]) else d_["times"][0]
         cor = hex_rgb(t_obj["cor"])
@@ -922,9 +954,7 @@ def cartela_cronologia(d_):
         d.rounded_rectangle([tx, y + 4, tx + tw, y + 34], radius=6, fill=cor)
         d.text((tx + tw // 2, y + 19), t_nome, font=f_tag, fill=contraste_cor(cor), anchor="mm")
 
-        y += 48
-        if y > card_y0 + card_h - 45:
-            break
+        y += passo
 
     return img
 
@@ -1300,11 +1330,16 @@ def main():
 
         if not args.sem_fechamento:
             print("  gerando cartelas de fechamento e placar final...")
-            cartelas = [
-                ("fim_de_jogo", cartela_fim_de_jogo, args.fechamento),
-                ("cronologia", cartela_cronologia, args.fechamento),
-                ("destaques", cartela_destaques, args.fechamento),
-            ]
+            cartelas = []
+            for pg in range(paginas_fim_de_jogo(d)):
+                cartelas.append((f"fim_de_jogo_{pg + 1}",
+                                 lambda d_, pg=pg: cartela_fim_de_jogo(d_, pg),
+                                 args.fechamento))
+            for pg in range(paginas_cronologia(d)):
+                cartelas.append((f"cronologia_{pg + 1}",
+                                 lambda d_, pg=pg: cartela_cronologia(d_, pg),
+                                 args.fechamento))
+            cartelas.append(("destaques", cartela_destaques, args.fechamento))
             for nome, func, dur in cartelas:
                 p = os.path.join(tmp, f"{nome}.png")
                 func(d).save(p)
