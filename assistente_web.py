@@ -159,7 +159,26 @@ def _pasta_inicial() -> str:
     return home
 
 
+_DURACAO_CACHE: dict = {}
+
+
 def _ffprobe_duracao(caminho: str) -> Optional[float]:
+    # Cache por (arquivo, tamanho, data): /api/clipes roda para dezenas de clipes
+    # e o ffprobe em série levava ~5s, deixando a tela sem clipes nesse intervalo.
+    try:
+        st = os.stat(caminho)
+        chave = (caminho, st.st_size, st.st_mtime_ns)
+    except OSError:
+        chave = None
+    if chave and chave in _DURACAO_CACHE:
+        return _DURACAO_CACHE[chave]
+    dur = _ffprobe_duracao_real(caminho)
+    if chave and dur is not None:
+        _DURACAO_CACHE[chave] = dur
+    return dur
+
+
+def _ffprobe_duracao_real(caminho: str) -> Optional[float]:
     try:
         r = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",

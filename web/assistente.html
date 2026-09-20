@@ -71,18 +71,19 @@
   input[type=color]{padding:3px;height:38px;cursor:pointer}
   input[type=checkbox]{width:auto}
 
-  button.act{background:linear-gradient(135deg, #00ff87 0%, #00d284 100%);border:0;color:#04140a;
+  a.act,a.ghost{display:inline-block;text-align:center;text-decoration:none;cursor:pointer}
+  button.act,a.act{background:linear-gradient(135deg, #00ff87 0%, #00d284 100%);border:0;color:#04140a;
     padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:800;font-size:13px;
     letter-spacing:0.4px;text-transform:uppercase;transition:all 0.2s cubic-bezier(0.2,0.8,0.2,1);
     box-shadow:0 4px 14px rgba(0,255,135,0.3)}
-  button.act:hover{background:linear-gradient(135deg, #22ff99 0%, #00ff87 100%);
+  button.act:hover,a.act:hover{background:linear-gradient(135deg, #22ff99 0%, #00ff87 100%);
     transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,255,135,0.45)}
   button.act:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
 
-  button.ghost{background:rgba(19,28,42,0.6);border:1px solid var(--line);color:var(--txt);
+  button.ghost,a.ghost{background:rgba(19,28,42,0.6);border:1px solid var(--line);color:var(--txt);
     padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;
     transition:all 0.2s ease}
-  button.ghost:hover{border-color:var(--accent);background:rgba(30,44,66,0.8);color:#fff;
+  button.ghost:hover,a.ghost:hover{border-color:var(--accent);background:rgba(30,44,66,0.8);color:#fff;
     transform:translateY(-1px)}
 
   button.warnb{background:rgba(255,51,102,0.12);border:1px solid var(--warn);color:#fca5a5;
@@ -2127,6 +2128,7 @@ function inicializarVideoCompleto(){
 
 function irPara(id){
   passoAtual = id;
+  try { localStorage.setItem('futbin_ultimo_passo', id); } catch(e) {}
   $$('section').forEach(s=>s.classList.toggle('on', s.id===id));
   atualizarNav();
   if(id==='s-revisar'){
@@ -2153,10 +2155,21 @@ function agendarSalvar(){
   clearTimeout(salvarTimer);
   salvarTimer = setTimeout(salvarPartida, 400);
 }
+const CACHE_PARTIDA_KEY = 'futbin_partida_cache_v1';
+function guardarCachePartida(dados){
+  try {
+    localStorage.setItem(CACHE_PARTIDA_KEY, JSON.stringify({meta: dados.meta, times: dados.times, gols: dados.gols, lances: dados.lances, roteiro: dados.roteiro}));
+  } catch(e) {}
+}
+function lerCachePartida(){
+  try { const t = localStorage.getItem(CACHE_PARTIDA_KEY); return t ? JSON.parse(t) : null; } catch(e) { return null; }
+}
 async function salvarPartida(){
   try{
+    const dadosPartida = estadoParaPartida();
+    guardarCachePartida(dadosPartida);
     await fetch('/api/partida', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(estadoParaPartida())});
+      body: JSON.stringify(dadosPartida)});
     $$('.stSalvo').forEach(el=> el.textContent = 'salvo ' + new Date().toLocaleTimeString('pt-BR'));
   }catch(e){ $$('.stSalvo').forEach(el=> el.textContent = 'não consegui salvar'); }
 }
@@ -2188,7 +2201,8 @@ function estadoParaPartida(){
     gols: v.map(g=>({indice:g.indice, tempo:g.tempo,
       tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
       inicio_s:g.inicio_s, fim_s:g.fim_s, camera:g.camera || 1, tipo:'gol', status:'gol', time:g.time,
-      time_nome:S.times[g.time]?.nome || '', autor:g.autor, assist:g.assist, fonte:g.fonte||null})),
+      time_nome:S.times[g.time]?.nome || '', autor:g.autor, assist:g.assist, fonte:g.fonte||null,
+      zoom:g.zoom ?? 1, zoom_x:g.zoom_x ?? 0.5, zoom_y:g.zoom_y ?? 0.5})),
     lances: l.map(g=>{
       const inf = obterInfoTipo(g.status || g.tipo, g.lance);
       return {
@@ -2202,7 +2216,8 @@ function estadoParaPartida(){
         lance: g.lance || (inf ? inf.lanceNome : 'Lance'),
         time: g.time,
         destaque: g.destaque,
-        fonte: g.fonte||null
+        fonte: g.fonte||null,
+        zoom: g.zoom ?? 1, zoom_x: g.zoom_x ?? 0.5, zoom_y: g.zoom_y ?? 0.5
       };
     }),
     roteiro: todosRoteiro.map(g=>({i:g.indice, t:obterTempoSegundosClipe(g), tipo:g.tipo})),
@@ -3371,6 +3386,7 @@ async function sincronizarGolsComBackend(){
   } catch(e){}
 }
 
+let _recarregandoClipes = false;
 async function carregarClipes(){
   const r = await fetch('/api/clipes');
   const {clipes} = await r.json();
@@ -4209,6 +4225,15 @@ function renderMarcacao(){
   }
 
   const url = ESTADO.clipes[String(g.indice).padStart(2,'0')];
+  // Lista de clipes ausente/desatualizada (página aberta antes do servidor responder ou
+  // reiniciar): recarrega uma vez e redesenha em vez de afirmar que o clipe não existe.
+  if(!url && !_recarregandoClipes){
+    _recarregandoClipes = true;
+    carregarClipes().catch(()=>{}).finally(()=>{
+      _recarregandoClipes = false;
+      if(ESTADO.clipes[String(g.indice).padStart(2,'0')] && typeof renderMarcacao === 'function') renderMarcacao();
+    });
+  }
   const v = $('#vid');
   if(url){ v.src=url; v.load(); } else { v.removeAttribute('src'); v.load(); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
@@ -4222,7 +4247,7 @@ function renderMarcacao(){
     ? `<span style="background:${infoAtual.bg}; border:1px solid ${infoAtual.border}; color:${infoAtual.cor}; font-weight:700; font-size:12px; padding:3px 8px; border-radius:5px; margin-left:8px">${infoAtual.icon} Marcado como ${infoAtual.rotulo.toUpperCase()}</span>`
     : `<span style="background:var(--panel2); border:1px solid var(--line); color:var(--dim); font-size:12px; padding:3px 8px; border-radius:5px; margin-left:8px">⏳ Sem marcação</span>`;
 
-  $('#lblGol').innerHTML = `Clipe #${String(g.indice).padStart(2,'0')} · <b>${g.tempo}</b> ${placarBadgeHtml} ${badgeHtml}` + (url?'':' — <span class="bad">clipe não encontrado</span>');
+  $('#lblGol').innerHTML = `Clipe #${String(g.indice).padStart(2,'0')} · <b>${g.tempo}</b> ${placarBadgeHtml} ${badgeHtml}` + (url?'':(_recarregandoClipes?' — <span class="hint">carregando clipes…</span>':' — <span class="bad">clipe não encontrado</span>'));
 
   pickTipos();
   pickTimes();
@@ -5685,10 +5710,11 @@ async function carregarVideosJogadoresSalvos(){
     const dados = await r.json();
     const videos = dados.videos || [];
     if(!videos.length){ el.innerHTML = ''; return; }
-    el.innerHTML = `<div style="border-top:1px solid var(--line); padding-top:9px"><b style="font-size:12px; color:var(--dim)">📁 VÍDEOS INDIVIDUAIS JÁ GERADOS</b>${videos.map(v => `<div class="row" style="justify-content:space-between; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.06)"><span style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">⭐ ${v.nome.replace(/\.mp4$/i,'')}</span><span style="display:flex; gap:5px"><button type="button" class="ghost" data-player-video="${v.url}" style="font-size:11px; padding:4px 7px">▶ Ver</button><a class="ghost" href="${v.url}" download style="font-size:11px; padding:4px 7px; text-decoration:none">⬇</a></span></div>`).join('')}</div>`;
+    el.innerHTML = `<div style="border-top:1px solid var(--line); padding-top:9px"><b style="font-size:12px; color:var(--dim)">📁 VÍDEOS INDIVIDUAIS JÁ GERADOS</b>${videos.map(v => `<div class="row" style="justify-content:space-between; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.06)"><span style="font-size:13px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${v.nome}">⭐ ${v.nome.replace(/\.mp4$/i,'')}</span><span style="display:flex; gap:6px; flex-shrink:0"><button type="button" class="ghost" data-player-video="${encodeURI(decodeURI(v.url))}" style="font-size:12px; padding:6px 12px">▶ Ver</button><a class="ghost" href="${encodeURI(decodeURI(v.url))}" download style="font-size:12px; padding:6px 12px">⬇ Baixar</a></span></div>`).join('')}</div>`;
     el.querySelectorAll('[data-player-video]').forEach(btn => btn.onclick = () => {
       const url = btn.dataset.playerVideo;
-      $('#resultadoJogador').innerHTML = `<video controls autoplay src="${url}" style="width:100%; max-height:330px; border-radius:8px; background:#000"></video>`;
+      $('#resultadoJogador').innerHTML = `<video controls autoplay src="${url}" style="display:block; width:100%; max-width:960px; aspect-ratio:16/9; height:auto; margin:0 auto; border-radius:8px; background:#000"></video>`;
+      $('#resultadoJogador').scrollIntoView({behavior:'smooth', block:'center'});
     });
   } catch(e) { el.innerHTML = ''; }
 }
@@ -5736,8 +5762,8 @@ function mostrarResultadoVideoJogador(jogador, url){
   const texto = gerarComentarioYoutube(false, jogador);
   resultado.innerHTML = `
     <div class="card" style="margin:10px 0 0; padding:12px; border-color:rgba(0,240,255,.6); background:rgba(0,240,255,.035)">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap"><div><b style="color:#00f0ff">⭐ Melhores momentos · ${jogador}</b><div class="hint" style="font-size:12px">Vídeo individual com todos os gols e lances marcados dele.</div></div><a class="act" style="text-decoration:none; padding:6px 10px; font-size:12px" href="${url}" download>⬇ Baixar vídeo</a></div>
-      <video controls preload="metadata" poster="/video/jogador/capa/${encodeURIComponent(url.split('/').pop())}?t=${Date.now()}" src="${url}" style="width:100%; max-height:330px; border-radius:8px; background:#000"></video>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap"><div><b style="color:#00f0ff">⭐ Melhores momentos · ${jogador}</b><div class="hint" style="font-size:12px">Vídeo individual com todos os gols e lances marcados dele.</div></div><a class="act" style="padding:8px 14px; font-size:12px" href="${encodeURI(decodeURI(url))}" download>⬇ Baixar vídeo</a></div>
+      <video controls preload="metadata" poster="/video/jogador/capa/${encodeURIComponent(decodeURI(url).split('/').pop())}?t=${Date.now()}" src="${encodeURI(decodeURI(url))}" style="display:block; width:100%; max-width:960px; aspect-ratio:16/9; height:auto; max-height:none; margin:0 auto; border-radius:8px; background:#000"></video>
     </div>
     <div class="card" style="margin:10px 0 0; padding:10px; border-color:rgba(0,255,135,.45)">
       <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:7px"><div><b style="color:var(--accent)">📝 Descrição · ${jogador}</b><div class="hint" style="font-size:11px">Capítulos no tempo do vídeo, como nos vídeos de gols e melhores momentos.</div></div><button type="button" class="act" id="btnCopiarTextoJogador" style="font-size:11px; padding:5px 9px">📋 Copiar</button></div>
@@ -5862,28 +5888,43 @@ $('#btnMontar').onclick = async ()=>{
 (async ()=>{
   const urlParams = new URLSearchParams(window.location.search);
   const pPasso = urlParams.get('passo') || (window.location.hash ? window.location.hash.substring(1) : null);
-  const passoInicial = (pPasso && $(`#${pPasso}`)) ? pPasso : 's-video';
+  let passoSalvo = null;
+  try { passoSalvo = localStorage.getItem('futbin_ultimo_passo'); } catch(e) {}
+  const passoInicial = (pPasso && $(`#${pPasso}`)) ? pPasso : ((passoSalvo && $(`#${passoSalvo}`)) ? passoSalvo : 's-video');
   montarNav();
   // Não renderiza a etapa escolhida ainda: primeiro recuperamos partida.json.
   // Isso evita que o resumo seja aberto vazio ao recarregar a página.
   buscarVideos();
   explorar();
-  const rp = await fetch('/api/placar'); const {rect} = await rp.json();
-  if(rect){ ESTADO.placarRect = rect; $('#btnConfirmarPlacar').disabled=false; $('#btnIrGols').disabled=false;
-    $('#placarAtual').innerHTML = `<span class="ok">✓ Região já salva: [${rect.join(', ')}]</span>`; }
-  const rz = await fetch('/api/zonas'); const {zonas} = await rz.json();
-  zonasSel = zonas || [];
-  renderListaZonas();
-  redesenharTudo();
-  if(zonasSel.length > 0) $('#cardZonasDet').style.display = 'block';
+  // Cada etapa do boot é isolada: um erro em uma delas não pode impedir a recuperação
+  // dos dados da partida, do vídeo e dos clipes (que aparecem como "sumidos" se o boot parar).
+  try {
+    const rp = await fetch('/api/placar'); const {rect} = await rp.json();
+    if(rect){ ESTADO.placarRect = rect; $('#btnConfirmarPlacar').disabled=false; $('#btnIrGols').disabled=false;
+      $('#placarAtual').innerHTML = `<span class="ok">✓ Região já salva: [${rect.join(', ')}]</span>`; }
+    const rz = await fetch('/api/zonas'); const {zonas} = await rz.json();
+    zonasSel = zonas || [];
+    renderListaZonas();
+    redesenharTudo();
+    if(zonasSel.length > 0) $('#cardZonasDet').style.display = 'block';
+  } catch(e) { console.warn('boot: placar/zonas', e); }
 
-  const rpart = await fetch('/api/partida');
-  const partida = rpart.status===200 ? await rpart.json() : null;
+  let partida = null;
+  try {
+    const rpart = await fetch('/api/partida');
+    partida = rpart.status===200 ? await rpart.json() : null;
+  } catch(e) { console.warn('não consegui ler /api/partida', e); }
+  // Sem dados no servidor (arquivo apagado/vazio): recupera a última cópia guardada neste navegador.
+  if(!partida || !partida.times || !partida.times.length){
+    const guardado = lerCachePartida();
+    if(guardado) partida = guardado;
+  }
   if(partida){
     S.meta = partida.meta || S.meta; S.times = partida.times || S.times;
     if(partida.meta && Array.isArray(partida.meta.cameras) && partida.meta.cameras.length){
       ESTADO.cameras = [null, null, null];
       partida.meta.cameras.slice(0,3).forEach((cam, i) => {
+        if(!cam) return; // as câmeras 2 e 3 vêm como null quando não foram enviadas
         ESTADO.cameras[i] = {...cam, nome: cam.nome || String(cam.caminho || '').split(/[\\/]/).pop()};
       });
       ESTADO.video = ESTADO.cameras[0];
@@ -5903,20 +5944,20 @@ $('#btnMontar').onclick = async ()=>{
       }
     } catch(e){}
   }
-  escreverSetup();
-  inicializarVideoCompleto();
+  try { escreverSetup(); } catch(e) { console.warn('boot: escreverSetup', e); }
+  try { inicializarVideoCompleto(); } catch(e) { console.warn('boot: video completo', e); }
 
-  const re = await fetch('/api/estado'); const estado = await re.json();
-  if(estado.clipes_ok){
-    await carregarClipes();
-    $('#btnIrRevisar').disabled = false;
-  }
-  if(estado.final_ok || estado.final_gols_ok){
-    renderResultadosVideosFinais();
-  }
-  carregarVideosJogadoresSalvos();
-  carregarContainerVideosGerados();
-  inicializarSeletorQualidade();
+  try {
+    const re = await fetch('/api/estado'); const estado = await re.json();
+    if(estado.clipes_ok){
+      await carregarClipes();
+      $('#btnIrRevisar').disabled = false;
+    }
+    if(estado.final_ok || estado.final_gols_ok){
+      renderResultadosVideosFinais();
+    }
+  } catch(e) { console.warn('boot: clipes/finais', e); }
+  try { carregarVideosJogadoresSalvos(); carregarContainerVideosGerados(); inicializarSeletorQualidade(); } catch(e) { console.warn('boot: listas', e); }
   // Agora cada etapa (em especial Resumo e Jogador) recebe os dados salvos.
   irPara(passoInicial);
 })();

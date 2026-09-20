@@ -1232,6 +1232,20 @@ def main():
     por_indice = {g["indice"]: ("gol", g) for g in d.get("gols", [])}
     por_indice.update({l["indice"]: ("lance", l) for l in d.get("lances", [])})
 
+    # O zoom (área escolhida no quadro) é gravado em gols/gols.json ao arrastar o quadro.
+    # Ele é a fonte mais atual: o partida.json pode ter sido regravado sem esses campos.
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(args.clipes)), "gols.json"), encoding="utf-8-sig") as f:
+            zoom_por_indice = {e["indice"]: e for e in json.load(f).get("gols", []) if "indice" in e}
+        for idx_z, (_, ev_z) in por_indice.items():
+            src = zoom_por_indice.get(idx_z)
+            if src and src.get("zoom") is not None:
+                ev_z["zoom"] = src["zoom"]
+                ev_z["zoom_x"] = src.get("zoom_x", 0.5)
+                ev_z["zoom_y"] = src.get("zoom_y", 0.5)
+    except (OSError, ValueError):
+        pass
+
     if args.roteiro:
         raw_roteiro = [{"i": int(x.strip())} for x in args.roteiro.split(",") if x.strip()]
     else:
