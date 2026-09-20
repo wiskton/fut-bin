@@ -71,6 +71,24 @@ PARTIDA_JSON = os.path.join(PROJECT_DIR, "partida.json")
 FINAL_DIR = os.path.join(PROJECT_DIR, "final")
 FINAL_VIDEO = os.path.join(FINAL_DIR, "melhores_momentos.mp4")
 FINAL_VIDEO_GOLS = os.path.join(FINAL_DIR, "apenas_gols.mp4")
+# Os destaques individuais são independentes dos dois vídeos finais da partida.
+PLAYER_VIDEOS_DIR = os.path.join(PROJECT_DIR, "videos_jogadores")
+
+
+def _nome_download_video(tipo: str) -> str:
+    """Nome amigável do arquivo baixado, baseado nos dados da partida."""
+    meta = {}
+    try:
+        if os.path.exists(PARTIDA_JSON):
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                meta = json.load(f).get("meta", {}) or {}
+    except Exception:
+        pass
+    partes = [str(x).strip() for x in (meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada")) if str(x or "").strip()]
+    base = " - ".join(partes) or "Fut-bin"
+    sufixo = "Todos os gols da partida" if tipo == "gols" else "Melhores Momentos"
+    nome = f"{base} - {sufixo}.mp4"
+    return re.sub(r'[<>:"/\\|?*]+', "-", nome)
 
 
 def _obter_python_exec() -> str:
@@ -927,12 +945,57 @@ def api_adicionar_gol(body: AdicionarGol):
 
 class ConfirmarGol(BaseModel):
     indice: int
-    status: Optional[str] = None  # "gol", "defesaca", "trave", "quase_gol", "drible", "bola_perdida", "confusao", "lance" ou None (limpa)
+    status: Optional[str] = None  # "gol", "defesaca", "trave", "quase_gol", "drible", "bola_perdida", "confusao", "engracado", "lance" ou None (limpa)
     lance: Optional[str] = None
     time: Optional[int] = None
     autor: Optional[str] = None
     assist: Optional[str] = None
     destaque: Optional[str] = None
+    camera: Optional[int] = 1
+
+
+class AjustarZoomClipe(BaseModel):
+    indice: int
+    zoom: float = 1.0
+    zoom_x: float = 0.5
+    zoom_y: float = 0.5
+
+
+@app.post("/api/gols/zoom")
+def api_ajustar_zoom_clipe(body: AjustarZoomClipe):
+    """Salva o zoom central de um clipe para a prévia e a montagem final."""
+    zoom = round(min(2.2, max(1.0, float(body.zoom))), 2)
+    zoom_x = round(min(1.0, max(0.0, float(body.zoom_x))), 4)
+    zoom_y = round(min(1.0, max(0.0, float(body.zoom_y))), 4)
+    with GOLS_LOCK:
+        if not os.path.exists(GOLS_JSON):
+            raise HTTPException(400, "gols.json nao existe")
+        with open(GOLS_JSON, encoding="utf-8-sig") as f:
+            dados = json.load(f)
+        evento = next((ev for ev in dados.get("gols", []) if ev.get("indice") == body.indice), None)
+        if not evento:
+            raise HTTPException(404, "Clipe nao encontrado")
+        evento["zoom"] = zoom
+        evento["zoom_x"] = zoom_x
+        evento["zoom_y"] = zoom_y
+        with open(GOLS_JSON, "w", encoding="utf-8") as f:
+            json.dump(dados, f, indent=2, ensure_ascii=False)
+
+        if os.path.exists(PARTIDA_JSON):
+            try:
+                with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                    partida = json.load(f)
+                for lista_nome in ("_todosGols", "gols", "lances"):
+                    for item in partida.get(lista_nome, []):
+                        if item.get("indice") == body.indice:
+                            item["zoom"] = zoom
+                            item["zoom_x"] = zoom_x
+                            item["zoom_y"] = zoom_y
+                with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
+                    json.dump(partida, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
+    return {"ok": True, "zoom": zoom, "zoom_x": zoom_x, "zoom_y": zoom_y}
 
 
 @app.post("/api/gols/confirmar")
@@ -957,6 +1020,8 @@ def api_confirmar_gol(body: ConfirmarGol):
                     ev.pop("destaque", None)
                 else:
                     ev["status"] = body.status
+                    if "camera" in fields:
+                        ev["camera"] = min(3, max(1, int(body.camera or 1)))
                     if "lance" in fields:
                         if body.lance is not None: ev["lance"] = body.lance
                         else: ev.pop("lance", None)
@@ -1040,6 +1105,8 @@ def api_confirmar_gol(body: ConfirmarGol):
                     for g in p["_todosGols"]:
                         if g.get("indice") == body.indice:
                             g["status"] = body.status
+                            if "camera" in fields:
+                                g["camera"] = min(3, max(1, int(body.camera or 1)))
                             if body.status is None:
                                 g["tipo"] = None
                                 g["lance"] = None
@@ -1095,6 +1162,10 @@ def api_confirmar_gol(body: ConfirmarGol):
                         "time_nome": time_nome,
                         "autor": autor_val,
                         "assist": assist_val,
+                        "zoom": ev_info.get("zoom", 1.0),
+                        "zoom_x": ev_info.get("zoom_x", 0.5),
+                        "zoom_y": ev_info.get("zoom_y", 0.5),
+                        "camera": ev_info.get("camera", 1),
                         "fonte": ev_info.get("fonte")
                     })
                 elif body.status and body.status != "gol":
@@ -1109,6 +1180,10 @@ def api_confirmar_gol(body: ConfirmarGol):
                         "lance": body.lance or ev_info.get("lance") or "Lance",
                         "time": time_val,
                         "destaque": destaque_val,
+                        "zoom": ev_info.get("zoom", 1.0),
+                        "zoom_x": ev_info.get("zoom_x", 0.5),
+                        "zoom_y": ev_info.get("zoom_y", 0.5),
+                        "camera": ev_info.get("camera", 1),
                         "fonte": ev_info.get("fonte")
                     })
 
@@ -1198,6 +1273,7 @@ def api_clipes():
         if not m:
             continue
         indice = int(m.group(1))
+        caminho_clipe = os.path.join(CLIPES_DIR, nome)
         ev = eventos.get(indice, {})
         p_ev = partida_meta.get(indice, {})
 
@@ -1222,6 +1298,13 @@ def api_clipes():
         autor_val = ev.get("autor") or p_ev.get("autor")
         assist_val = ev.get("assist") or p_ev.get("assist")
         destaque_val = ev.get("destaque") or p_ev.get("destaque")
+        zoom_val = ev.get("zoom") if ev.get("zoom") is not None else p_ev.get("zoom", 1.0)
+        zoom_x_val = ev.get("zoom_x") if ev.get("zoom_x") is not None else p_ev.get("zoom_x", 0.5)
+        zoom_y_val = ev.get("zoom_y") if ev.get("zoom_y") is not None else p_ev.get("zoom_y", 0.5)
+
+        # A duração real do MP4 é necessária para montar capítulos do YouTube,
+        # inclusive para clipes importados que não têm inicio_s/fim_s anotados.
+        duracao_arquivo = _ffprobe_duracao(caminho_clipe)
 
         clipes.append({
             "indice": indice, "arquivo": nome, "url": f"/video/clipes/{nome}",
@@ -1229,9 +1312,12 @@ def api_clipes():
             "tempo_s": tempo_s,
             "inicio_s": inicio_s,
             "fim_s": fim_s,
-            "duracao_s": round(fim_s - inicio_s, 2) if (fim_s is not None and inicio_s is not None) else None,
+            "duracao_s": duracao_arquivo if duracao_arquivo is not None else (round(fim_s - inicio_s, 2) if (fim_s is not None and inicio_s is not None) else None),
             "status": status_val, "lance": lance_val, "placar": ev.get("placar"),
             "time": time_val, "autor": autor_val, "assist": assist_val, "destaque": destaque_val,
+            "camera": ev.get("camera") or p_ev.get("camera") or 1,
+            "zoom": zoom_val,
+            "zoom_x": zoom_x_val, "zoom_y": zoom_y_val,
         })
     # Ordenado cronologicamente pelo tempo_s (ou inicio_s) do clip
     return {"clipes": sorted(clipes, key=lambda c: (c.get("tempo_s") if c.get("tempo_s") is not None else 999999, c["indice"]))}
@@ -1536,6 +1622,8 @@ def api_preview_cartela(tipo: str):
         img = montar_video.cartela_fim_de_jogo(d)
     elif tipo == "destaques":
         img = montar_video.cartela_destaques(d)
+    elif tipo == "assista_outros_videos":
+        img = montar_video.cartela_assista_outros_videos(d)
     elif tipo == "cronologia":
         img = montar_video.cartela_cronologia(d)
     elif tipo in ("placar", "lance", "jogo"):
@@ -1574,15 +1662,23 @@ class IniciarMontagem(BaseModel):
     crf: int | None = None
     preset: str | None = None
     codec: str | None = None
+    nome_saida: str | None = None
+    video_jogador: bool = False
 
 
 @app.post("/api/montar/iniciar")
 def api_iniciar_montagem(body: IniciarMontagem):
     if not os.path.exists(PARTIDA_JSON):
         raise HTTPException(400, "marque autor/assistencia antes de montar")
+    nome_saida = os.path.basename(body.nome_saida or "melhores_momentos.mp4")
+    nome_saida = re.sub(r"[^a-zA-Z0-9À-ÿ ._-]+", "_", nome_saida)
+    if not nome_saida.lower().endswith(".mp4"):
+        nome_saida += ".mp4"
+    eh_video_jogador = body.video_jogador
+    pasta_saida = "videos_jogadores" if eh_video_jogador else "final"
     cmd = [PYTHON_EXEC, os.path.join(PROJECT_DIR, "montar_video.py"), "--partida", "partida.json",
-           "--clipes", "gols/clipes", "--saida", "final/melhores_momentos.mp4",
-           "--saida_gols", "final/apenas_gols.mp4",
+           "--clipes", "gols/clipes", "--saida", os.path.join(pasta_saida, nome_saida),
+           "--saida_gols", "" if eh_video_jogador else "final/apenas_gols.mp4",
            "--abertura", str(body.abertura), "--fechamento", str(body.fechamento)]
     if body.roteiro:
         cmd.extend(["--roteiro", ",".join(str(i) for i in body.roteiro)])
@@ -1617,21 +1713,104 @@ def api_iniciar_montagem(body: IniciarMontagem):
         if fc.get("contraste") is not None:
             cmd.extend(["--contraste", str(fc["contraste"])])
 
-    return {"job_id": _iniciar_job(cmd)}
+    return {"job_id": _iniciar_job(cmd), "video_url": f"/video/jogador/{nome_saida}" if eh_video_jogador else "/video/final"}
 
 
 @app.api_route("/video/final", methods=["GET", "HEAD"])
 def video_final():
     if not os.path.isfile(FINAL_VIDEO):
         raise HTTPException(404)
-    return FileResponse(FINAL_VIDEO, media_type="video/mp4", filename="melhores_momentos.mp4")
+    return FileResponse(FINAL_VIDEO, media_type="video/mp4", filename=_nome_download_video("melhores"))
 
 
 @app.api_route("/video/final/gols", methods=["GET", "HEAD"])
 def video_final_gols():
     if not os.path.isfile(FINAL_VIDEO_GOLS):
         raise HTTPException(404)
-    return FileResponse(FINAL_VIDEO_GOLS, media_type="video/mp4", filename="apenas_gols.mp4")
+    return FileResponse(FINAL_VIDEO_GOLS, media_type="video/mp4", filename=_nome_download_video("gols"))
+
+
+@app.api_route("/video/final/arquivo/{nome}", methods=["GET", "HEAD"])
+def video_final_arquivo(nome: str):
+    nome_seguro = os.path.basename(nome)
+    caminho = os.path.join(FINAL_DIR, nome_seguro)
+    if not nome_seguro.lower().endswith(".mp4") or not os.path.isfile(caminho):
+        raise HTTPException(404)
+    return FileResponse(caminho, media_type="video/mp4", filename=nome_seguro)
+
+
+@app.get("/video/final/capa/{nome}")
+def capa_video_final(nome: str):
+    """Primeiro quadro útil do render para a prévia não ficar preta."""
+    caminho = os.path.join(FINAL_DIR, os.path.basename(nome))
+    if not nome.lower().endswith(".mp4") or not os.path.isfile(caminho):
+        raise HTTPException(404)
+    cap = cv2.VideoCapture(caminho)
+    try:
+        cap.set(cv2.CAP_PROP_POS_MSEC, 1200)  # pula o fade inicial da cartela
+        ok, frame = cap.read()
+        if not ok:
+            raise HTTPException(404)
+        ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 88])
+        if not ok:
+            raise HTTPException(500)
+        return Response(content=jpg.tobytes(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    finally:
+        cap.release()
+
+
+@app.get("/api/videos/finais")
+def api_videos_finais():
+    """Lista os renders já existentes para que continuem disponíveis após fechar a tela."""
+    if not os.path.isdir(FINAL_DIR):
+        return {"videos": []}
+    videos = []
+    for nome in sorted(os.listdir(FINAL_DIR), key=str.lower):
+        caminho = os.path.join(FINAL_DIR, nome)
+        if nome.lower().endswith(".mp4") and os.path.isfile(caminho):
+            videos.append({"nome": nome, "url": f"/video/final/arquivo/{nome}", "duracao_s": _ffprobe_duracao(caminho)})
+    return {"videos": videos}
+
+
+@app.api_route("/video/jogador/{nome}", methods=["GET", "HEAD"])
+def video_jogador(nome: str):
+    """Entrega exclusivamente um compilado individual, fora da pasta final."""
+    nome_seguro = os.path.basename(nome)
+    caminho = os.path.join(PLAYER_VIDEOS_DIR, nome_seguro)
+    if not nome_seguro.lower().endswith(".mp4") or not os.path.isfile(caminho):
+        raise HTTPException(404)
+    return FileResponse(caminho, media_type="video/mp4", filename=nome_seguro)
+
+
+@app.get("/video/jogador/capa/{nome}")
+def capa_video_jogador(nome: str):
+    caminho = os.path.join(PLAYER_VIDEOS_DIR, os.path.basename(nome))
+    if not nome.lower().endswith(".mp4") or not os.path.isfile(caminho):
+        raise HTTPException(404)
+    cap = cv2.VideoCapture(caminho)
+    try:
+        cap.set(cv2.CAP_PROP_POS_MSEC, 1200)
+        ok, frame = cap.read()
+        if not ok:
+            raise HTTPException(404)
+        ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 88])
+        if not ok:
+            raise HTTPException(500)
+        return Response(content=jpg.tobytes(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    finally:
+        cap.release()
+
+
+@app.get("/api/videos/jogadores")
+def api_videos_jogadores():
+    if not os.path.isdir(PLAYER_VIDEOS_DIR):
+        return {"videos": []}
+    videos = []
+    for nome in sorted(os.listdir(PLAYER_VIDEOS_DIR), key=str.lower):
+        caminho = os.path.join(PLAYER_VIDEOS_DIR, nome)
+        if nome.lower().endswith(".mp4") and os.path.isfile(caminho):
+            videos.append({"nome": nome, "url": f"/video/jogador/{nome}", "duracao_s": _ffprobe_duracao(caminho)})
+    return {"videos": videos}
 
 
 # --------------------------------------------------------------- estado (retomar de onde parou)

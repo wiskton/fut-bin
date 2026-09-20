@@ -91,6 +91,15 @@ def centralizado(d, y, txt, f, cor):
     return larg
 
 
+def centralizado_contornado(d, y, txt, f, cor=BRANCO, contorno=(0, 0, 0), largura_contorno=3):
+    """Texto centralizado com borda, para continuar legível sobre qualquer fundo."""
+    bb = d.textbbox((0, 0), txt, font=f, stroke_width=largura_contorno)
+    larg = bb[2] - bb[0]
+    d.text(((L - larg) // 2, y), txt, font=f, fill=cor,
+           stroke_width=largura_contorno, stroke_fill=contorno)
+    return larg
+
+
 def obter_logo_campeonato(d_=None, tamanho=None):
     """Carrega a logo do campeonato a partir de partida.json ou dos arquivos do projeto."""
     caminhos = []
@@ -762,7 +771,9 @@ def cartela_fim_de_jogo(d_):
     centralizado(d, y_textos, "FIM DE JOGO · PLACAR FINAL", fonte(38), DOURADO)
     sub = " · ".join(x for x in [meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
     if sub:
-        centralizado(d, y_textos + 44, sub, fonte(20, False), FRACO)
+        # Dados da partida precisam permanecer legíveis mesmo no fundo da quadra.
+        centralizado_contornado(d, y_textos + 46, sub, fonte(27, True),
+                               BRANCO, (0, 0, 0), 3)
 
     gols_ordenados = sorted(d_.get("gols", []), key=_tempo_em_segundos)
     gols_a = [g for g in gols_ordenados if g.get("time") == 0]
@@ -796,7 +807,18 @@ def cartela_fim_de_jogo(d_):
     topo_col = y_p + 155
 
     def desenhar_coluna_gols(x0, time_obj, lista_gols, cor):
-        d.rounded_rectangle([x0, topo_col, x0 + col_w, topo_col + 580], radius=12,
+        # Usa toda a parte inferior da tela: assim uma partida com muitos gols
+        # continua mostrando a lista completa, sem cortar os últimos nomes.
+        fim_col = A - 48
+        altura_col = fim_col - topo_col
+        espaco_itens = max(1, altura_col - 76)
+        passo_item = max(27, min(38, espaco_itens // max(len(lista_gols), 1)))
+        tam_autor = max(17, min(19, passo_item - 12))
+        tam_assist = max(12, min(14, passo_item - 17))
+        tam_tempo = max(11, min(13, passo_item - 18))
+        tam_avatar = max(20, min(26, passo_item - 8))
+
+        d.rounded_rectangle([x0, topo_col, x0 + col_w, fim_col], radius=12,
                             fill=PAINEL, outline=PAINEL_BORDA, width=1)
         d.rectangle([x0, topo_col, x0 + col_w, topo_col + 6], fill=cor)
         d.text((x0 + 24, topo_col + 22), f"GOLS · {time_obj['nome'].upper()}", font=fonte(22), fill=cor)
@@ -807,25 +829,27 @@ def cartela_fim_de_jogo(d_):
             d.text((x0 + 24, y_item + 10), "Nenhum gol marcado", font=fonte(18, False), fill=FRACO)
             return
 
-        for g in lista_gols[:13]:
+        for g in lista_gols:
+            if y_item + passo_item > fim_col - 8:
+                break
             t_str = g.get("tempo", "")
             # Badge com tempo
-            d.rounded_rectangle([x0 + 20, y_item - 2, x0 + 82, y_item + 24], radius=4,
+            badge_h = min(26, passo_item - 3)
+            d.rounded_rectangle([x0 + 20, y_item - 2, x0 + 82, y_item - 2 + badge_h], radius=4,
                                 fill=(24, 32, 48), outline=(60, 75, 100), width=1)
-            d.text((x0 + 51, y_item + 11), t_str, font=fonte(14, True), fill=TEXTO, anchor="mm")
+            d.text((x0 + 51, y_item - 2 + badge_h // 2), t_str, font=fonte(tam_tempo, True), fill=TEXTO, anchor="mm")
 
             autor = g.get("autor", "Gol")
-            # Foto / Avatar do autor do gol (28x28px)
-            av = obter_avatar_jogador(autor, time_obj, tamanho=(28, 28), cor_time=cor)
+            av = obter_avatar_jogador(autor, time_obj, tamanho=(tam_avatar, tam_avatar), cor_time=cor)
             if av:
-                img.paste(av, (x0 + 96, y_item - 4), av)
-                d.text((x0 + 134, y_item + 1), autor, font=fonte(20, True), fill=TEXTO)
+                img.paste(av, (x0 + 96, y_item - 2), av)
+                d.text((x0 + 96 + tam_avatar + 10, y_item), autor, font=fonte(tam_autor, True), fill=TEXTO)
             else:
-                d.text((x0 + 96, y_item + 1), autor, font=fonte(20, True), fill=TEXTO)
+                d.text((x0 + 96, y_item), autor, font=fonte(tam_autor, True), fill=TEXTO)
 
             if g.get("assist"):
-                d.text((x0 + col_w - 24, y_item + 2), f"assist. {g['assist']}", font=fonte(15, False), fill=FRACO, anchor="ra")
-            y_item += 38
+                d.text((x0 + col_w - 24, y_item + 2), f"assist. {g['assist']}", font=fonte(tam_assist, False), fill=FRACO, anchor="ra")
+            y_item += passo_item
 
     desenhar_coluna_gols(170, times[0], gols_a, ca)
     desenhar_coluna_gols(L // 2 + 60, times[1], gols_b, cb)
@@ -970,6 +994,19 @@ def cartela_destaques(d_):
     return img
 
 
+def cartela_assista_outros_videos(d_):
+    """Tela final limpa, com espaço livre para os quadros recomendados do YouTube."""
+    img = criar_fundo_base(d_)
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, L, 7], fill=VERDE)
+    # Área central propositalmente vazia: o YouTube coloca os vídeos sugeridos aqui.
+    d.rounded_rectangle([150, 100, L - 150, A - 70], radius=28,
+                        fill=(10, 17, 29, 235), outline=(0, 255, 135, 210), width=3)
+    centralizado(d, 155, "ASSISTA ESTES OUTROS VÍDEOS", fonte(52, True), BRANCO)
+    centralizado(d, A - 125, "Obrigado por assistir", fonte(25, False), FRACO)
+    return img
+
+
 # --------------------------------------------------------------- ffmpeg
 
 def roda(cmd):
@@ -991,7 +1028,7 @@ def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec
           "-c:a", "aac", "-b:a", "128k", "-shortest", saida])
 
 
-def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None, crf=24, preset="medium", codec="libx264"):
+def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None, zoom=1.0, zoom_x=0.5, zoom_y=0.5, crf=24, preset="medium", codec="libx264"):
     dur = float(subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "csv=p=0", clipe], capture_output=True, text=True).stdout.strip() or 6)
@@ -1014,7 +1051,19 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
         if eq_items:
             filtro_cor = ",eq=" + ":".join(eq_items)
 
-    vf = (f"scale={L}:{A}:force_original_aspect_ratio=decrease,"
+    try:
+        zoom = min(2.2, max(1.0, float(zoom)))
+    except (TypeError, ValueError):
+        zoom = 1.0
+    try:
+        zoom_x = min(1.0, max(0.0, float(zoom_x)))
+        zoom_y = min(1.0, max(0.0, float(zoom_y)))
+    except (TypeError, ValueError):
+        zoom_x, zoom_y = 0.5, 0.5
+    filtro_zoom = "" if zoom <= 1.01 else (
+        f"crop=iw/{zoom:.2f}:ih/{zoom:.2f}:(iw-ow)*{zoom_x:.4f}:(ih-oh)*{zoom_y:.4f},"
+    )
+    vf = (f"{filtro_zoom}scale={L}:{A}:force_original_aspect_ratio=decrease,"
           f"pad={L}:{A}:(ow-iw)/2:(oh-ih)/2,fps={FPS}{filtro_cor},format=yuv420p")
     filtro = (f"[0:v]{vf}[v0];"
               f"[1:v]format=rgba,fade=t=in:st={ini}:d=0.35:alpha=1,"
@@ -1036,6 +1085,44 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
             "-crf", str(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart",
             "-c:a", "aac", "-b:a", "128k", saida]
     roda(cmd)
+
+
+def clipe_da_camera_sincronizada(ev, cameras, pasta_tmp):
+    """Cria o trecho equivalente numa câmera alternativa.
+
+    inicio_jogo_s é o instante, dentro de cada arquivo, em que começa o jogo.
+    Assim o mesmo segundo da partida cai na câmera correta mesmo se as gravações
+    começaram em momentos diferentes.
+    """
+    try:
+        camera = int(ev.get("camera") or 1)
+    except (TypeError, ValueError):
+        camera = 1
+    if camera <= 1 or not isinstance(cameras, list) or len(cameras) < camera:
+        return None
+    principal, alternativa = cameras[0] or {}, cameras[camera - 1] or {}
+    origem = alternativa.get("caminho")
+    if not origem or not os.path.isfile(origem):
+        return None
+    try:
+        inicio_ref = float(ev.get("inicio_s"))
+        fim_ref = float(ev.get("fim_s"))
+        if fim_ref <= inicio_ref:
+            return None
+        inicio_jogo_ref = float(principal.get("inicio_jogo_s") or 0)
+        inicio_jogo_cam = float(alternativa.get("inicio_jogo_s") or 0)
+    except (TypeError, ValueError):
+        return None
+    inicio_cam = max(0, inicio_ref - inicio_jogo_ref + inicio_jogo_cam)
+    duracao = fim_ref - inicio_ref
+    saida = os.path.join(pasta_tmp, f"cam{camera}_{int(ev.get('indice', 0)):02d}.mp4")
+    try:
+        roda(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{inicio_cam:.3f}", "-i", origem,
+              "-t", f"{duracao:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+              "-c:a", "aac", "-movflags", "+faststart", saida])
+        return saida if os.path.exists(saida) else None
+    except Exception:
+        return None
 
 
 def _normaliza_roteiro(raw_roteiro, por_indice):
@@ -1143,8 +1230,35 @@ def main():
             partes_gols.append(s)
 
         faltando = []
-        placar_a = 0
-        placar_b = 0
+
+        # O placar mostrado em cada lance é sempre o placar real da partida,
+        # inclusive ao montar um vídeo filtrado para apenas um jogador.  Antes,
+        # ele era contado só pelos itens do roteiro e um vídeo do Will, por
+        # exemplo, podia mostrar 5 × 0 quando a partida já estava em 10 × 5.
+        gols_da_partida = sorted(
+            d.get("gols", []),
+            key=lambda gol: (_tempo_em_segundos(gol), gol.get("indice", 0)),
+        )
+
+        def placar_no_momento(evento):
+            tempo_evento = _tempo_em_segundos(evento)
+            indice_evento = evento.get("indice", 0)
+            time_a = 0
+            time_b = 0
+            for gol in gols_da_partida:
+                tempo_gol = _tempo_em_segundos(gol)
+                indice_gol = gol.get("indice", 0)
+                # Inclui os gols anteriores e o gol deste próprio clipe.  Em
+                # eventos simultâneos, respeita a ordem registrada no jogo.
+                if tempo_gol > tempo_evento or (
+                    tempo_gol == tempo_evento and indice_gol > indice_evento
+                ):
+                    continue
+                if gol.get("time") == 0:
+                    time_a += 1
+                elif gol.get("time") == 1:
+                    time_b += 1
+            return time_a, time_b
 
         for n, item in enumerate(roteiro, 1):
             idx = item["i"]
@@ -1156,15 +1270,15 @@ def main():
                 faltando.append(os.path.basename(clipe))
                 continue
 
-            gol_neste_clipe = False
-            time_gol = None
-            if tipo == "gol":
-                time_gol = ev.get("time")
-                if time_gol == 0:
-                    placar_a += 1
-                elif time_gol == 1:
-                    placar_b += 1
-                gol_neste_clipe = True
+            # A câmera escolhida na marcação substitui apenas este trecho.
+            # Sem escolha (ou se o arquivo alternativo faltar), usa a principal.
+            alternativo = clipe_da_camera_sincronizada(ev, d.get("meta", {}).get("cameras", []), tmp)
+            if alternativo:
+                clipe = alternativo
+
+            gol_neste_clipe = tipo == "gol"
+            time_gol = ev.get("time") if gol_neste_clipe else None
+            placar_a, placar_b = placar_no_momento(ev)
 
             png = os.path.join(tmp, f"ov{n:03d}.png")
             cartela_lance(ev, d["times"], tipo, placar_a, placar_b,
@@ -1174,7 +1288,9 @@ def main():
             rot = ev.get("autor") or ev.get("lance") or "lance"
             status_placar = f"[{placar_a} × {placar_b}]"
             print(f"  [{n:02d}/{len(roteiro)}] {ev.get('tempo','')} {status_placar} {tipo}: {rot}")
-            seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor, crf=args.crf, preset=args.preset, codec=args.codec)
+            seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor,
+                          zoom=ev.get("zoom", 1.0), zoom_x=ev.get("zoom_x", 0.5), zoom_y=ev.get("zoom_y", 0.5),
+                          crf=args.crf, preset=args.preset, codec=args.codec)
             partes.append(s)
             if tipo == "gol":
                 partes_gols.append(s)
@@ -1196,6 +1312,14 @@ def main():
                 seg_de_imagem(p, dur, s, crf=args.crf, preset=args.preset, codec=args.codec)
                 partes.append(s)
                 partes_gols.append(s)
+
+        # Encerramento de retenção: sempre fica nos dois vídeos por 30 segundos.
+        p = os.path.join(tmp, "assista_outros_videos.png")
+        cartela_assista_outros_videos(d).save(p)
+        s = os.path.join(tmp, "z_assista_outros_videos.mp4")
+        seg_de_imagem(p, 30, s, crf=args.crf, preset=args.preset, codec=args.codec)
+        partes.append(s)
+        partes_gols.append(s)
 
         lista = os.path.join(tmp, "lista.txt")
         with open(lista, "w", encoding="utf-8") as f:
