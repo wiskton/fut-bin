@@ -1459,6 +1459,17 @@
       </div>
     </div>
 
+    <div style="margin:12px 0 16px; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+      <label style="font-weight:700; font-size:13px; margin:0">📐 Resolução do vídeo</label>
+      <select id="resolucaoFinal" class="sel-resolucao" style="max-width:260px">
+        <option value="720">HD 720p (menor e mais rápido)</option>
+        <option value="1080" selected>Full HD 1080p (recomendado)</option>
+        <option value="1440">2K 1440p</option>
+        <option value="2160">4K 2160p (lento e pesado)</option>
+      </select>
+      <span class="hint" style="margin:0; font-size:11px">Cartelas são desenhadas em Full HD e ajustadas para a resolução escolhida.</span>
+    </div>
+
     <div style="margin:12px 0 16px; background:linear-gradient(145deg, #131f2f 0%, #0c1420 100%); border:1px solid var(--line-bright); border-radius:10px; padding:12px 16px">
       <div style="font-size:12px; font-weight:700; color:var(--txt); margin-bottom:8px; display:flex; align-items:center; gap:6px">
         <span>⏱️</span> Duração Prevista dos Vídeos a Renderizar:
@@ -1501,6 +1512,67 @@
       <button type="button" class="ghost" id="btnTextoJogador">📝 Gerar texto</button>
       <button type="button" class="act" id="btnMontarJogador">🎬 Gerar vídeo do jogador</button>
       <button type="button" class="warnb" id="btnCancelarMontarJogador" style="display:none">✕ Cancelar geração</button>
+    </div>
+  </div>
+  <div class="card" id="cardRenderJogador">
+    <h2 style="font-size:16px">⚙️ Resolução, qualidade e cores do vídeo</h2>
+    <div class="row" style="gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:10px">
+      <div style="min-width:240px"><label>📐 Resolução</label>
+        <select id="resolucaoJogador" class="sel-resolucao">
+          <option value="720">HD 720p</option>
+          <option value="1080" selected>Full HD 1080p (recomendado)</option>
+          <option value="1440">2K 1440p</option>
+          <option value="2160">4K 2160p</option>
+        </select></div>
+      <span id="badgeTamanhoJogador" style="font-size:11px; font-weight:800; color:var(--accent); background:rgba(0,255,135,0.12); border:1px solid var(--accent); padding:2px 8px; border-radius:10px">~50% menor</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px" id="gridPerfisJogador">
+        <div class="perfil-jogador-card sel" data-crf="24" data-codec="libx264" data-estimativa="~50% menor" style="display:flex; flex-direction:column; gap:3px; padding:9px 12px; border-radius:8px; border:1.5px solid var(--accent); background:rgba(0,255,135,0.08); cursor:pointer">
+          <span style="font-size:12px; font-weight:800; color:var(--accent)">🟢 Otimizado</span>
+          <span style="font-size:11px; color:var(--dim)">Full HD nítido, ~50% menor (recomendado)</span>
+        </div>
+        <div class="perfil-jogador-card" data-crf="27" data-codec="libx264" data-estimativa="~65% menor" style="display:flex; flex-direction:column; gap:3px; padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); cursor:pointer">
+          <span style="font-size:12px; font-weight:800; color:var(--gold-light)">🟡 Compacto</span>
+          <span style="font-size:11px; color:var(--dim)">Leve para WhatsApp</span>
+        </div>
+        <div class="perfil-jogador-card" data-crf="29" data-codec="libx264" data-estimativa="~75% menor" style="display:flex; flex-direction:column; gap:3px; padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); cursor:pointer">
+          <span style="font-size:12px; font-weight:800; color:var(--cyan)">🟣 Ultra Leve</span>
+          <span style="font-size:11px; color:var(--dim)">Arquivo super compacto</span>
+        </div>
+        <div class="perfil-jogador-card" data-crf="20" data-codec="libx264" data-estimativa="Original (pesado)" style="display:flex; flex-direction:column; gap:3px; padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); cursor:pointer">
+          <span style="font-size:12px; font-weight:800; color:#38bdf8">🔵 Máxima Qualidade</span>
+          <span style="font-size:11px; color:var(--dim)">Taxa de dados bruta</span>
+        </div>
+    </div>
+    <div style="margin-top:14px; display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:14px; align-items:end">
+      <div><label style="display:flex; justify-content:space-between; font-size:12px"><span>🔆 Brilho</span><span id="lbl_jgBrilho" style="font-weight:700; color:var(--accent)">100%</span></label>
+        <input type="range" id="jgBrilho" class="sl-cor-jogador" min="20" max="250" value="100" step="5" style="width:100%"></div>
+      <div><label style="display:flex; justify-content:space-between; font-size:12px"><span>◐ Contraste</span><span id="lbl_jgContraste" style="font-weight:700; color:var(--accent)">100%</span></label>
+        <input type="range" id="jgContraste" class="sl-cor-jogador" min="50" max="250" value="100" step="5" style="width:100%"></div>
+      <div><label style="display:flex; justify-content:space-between; font-size:12px"><span>🎨 Saturação</span><span id="lbl_jgSaturacao" style="font-weight:700; color:var(--accent)">100%</span></label>
+        <input type="range" id="jgSaturacao" class="sl-cor-jogador" min="0" max="200" value="100" step="5" style="width:100%"></div>
+      <div><button type="button" class="ghost" id="btnJgResetCores" style="font-size:11px; padding:3px 10px">Normal (100%)</button></div>
+    </div>
+    <div class="hint" style="margin-top:8px">Brilho, contraste e saturação são aplicados aos clipes do vídeo do jogador (igual à tela dos vídeos).</div>
+    <div style="margin-top:12px">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px">
+        <b style="font-size:13px">👁️ Prévia com os ajustes</b>
+        <div class="row" style="gap:8px; align-items:center">
+          <select id="selClipePreviaJogador" style="max-width:260px; font-size:12px"></select>
+          <button type="button" class="ghost" id="btnPreviaComparar" style="font-size:11px; padding:3px 10px" title="Segure para ver o original">Segure: ver original</button>
+        </div>
+      </div>
+      <div style="position:relative; max-width:640px; background:#000; border-radius:9px; overflow:hidden">
+        <canvas id="videoPreviaJogador" width="1280" height="720" style="width:100%; display:block; aspect-ratio:16/9; background:#000"></canvas>
+        <video id="fonteFramePrevia" muted playsinline preload="auto" style="display:none"></video>
+        <div id="msgPreviaJogador" class="hint" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; margin:0; pointer-events:none">Carregando prévia...</div>
+      </div>
+      <div class="row" style="gap:8px; align-items:center; margin-top:6px; max-width:640px">
+        <span style="font-size:12px; color:var(--dim)">Quadro:</span>
+        <input type="range" id="tempoFramePrevia" min="0" max="100" value="50" step="1" style="flex:1">
+        <span id="lblTempoFramePrevia" style="font-size:12px; font-weight:700; width:44px; color:var(--accent)">0:00</span>
+      </div>
+      <div class="hint" style="margin-top:4px; font-size:11px">A prévia é um quadro parado de um clipe do jogador. A resolução e a qualidade só aparecem no arquivo final.</div>
     </div>
   </div>
   <div id="estatisticasJogador"></div>
@@ -1710,6 +1782,17 @@ function obterPosicaoJogador(timeIdx, nome){
   if(idx === 1 || idx === 2) return 'zagueiro';
   if(idx === 3 || idx === 4) return 'meio';
   return 'atacante';
+}
+
+// A tela marca o primeiro do elenco como goleiro mesmo sem escolha manual,
+// mas `posicoes` só guardava quem foi clicado. Salvar a escalação completa
+// evita que o vídeo trate esse goleiro como meio-campo.
+function escalacaoCompleta(timeIdx){
+  const t = S.times[timeIdx];
+  if(!t) return {};
+  const out = Object.assign({}, t.posicoes || {});
+  (t.jogadores || []).forEach(nome => { out[nome] = obterPosicaoJogador(timeIdx, nome); });
+  return out;
 }
 
 function definirPosicaoJogador(timeIdx, nome, pos){
@@ -2196,11 +2279,11 @@ function estadoParaPartida(){
     meta: Object.assign({}, S.meta, {video: ESTADO.video ? ESTADO.video.caminho : null,
       cameras: camerasSelecionadas().map(c => c ? ({nome:c.nome, caminho:c.caminho, duracao_s:c.duracao_s, inicio_jogo_s:Number(c.inicio_jogo_s)||0}) : null),
       placar:[v.filter(g=>g.time===0).length, v.filter(g=>g.time===1).length]}),
-    times: S.times.map(t => ({
+    times: S.times.map((t, idx) => ({
       nome: t.nome,
       cor: t.cor,
       jogadores: t.jogadores || [],
-      posicoes: t.posicoes || {},
+      posicoes: escalacaoCompleta(idx),
       fotos: t.fotos || {},
     })),
     gols: v.map(g=>({indice:g.indice, tempo:g.tempo,
@@ -5694,6 +5777,7 @@ function renderTelaJogador(){
   atualizarJogadoresDestaques();
   carregarVideosJogadoresSalvos();
   const sel = $('#selJogadorDestaques');
+  atualizarPreviaJogador(sel ? sel.value : '');
   if(sel && sel.value) renderEstatisticasJogador(sel.value);
   else $('#estatisticasJogador').innerHTML = '<div class="card"><div class="hint">Escolha um jogador acima para ver as estatísticas dele nesta partida.</div></div>';
 }
@@ -5729,7 +5813,7 @@ function renderEstatisticasJogador(jogador){
     </div>`;
 }
 
-$('#selJogadorDestaques').onchange = function(){ renderEstatisticasJogador(this.value); };
+$('#selJogadorDestaques').onchange = function(){ renderEstatisticasJogador(this.value); atualizarPreviaJogador(this.value); };
 
 $('#btnTextoJogador').onclick = ()=>{
   const jogador = $('#selJogadorDestaques').value;
@@ -5832,6 +5916,122 @@ function mostrarResultadoVideoJogador(jogador, url){
   $('#btnCopiarTextoJogador').onclick = () => copiarComentarioYoutube('textoJogadorYoutube', 'btnCopiarTextoJogador');
 }
 
+/* ------------------------------------------------------------ render do jogador: resolução, qualidade e cores */
+function paramsRenderJogador(){
+  const card = document.querySelector('.perfil-jogador-card.sel');
+  const v = id => (parseFloat($(id).value) || 100) / 100;
+  return {
+    crf: card ? parseInt(card.dataset.crf, 10) : 24,
+    codec: card?.dataset.codec || 'libx264',
+    resolucao: parseInt($('#resolucaoJogador').value, 10) || 1080,
+    brilho: v('#jgBrilho'), contraste: v('#jgContraste'), saturacao: v('#jgSaturacao'),
+  };
+}
+function inicializarRenderJogador(){
+  const cards = document.querySelectorAll('.perfil-jogador-card');
+  const badge = $('#badgeTamanhoJogador');
+  const marcar = card => {
+    cards.forEach(c => { c.classList.remove('sel'); c.style.borderColor = 'var(--line)'; c.style.background = 'var(--panel)'; });
+    card.classList.add('sel'); card.style.borderColor = 'var(--accent)'; card.style.background = 'rgba(0,255,135,0.08)';
+    if(badge) badge.textContent = card.dataset.estimativa;
+  };
+  let salvo = null, resSalva = null;
+  try { salvo = localStorage.getItem('futbin_jogador_crf'); resSalva = localStorage.getItem('futbin_jogador_res'); } catch(e) {}
+  cards.forEach(card => {
+    if(card.dataset.crf === salvo) marcar(card);
+    card.onclick = () => { marcar(card); try { localStorage.setItem('futbin_jogador_crf', card.dataset.crf); } catch(e) {} };
+  });
+  if(resSalva) $('#resolucaoJogador').value = resSalva;
+  $('#resolucaoJogador').onchange = e => { try { localStorage.setItem('futbin_jogador_res', e.target.value); } catch(err) {} };
+  // Parte dos ajustes de cor definidos na tela dos vídeos, se estiverem ativos.
+  const fc = S.meta?.fundo_config;
+  if(fc && fc.aplicar_video_clipes){
+    if(fc.brilho != null) $('#jgBrilho').value = Math.round(fc.brilho * 100);
+    if(fc.contraste != null) $('#jgContraste').value = Math.round(fc.contraste * 100);
+    if(fc.saturacao != null) $('#jgSaturacao').value = Math.round(fc.saturacao * 100);
+  }
+  const atualizar = () => {
+    ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => { $('#lbl_' + id).textContent = `${$('#' + id).value}%`; });
+    aplicarFiltroPreviaJogador();
+  };
+  document.querySelectorAll('.sl-cor-jogador').forEach(el => el.oninput = atualizar);
+  $('#btnJgResetCores').onclick = () => { ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => $('#' + id).value = 100); atualizar(); };
+  const comparar = ligado => { $('#videoPreviaJogador').style.filter = ligado ? 'none' : filtroCssJogador(); };
+  const bc = $('#btnPreviaComparar');
+  ['mousedown', 'touchstart'].forEach(ev => bc.addEventListener(ev, () => comparar(true)));
+  ['mouseup', 'mouseleave', 'touchend'].forEach(ev => bc.addEventListener(ev, () => comparar(false)));
+  $('#selClipePreviaJogador').onchange = carregarClipePreviaJogador;
+  $('#tempoFramePrevia').oninput = buscarFramePrevia;
+  atualizar();
+}
+
+// Aproxima o filtro eq do ffmpeg: brilho é somado (b-1), o CSS multiplica — próximo o bastante para prévia.
+function filtroCssJogador(){
+  const p = paramsRenderJogador();
+  return `brightness(${p.brilho}) contrast(${p.contraste}) saturate(${p.saturacao})`;
+}
+function aplicarFiltroPreviaJogador(){
+  const v = $('#videoPreviaJogador');
+  if(v) v.style.filter = filtroCssJogador();
+}
+function carregarClipePreviaJogador(){
+  const sel = $('#selClipePreviaJogador'), v = $('#videoPreviaJogador'), msg = $('#msgPreviaJogador');
+  if(!sel || !v) return;
+  const url = sel.value;
+  const fonte = $('#fonteFramePrevia');
+  if(!url){
+    fonte.removeAttribute('src'); fonte.load();
+    v.getContext('2d').clearRect(0, 0, v.width, v.height);
+    msg.style.display = 'flex'; return;
+  }
+  msg.style.display = 'none';
+  fonte.onloadedmetadata = () => { $('#tempoFramePrevia').value = 50; buscarFramePrevia(); };
+  fonte.onseeked = desenharFramePrevia;
+  fonte.src = url;
+  aplicarFiltroPreviaJogador();
+}
+function buscarFramePrevia(){
+  const fonte = $('#fonteFramePrevia');
+  if(!fonte.duration || !isFinite(fonte.duration)) return;
+  const t = fonte.duration * (parseFloat($('#tempoFramePrevia').value) / 100);
+  $('#lblTempoFramePrevia').textContent = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  try { fonte.currentTime = t; } catch(e) {}
+}
+function desenharFramePrevia(){
+  const fonte = $('#fonteFramePrevia'), cv = $('#videoPreviaJogador');
+  if(!fonte.videoWidth) return;
+  // Mesmo enquadramento do vídeo final: cabe inteiro em 16:9, com barras se preciso.
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const esc = Math.min(cv.width / fonte.videoWidth, cv.height / fonte.videoHeight);
+  const w = fonte.videoWidth * esc, h = fonte.videoHeight * esc;
+  ctx.drawImage(fonte, (cv.width - w) / 2, (cv.height - h) / 2, w, h);
+}
+async function atualizarPreviaJogador(jogador){
+  const sel = $('#selClipePreviaJogador');
+  if(!sel) return;
+  // As URLs dos clipes só existiam depois de abrir a tela de marcação; busca aqui se faltar.
+  if(!ESTADO.clipes || !Object.keys(ESTADO.clipes).length){
+    try {
+      const r = await fetch('/api/clipes');
+      const {clipes} = await r.json();
+      ESTADO.clipes = {};
+      clipes.forEach(c => ESTADO.clipes[String(c.indice).padStart(2,'0')] = c.url);
+    } catch(e) {}
+  }
+  // Sem jogador escolhido, a prévia usa os clipes da partida para as cores já poderem ser ajustadas.
+  const itens = [...validos(), ...lances()]
+    .filter(c => !jogador || c.autor === jogador || c.assist === jogador || c.destaque === jogador)
+    .sort((a,b) => obterTempoSegundosClipe(a) - obterTempoSegundosClipe(b));
+  const opcoes = itens.map(c => ({url: ESTADO.clipes?.[String(c.indice).padStart(2,'0')], c})).filter(o => o.url);
+  sel.innerHTML = opcoes.length
+    ? opcoes.map(o => `<option value="${o.url}">#${o.c.indice} · ${o.c.tempo || ''} ${o.c.autor === jogador ? '(gol/lance)' : ''}</option>`).join('')
+    : '<option value="">Sem clipes deste jogador</option>';
+  $('#msgPreviaJogador').textContent = 'Sem clipe disponível para a prévia.';
+  carregarClipePreviaJogador();
+}
+inicializarRenderJogador();
+
 $('#btnMontarJogador').onclick = async ()=>{
   const jogador = $('#selJogadorDestaques').value;
   const resultado = $('#resultadoJogador');
@@ -5839,7 +6039,6 @@ $('#btnMontarJogador').onclick = async ()=>{
   const itens = [...validos(), ...lances()].filter(c => c.autor === jogador || c.assist === jogador || c.destaque === jogador)
     .sort((a,b) => obterTempoSegundosClipe(a) - obterTempoSegundosClipe(b));
   if(!itens.length){ resultado.textContent = 'Não há lances marcados para este jogador.'; return; }
-  const cardSel = document.querySelector('.perfil-qualidade-card.sel');
   const btn = $('#btnMontarJogador'); btn.disabled = true;
   resultado.textContent = `Gerando ${itens.length} clipes de ${jogador}...`;
   try {
@@ -5851,8 +6050,7 @@ $('#btnMontarJogador').onclick = async ()=>{
     const r = await fetch('/api/montar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
       abertura: parseFloat($('#abertura').value)||7, fechamento: parseFloat($('#fechamento').value)||8,
       sem_audio: $('#semAudio').checked, sem_abertura: $('#semAbertura').checked, sem_fechamento: $('#semFechamento').checked,
-      roteiro: itens.map(c=>c.indice), crf: cardSel ? parseInt(cardSel.dataset.crf,10) : 24,
-      codec: cardSel?.dataset.codec || 'libx264', video_jogador: true,
+      roteiro: itens.map(c=>c.indice), ...paramsRenderJogador(), video_jogador: true,
       nome_saida: `${jogador} - Gols e Melhores Momentos.mp4`
     })});
     if(!r.ok){
@@ -5920,6 +6118,7 @@ $('#btnMontar').onclick = async ()=>{
     roteiro: roteiro.length ? roteiro : todos,
     crf: crf,
     codec: codec,
+    resolucao: parseInt($('#resolucaoFinal').value, 10) || 1080,
   };
 
   // Mantém a ordem e a abertura usadas nesta renderização para os capítulos do YouTube.

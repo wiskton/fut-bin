@@ -32,6 +32,17 @@ from PIL import Image, ImageDraw, ImageFont, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 L, A = 1920, 1080
+# Resolução de saída (altura). As cartelas são desenhadas em 1920x1080 e o
+# segmento final é reescalado; 1080 mantém o comportamento original.
+ALTURA_SAIDA = 1080
+
+
+def escala_saida():
+    """Filtro ffmpeg que leva o quadro 1920x1080 à resolução escolhida."""
+    if ALTURA_SAIDA == A:
+        return ""
+    largura = int(round(ALTURA_SAIDA * L / A / 2)) * 2
+    return f",scale={largura}:{ALTURA_SAIDA}:flags=lanczos"
 FPS = 30
 FUNDO = (11, 15, 23)
 PAINEL = (18, 24, 38)
@@ -322,36 +333,73 @@ def _tempo_em_segundos(ev):
         return 0.0
 
 
+def classificar_posicao(pos):
+    """Normaliza qualquer rotulo de posicao em goleiro/zagueiro/meio/atacante.
+
+    Devolve None quando nao ha posicao escolhida, para diferenciar "sem
+    escolha" de "escolheu meio" - quem nao tem escolha recebe o padrao por
+    indice mais adiante.
+    """
+    p = str(pos or "").strip().lower()
+    if not p:
+        return None
+    if "gol" in p or "gk" in p or p in ("g", "goalkeeper"):
+        return "goleiro"
+    if "zag" in p or "def" in p or "lat" in p or p in ("z", "zg"):
+        return "zagueiro"
+    if "ata" in p or "pon" in p or "cen" in p or p in ("a", "atk"):
+        return "atacante"
+    return "meio"
+
+
 def normalizar_jogadores(time_obj):
     raw = time_obj.get("jogadores", [])
-    pos_map = time_obj.get("posicoes", {})
+    pos_map = time_obj.get("posicoes", {}) or {}
     resultado = []
     for j in raw:
         if isinstance(j, dict):
-            nome = j.get("nome", "").strip()
-            pos = j.get("posicao") or pos_map.get(nome, "meio")
+            nome = (j.get("nome") or "").strip()
+            pos = j.get("posicao") or pos_map.get(nome)
         else:
             nome = str(j).strip()
-            pos = pos_map.get(nome, "meio")
+            pos = pos_map.get(nome)
         if nome:
-            resultado.append((nome, pos.lower()))
+            resultado.append((nome, classificar_posicao(pos)))
     return resultado
 
 
-def preencher_padrao_se_necessario(j_list):
-    if not any(pos != "meio" for _, pos in j_list) and len(j_list) >= 4:
-        novos = []
-        for i, (nm, _) in enumerate(j_list):
-            if i == 0:
-                novos.append((nm, "goleiro"))
-            elif i in (1, 2):
-                novos.append((nm, "zagueiro"))
-            elif i in (3, 4):
-                novos.append((nm, "meio"))
-            else:
-                novos.append((nm, "atacante"))
-        return novos
-    return j_list
+def posicao_padrao_por_indice(i):
+    if i == 0:
+        return "goleiro"
+    if i in (1, 2):
+        return "zagueiro"
+    if i in (3, 4):
+        return "meio"
+    return "atacante"
+
+
+def completar_escalacao(j_list):
+    """Completa as posicoes que faltam e garante um goleiro no time.
+
+    O assistente já mostra o primeiro do elenco como goleiro mesmo sem escolha
+    manual, mas só grava em `posicoes` quem foi marcado na mão. Sem completar
+    aqui, esse goleiro caía no grupo do meio e era desenhado no meio-campo em
+    vez da própria área.
+    """
+    jogadores = list(j_list)
+    if not jogadores:
+        return jogadores
+
+    escolhidos = {i for i, (_, pos) in enumerate(jogadores) if pos}
+    for i, (nome, pos) in enumerate(jogadores):
+        if not pos:
+            jogadores[i] = (nome, posicao_padrao_por_indice(i))
+
+    if not any(pos == "goleiro" for _, pos in jogadores):
+        alvo = next((i for i in range(len(jogadores)) if i not in escolhidos), 0)
+        jogadores[alvo] = (jogadores[alvo][0], "goleiro")
+
+    return jogadores
 
 
 # --------------------------------------------------------------- CAMPO TÁTICO E ABERTURA
@@ -394,15 +442,7 @@ def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb, img_base=N
     def posicionar_jogadores(jogadores_pos, lado_esquerdo):
         grupos = {"goleiro": [], "zagueiro": [], "meio": [], "atacante": []}
         for nome, pos in jogadores_pos:
-            pos_norm = pos.lower()
-            if "gol" in pos_norm:
-                grupos["goleiro"].append(nome)
-            elif "zag" in pos_norm or "def" in pos_norm:
-                grupos["zagueiro"].append(nome)
-            elif "ata" in pos_norm or "pon" in pos_norm or "cen" in pos_norm:
-                grupos["atacante"].append(nome)
-            else:
-                grupos["meio"].append(nome)
+            grupos[classificar_posicao(pos) or "meio"].append(nome)
 
         coords = []
         if lado_esquerdo:
@@ -422,10 +462,19 @@ def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb, img_base=N
 
         margem_y = int(h * 0.10)
         area_util_y = h - 2 * margem_y
+        # O goleiro fica confinado na altura da pequena área (0.32h), a mesma
+        # faixa desenhada no campo — assim nunca sobe para a linha dos outros.
+        faixa_gol_h = int(h * 0.32)
+        faixa_gol_y0 = y0 + (h - faixa_gol_h) // 2
         for cat, jgs in grupos.items():
             cx = col_x[cat]
             qtd = len(jgs)
             if qtd == 0:
+                continue
+            if cat == "goleiro":
+                step_gol = faixa_gol_h / (qtd + 1)
+                for idx, nome in enumerate(jgs, 1):
+                    coords.append((nome, cat, cx, faixa_gol_y0 + int(idx * step_gol)))
                 continue
             step = area_util_y / (qtd + 1)
             for idx, nome in enumerate(jgs, 1):
@@ -521,8 +570,8 @@ def cartela_abertura(d_):
     centralizado(d, y_vs + h_pill + 14, "ESCALAÇÃO & DISPOSIÇÃO TÁTICA", fonte(16, True), (180, 200, 225))
 
     # 3. CAMPO TÁTICO
-    j_a = preencher_padrao_se_necessario(normalizar_jogadores(times[0]))
-    j_b = preencher_padrao_se_necessario(normalizar_jogadores(times[1]))
+    j_a = completar_escalacao(normalizar_jogadores(times[0]))
+    j_b = completar_escalacao(normalizar_jogadores(times[1]))
 
     campo_w = 1240
     campo_h = 710
@@ -1052,7 +1101,7 @@ def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec
           "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
           "-t", str(dur), "-r", str(FPS),
           "-vf", f"format=yuv420p,fade=t=in:st=0:d={fade},"
-                 f"fade=t=out:st={max(dur - fade, 0.1)}:d={fade}",
+                 f"fade=t=out:st={max(dur - fade, 0.1)}:d={fade}{escala_saida()}",
           "-c:v", c_v, "-preset", str(preset), "-crf", str(crf),
           "-pix_fmt", "yuv420p", "-movflags", "+faststart",
           "-c:a", "aac", "-b:a", "128k", "-shortest", saida])
@@ -1099,7 +1148,8 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
               f"[1:v]format=rgba,fade=t=in:st={ini}:d=0.35:alpha=1,"
               f"fade=t=out:st={fim - 0.35}:d=0.35:alpha=1[ov];"
               f"[v0][ov]overlay=0:0:enable='between(t,{ini},{fim})',"
-              f"fade=t=in:st=0:d={fade},fade=t=out:st={max(dur - fade, 0.1):.2f}:d={fade}[v]")
+              f"fade=t=in:st=0:d={fade},fade=t=out:st={max(dur - fade, 0.1):.2f}:d={fade}"
+              f"{escala_saida()}[v]")
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", clipe,
            "-loop", "1", "-t", str(dur), "-i", overlay_png]
     if sem_audio:
@@ -1228,7 +1278,11 @@ def main():
     ap.add_argument("--crf", type=int, default=24, help="Nível de compressão CRF (20=original/pesado, 24=otimizado/recomendado, 27=compacto, 29=ultraleve)")
     ap.add_argument("--preset", default="medium", help="Preset do encoder (ultrafast, fast, medium, slow)")
     ap.add_argument("--codec", default="libx264", help="Codec de vídeo (libx264, libx265)")
+    ap.add_argument("--resolucao", type=int, default=1080, choices=[480, 720, 1080, 1440, 2160],
+                    help="Altura do vídeo final em pixels (16:9)")
     args = ap.parse_args()
+    global ALTURA_SAIDA
+    ALTURA_SAIDA = args.resolucao
 
     with open(args.partida, encoding="utf-8-sig") as f:
         d = json.load(f)

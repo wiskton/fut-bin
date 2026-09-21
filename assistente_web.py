@@ -1797,6 +1797,10 @@ class IniciarMontagem(BaseModel):
     codec: str | None = None
     nome_saida: str | None = None
     video_jogador: bool = False
+    resolucao: int | None = None
+    brilho: float | None = None
+    saturacao: float | None = None
+    contraste: float | None = None
 
 
 @app.post("/api/montar/iniciar")
@@ -1827,7 +1831,9 @@ def api_iniciar_montagem(body: IniciarMontagem):
         cmd.extend(["--preset", str(body.preset)])
     if body.codec:
         cmd.extend(["--codec", str(body.codec)])
-    
+    if body.resolucao in (480, 720, 1080, 1440, 2160):
+        cmd.extend(["--resolucao", str(body.resolucao)])
+
     fc = {}
     if os.path.exists(PARTIDA_JSON):
         try:
@@ -1838,13 +1844,15 @@ def api_iniciar_montagem(body: IniciarMontagem):
 
     if os.path.isfile(os.path.join(PROJECT_DIR, "fundo_cartela.png")):
         cmd.extend(["--fundo", "fundo_cartela.png"])
-    if fc.get("aplicar_video_clipes"):
-        if fc.get("brilho") is not None:
-            cmd.extend(["--brilho", str(fc["brilho"])])
-        if fc.get("saturacao") is not None:
-            cmd.extend(["--saturacao", str(fc["saturacao"])])
-        if fc.get("contraste") is not None:
-            cmd.extend(["--contraste", str(fc["contraste"])])
+    # Valores enviados pela tela (ex.: vídeo do jogador) valem mais que o fundo_config.
+    ajustes = {
+        "brilho": body.brilho if body.brilho is not None else (fc.get("brilho") if fc.get("aplicar_video_clipes") else None),
+        "saturacao": body.saturacao if body.saturacao is not None else (fc.get("saturacao") if fc.get("aplicar_video_clipes") else None),
+        "contraste": body.contraste if body.contraste is not None else (fc.get("contraste") if fc.get("aplicar_video_clipes") else None),
+    }
+    for nome_arg, valor in ajustes.items():
+        if valor is not None:
+            cmd.extend([f"--{nome_arg}", str(max(0.1, min(3.0, float(valor))))])
 
     return {"job_id": _iniciar_job(cmd), "video_url": f"/video/jogador/{nome_saida}" if eh_video_jogador else "/video/final"}
 

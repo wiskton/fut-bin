@@ -45,6 +45,12 @@ Player expandido em tela ampla de ponta a ponta com atalho de teclado <kbd>T</kb
 Seletor intuitivo com 4 perfis de compressão (Otimizado CRF 24 economizando ~50% de espaço mantendo visual 1080p broadcast, Compacto para WhatsApp, Ultra Leve e Máxima Qualidade). Exibição em tempo real da previsão de duração dos vídeos e players integrados com download imediato.
 ![Assistente Web - Perfis de Compressão e Estimativa de Duração](docs/screenshots/08_assistente_montagem_qualidade.png)
 
+### 8b. Vídeo do Jogador — Resolução, Qualidade & Cores com Prévia
+Na tela do jogador (passo 8) dá para escolher a **resolução** (720p, 1080p, 2K ou 4K), o perfil de compressão e ajustar **brilho, contraste e saturação**, igual à tela dos vídeos. Um quadro real de um clipe do jogador mostra como a imagem vai ficar, com slider para trocar de cena e botão para comparar com o original. A tela dos vídeos também ganhou o seletor de resolução.
+
+### 8c. Escalação Tática — Goleiro na Própria Área
+O goleiro é sempre desenhado dentro da pequena área no campo da abertura. Quem não tem posição escolhida recebe o padrão por ordem do elenco (1º goleiro), e a escalação completa é gravada no `partida.json`.
+
 ### 9. Notificação & Alerta Comemorativo de Vídeos Prontos
 Ao término da renderização, um alerta visual com troféu, confetes animados, som de vitória e notificação nativa do sistema operacional avisam que os vídeos em 1080p estão prontos para assistir ou baixar.
 ![Assistente Web - Alerta de Renderização Concluída](docs/screenshots/09_assistente_alerta_conclusao.png)
@@ -372,6 +378,8 @@ Opções:
 | `--sem_abertura` | remove a cartela inicial |
 | `--sem_fechamento` | remove as cartelas finais |
 | `--sem_audio` | silencia os clipes |
+| `--resolucao 720` | altura do vídeo final: 480, 720, 1080 (padrão), 1440 ou 2160 |
+| `--brilho 0.9 --contraste 1.1 --saturacao 1.2` | ajuste de cor dos clipes (1.0 = normal) |
 | `--saida caminho.mp4` | outro arquivo de saída |
 
 ---
