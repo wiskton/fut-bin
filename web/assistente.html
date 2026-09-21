@@ -1143,6 +1143,14 @@
           <input id="tA" value="Time Amarelo" style="flex:1" placeholder="Ex.: Time Amarelo">
           <input type="color" id="cA" value="#eab308" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time 1">
         </div>
+        <label style="margin-top:10px">📹 Câmera que este time ataca</label>
+        <select id="camAtaqueA" style="max-width:280px">
+          <option value="0">Sem preferência</option>
+          <option value="1">Câmera 1</option>
+          <option value="2">Câmera 2</option>
+          <option value="3">Câmera 3</option>
+        </select>
+        <div class="hint" style="font-size:11px; margin-top:2px">Nos gols e lances deste time, a marcação já escolhe essa câmera para o vídeo final.</div>
         <label style="margin-top:10px">Elenco (um por linha)</label>
         <textarea id="pA" placeholder="Douglas&#10;Nill&#10;Lucas&#10;Will&#10;Wesley&#10;Jhow"></textarea>
         <div id="posElencoA" style="margin-top:10px"></div>
@@ -1153,6 +1161,14 @@
           <input id="tB" value="Time Azul" style="flex:1" placeholder="Ex.: Time Azul">
           <input type="color" id="cB" value="#2563eb" style="width:52px; height:36px; padding:2px; border-radius:6px; cursor:pointer" title="Escolher cor do Time 2">
         </div>
+        <label style="margin-top:10px">📹 Câmera que este time ataca</label>
+        <select id="camAtaqueB" style="max-width:280px">
+          <option value="0">Sem preferência</option>
+          <option value="1">Câmera 1</option>
+          <option value="2">Câmera 2</option>
+          <option value="3">Câmera 3</option>
+        </select>
+        <div class="hint" style="font-size:11px; margin-top:2px">Nos gols e lances deste time, a marcação já escolhe essa câmera para o vídeo final.</div>
         <label style="margin-top:10px">Elenco (um por linha)</label>
         <textarea id="pB" placeholder="Arthur&#10;Marcão&#10;Igor&#10;Nandrey&#10;Zé&#10;Luiz"></textarea>
         <div id="posElencoB" style="margin-top:10px"></div>
@@ -2354,7 +2370,7 @@ function irPara(id){
   if(id==='s-revisar') renderCameraVer();
   if(id==='s-resumo') renderResumo();
   if(id==='s-final'){ renderResumo(); carregarContainerVideosGerados(); }   // renderResumo inicia o card de fundo e a previsão de duração
-  if(id==='s-jogador'){ renderTelaJogador(); setTimeout(desenharRecorteVertical, 0); }
+  if(id==='s-jogador'){ sincronizarCoresJogadorComFundo(); renderTelaJogador(); setTimeout(desenharRecorteVertical, 0); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
 }
 
@@ -2407,6 +2423,7 @@ function estadoParaPartida(){
       jogadores: t.jogadores || [],
       posicoes: escalacaoCompleta(idx),
       fotos: t.fotos || {},
+      camera_ataque: t.camera_ataque || 0,
     })),
     gols: v.map(g=>({indice:g.indice, tempo:g.tempo,
       tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
@@ -2833,6 +2850,7 @@ function lerSetup(){
   const placarA = parseInt($('#placarJogoA').value, 10);
   const placarB = parseInt($('#placarJogoB').value, 10);
   S.meta = {
+    ...(S.meta || {}),   // mantém fundo_config, roteiro_final etc.: só os campos desta tela são reescritos
     data: $('#mData').value,
     comp: $('#mComp').value,
     local: $('#mLocal').value,
@@ -2854,8 +2872,8 @@ function lerSetup(){
   const posB = filtrarPorElenco(S.times[1]?.posicoes, jB);
   const fotosA = filtrarPorElenco(S.times[0]?.fotos, jA);
   const fotosB = filtrarPorElenco(S.times[1]?.fotos, jB);
-  S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA, fotos:fotosA};
-  S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB, fotos:fotosB};
+  S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA, fotos:fotosA, camera_ataque:parseInt($('#camAtaqueA').value,10)||0};
+  S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB, fotos:fotosB, camera_ataque:parseInt($('#camAtaqueB').value,10)||0};
   atualizarEstilosTimes();
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
@@ -2925,6 +2943,8 @@ function escreverSetup(){
   $('#pA').value=(S.times[0].jogadores || []).join('\n');
   $('#tB').value=S.times[1].nome||'Time Azul'; $('#cB').value=S.times[1].cor||'#2563eb';
   $('#pB').value=(S.times[1].jogadores || []).join('\n');
+  $('#camAtaqueA').value = String(S.times[0].camera_ataque || 0);
+  $('#camAtaqueB').value = String(S.times[1].camera_ataque || 0);
   if(!S.times[0].posicoes) S.times[0].posicoes = {};
   if(!S.times[1].posicoes) S.times[1].posicoes = {};
   if(!S.times[0].fotos) S.times[0].fotos = {};
@@ -2937,7 +2957,7 @@ function escreverSetup(){
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
 }
-$$('#s-dados input,#s-dados textarea').forEach(el=>{
+$$('#s-dados input,#s-dados textarea,#s-dados select').forEach(el=>{
   el.addEventListener('input', ()=>{ lerSetup(); agendarSalvar(); });
   el.addEventListener('change', ()=>{ lerSetup(); agendarSalvar(); });
 });
@@ -4822,6 +4842,7 @@ function renderMarcacao(){
         if(chk.checked) marcadas = [...marcadas, cam];
         else if(marcadas.length > 1) marcadas = marcadas.filter(c => c !== cam);
         else { chk.checked = true; return; }   // ao menos uma câmera
+        g.camera_manual = true;   // escolha do usuário vale mais que a câmera de ataque do time
         marcadas.sort((x, y) => x - y);
         g.cameras_clipe = marcadas; g.camera = marcadas[0];
         agendarSalvar();
@@ -4853,6 +4874,19 @@ function renderMarcacao(){
     blocoCam.style.display = 'flex';
     desenharCameras();
   }
+  _aplicarCameraMarcacao = () => {
+    if(g.camera_manual) return;   // escolha manual do usuário vale mais
+    const cam = cameraAutomaticaDoRascunho();
+    if(!cam || !camerasDisponiveis.includes(cam)) return;
+    if(g.cameras_clipe.length === 1 && g.cameras_clipe[0] === cam && cameraVendo === cam) return;
+    marcadas = [cam]; g.cameras_clipe = [cam]; g.camera = cam;
+    cameraVendo = cam;
+    agendarSalvar();
+    desenharCameras();
+    trocarVideoCamera(cam);
+    const st = $('#statusCameraClipe');
+    if(st) st.textContent = `câmera ${cam} escolhida pelo time (câmera de ataque da tela 5)`;
+  };
 
   const url = ESTADO.clipes[String(g.indice).padStart(2,'0')];
   // Lista de clipes ausente/desatualizada (página aberta antes do servidor responder ou
@@ -4921,6 +4955,25 @@ function pickTipos(){
   alternarCampos();
 }
 
+/* ------------------------------------------------------------ câmera automática pelo time (tela 6) */
+// Câmera que o time ataca (configurada na tela 5). Gol, quase gol e chute na trave usam a do time
+// marcado; defesaça usa a do time adversário (a jogada acontece no campo de defesa).
+function cameraAutomaticaDoRascunho(){
+  const t = rascunho.time;
+  if(t === null || t === undefined || !S.times[t]) return 0;
+  const outro = S.times[1 - t];
+  const nome = String(rascunho.lance || '').toLowerCase();
+  const status = String(rascunho.status || '').toLowerCase();
+  const ehTipo = (...chaves) => chaves.some(c => nome.includes(c) || status.includes(c));
+  if(rascunho.tipo === 'gol') return Number(S.times[t].camera_ataque) || 0;
+  if(rascunho.tipo !== 'lance') return 0;
+  if(ehTipo('quase', 'trave')) return Number(S.times[t].camera_ataque) || 0;
+  if(ehTipo('defesa')) return outro ? Number(outro.camera_ataque) || 0 : 0;
+  return 0;
+}
+let _aplicarCameraMarcacao = null;   // definido por renderMarcacao para o clipe aberto
+function aplicarCameraAutomatica(){ if(_aplicarCameraMarcacao) _aplicarCameraMarcacao(); }
+
 function selecionarTipoMarcacao(tipo){
   if(tipo.isGol){
     rascunho.tipo = 'gol';
@@ -4939,6 +4992,7 @@ function selecionarTipoMarcacao(tipo){
   pickTimesLance();
   pickDestaqueLance();
   andamento();
+  aplicarCameraAutomatica();
 }
 
 function alternarCampos(){
@@ -4965,6 +5019,7 @@ function pickLances(){
       }
       pickTipos();
       pickLances();
+      aplicarCameraAutomatica();
     };
     el.appendChild(b);
   });
@@ -4992,6 +5047,7 @@ function pickTimesLance(){
       rascunho.time = (rascunho.time===i) ? null : i;
       pickTimesLance();
       pickDestaqueLance();
+      aplicarCameraAutomatica();
     };
     el.appendChild(b);
   });
@@ -5040,6 +5096,7 @@ function pickDestaqueLance(){
             if(S.times[0]?.jogadores?.includes(nome)) rascunho.time = 0;
             else if(S.times[1]?.jogadores?.includes(nome)) rascunho.time = 1;
             pickTimesLance();
+            aplicarCameraAutomatica();
           }
         }
         pickDestaqueLance();
@@ -5066,6 +5123,7 @@ function pickDestaqueLance(){
         rascunho.time = 1;
         pickTimesLance();
       }
+      aplicarCameraAutomatica();
     }
   };
   ed.appendChild(inD);
@@ -5099,6 +5157,7 @@ function pickTimes(){
       pickTimes();
       pickJogadores();
       andamento();
+      aplicarCameraAutomatica();
     };
     el.appendChild(b);
   });
@@ -5364,6 +5423,10 @@ $('#btnSalvar').onclick = ()=>{
   g.assist = (ehGol && temTime && rascunho.assist !== '—') ? rascunho.assist : null;
   g.destaque = (!ehGol && temTime) ? rascunho.destaque : null;
   g.cameras_clipe = (Array.isArray(g.cameras_clipe) && g.cameras_clipe.length) ? g.cameras_clipe : [Number(g.camera) || 1];
+  // Câmera que o time ataca: só entra se ninguém escolheu outra para este clipe.
+  const camAtaque = cameraAutomaticaDoRascunho();
+  const padrao = g.cameras_clipe.length === 1 && g.cameras_clipe[0] === 1;
+  if(camAtaque && !g.camera_manual && padrao && camerasSelecionadas()[camAtaque - 1]) g.cameras_clipe = [camAtaque];
   g.camera = g.cameras_clipe[0];
   g.descartado = false;
 
@@ -5675,6 +5738,9 @@ async function salvarFundoCartela(silencioso = false){
     }
     const data = await r.json();
     if(data.ok){
+      S.meta = S.meta || {};
+      S.meta.fundo_config = {...payload};
+      S.meta.fundo_cartela = 'fundo_cartela.png';
       const st = $('#statusSalvoFundo');
       if(st){
         st.style.display = 'inline-block';
@@ -6521,9 +6587,19 @@ function inicializarRecorteVertical(){
   atualizarFormato();
 }
 
+let _coresJogadorManual = false;   // true depois que o usuário mexe nos controles de cor do jogador
+function sincronizarCoresJogadorComFundo(){
+  const fc = S.meta?.fundo_config;
+  if(_coresJogadorManual || !fc || !fc.aplicar_video_clipes) return;
+  if(fc.brilho != null) $('#jgBrilho').value = Math.round(fc.brilho * 100);
+  if(fc.contraste != null) $('#jgContraste').value = Math.round(fc.contraste * 100);
+  if(fc.saturacao != null) $('#jgSaturacao').value = Math.round(fc.saturacao * 100);
+  ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => { const l = $('#lbl_' + id); if(l) l.textContent = `${$('#' + id).value}%`; });
+  if(typeof aplicarFiltroPreviaJogador === 'function') aplicarFiltroPreviaJogador();
+}
 function paramsRenderJogador(){
   const card = document.querySelector('.perfil-jogador-card.sel');
-  const v = id => (parseFloat($(id).value) || 100) / 100;
+  const v = id => { const n = parseFloat($(id).value); return (Number.isFinite(n) ? n : 100) / 100; };
   return {
     crf: card ? parseInt(card.dataset.crf, 10) : 24,
     codec: card?.dataset.codec || 'libx264',
@@ -6559,8 +6635,8 @@ function inicializarRenderJogador(){
     ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => { $('#lbl_' + id).textContent = `${$('#' + id).value}%`; });
     aplicarFiltroPreviaJogador();
   };
-  document.querySelectorAll('.sl-cor-jogador').forEach(el => el.oninput = atualizar);
-  $('#btnJgResetCores').onclick = () => { ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => $('#' + id).value = 100); atualizar(); };
+  document.querySelectorAll('.sl-cor-jogador').forEach(el => el.oninput = () => { _coresJogadorManual = true; atualizar(); });
+  $('#btnJgResetCores').onclick = () => { _coresJogadorManual = true; ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => $('#' + id).value = 100); atualizar(); };
   const comparar = ligado => { $('#videoPreviaJogador').style.filter = ligado ? 'none' : filtroCssJogador(); };
   const bc = $('#btnPreviaComparar');
   ['mousedown', 'touchstart'].forEach(ev => bc.addEventListener(ev, () => comparar(true)));
@@ -6726,6 +6802,13 @@ $('#btnMontar').onclick = async ()=>{
     codec: codec,
     resolucao: parseInt($('#resolucaoFinal').value, 10) || 1080,
   };
+  // Ajustes de cor configurados no card do fundo valem para os clipes quando "aplicar aos clipes" está marcado.
+  if($('#chkAplicarClipes').checked){
+    const pct = (id, padrao) => { const v = parseFloat($(id).value); return (Number.isFinite(v) ? v : padrao) / 100; };
+    body.brilho = pct('#fundoBrilho', 100);
+    body.saturacao = pct('#fundoSaturacao', 100);
+    body.contraste = pct('#fundoContraste', 100);
+  }
 
   // Mantém a ordem e a abertura usadas nesta renderização para os capítulos do YouTube.
   ESTADO.roteiroFinal = [...body.roteiro];

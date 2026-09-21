@@ -1689,13 +1689,15 @@ def api_get_partida():
 def api_salvar_partida(payload: dict = Body(...)):
     # Uma aba com estado antigo (aberta antes de o placar final ser informado) nao pode
     # apagar o placar_jogo salvo: so a ausencia da chave preserva; [null, null] apaga de proposito.
+    # O mesmo vale para os ajustes de cor/fundo das cartelas, gravados por outra rota.
     meta = payload.get("meta")
-    if isinstance(meta, dict) and "placar_jogo" not in meta and os.path.exists(PARTIDA_JSON):
+    if isinstance(meta, dict) and os.path.exists(PARTIDA_JSON):
         try:
             with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
-                antigo = (json.load(f).get("meta") or {}).get("placar_jogo")
-            if antigo is not None:
-                meta["placar_jogo"] = antigo
+                antigo = json.load(f).get("meta") or {}
+            for chave in ("placar_jogo", "fundo_config", "fundo_cartela"):
+                if chave not in meta and antigo.get(chave) is not None:
+                    meta[chave] = antigo[chave]
         except Exception:
             pass
     with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
