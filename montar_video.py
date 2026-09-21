@@ -19,6 +19,7 @@ ESTRUTURA:
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -113,6 +114,10 @@ def overlay_para_vertical(img):
         colar(base, escala, margem, AV - 380 - altura)   # acima da area coberta pela interface do celular
     return saida
 FPS = 30
+AUDIO_HZ = 48000
+VIDEO_TIMESCALE = 90000
+LOUDNESS = "loudnorm=I=-16:TP=-1.5:LRA=11"
+AUDIO_FORMAT = f"aformat=sample_rates={AUDIO_HZ}:channel_layouts=stereo"
 FUNDO = (11, 15, 23)
 PAINEL = (18, 24, 38)
 PAINEL_BORDA = (45, 55, 75)
@@ -1164,6 +1169,75 @@ def roda(cmd):
         raise SystemExit(1)
 
 
+def dados_midia(caminho):
+    resultado = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_streams", "-show_format",
+         "-of", "json", caminho], capture_output=True, text=True, check=True)
+    return json.loads(resultado.stdout)
+
+
+def duracao_video(caminho):
+    dados = dados_midia(caminho)
+    video = next(s for s in dados["streams"] if s["codec_type"] == "video")
+    return float(video.get("duration") or dados["format"]["duration"])
+
+
+def validar_duracao(caminho, esperada, tolerancia=0.1):
+    obtida = duracao_video(caminho)
+    if abs(obtida - esperada) > tolerancia:
+        raise RuntimeError(
+            f"Duracao alterada em {caminho}: esperado {esperada:.3f}s, "
+            f"obtido {obtida:.3f}s. Montagem interrompida para preservar 1x.")
+
+
+def filtro_audio_normalizado(clipe):
+    """Mede cada camera e aplica o mesmo alvo de volume, sem mudar o tempo.
+
+    As duas passagens usam o mesmo downmix stereo. Silencio permanece silencio.
+    """
+    resultado = subprocess.run([
+        "ffmpeg", "-hide_banner", "-nostats", "-i", clipe,
+        "-map", "0:a:0", "-vn", "-af", f"{AUDIO_FORMAT},{LOUDNESS}:print_format=json",
+        "-f", "null", "-"
+    ], capture_output=True, text=True, check=True)
+    inicio = resultado.stderr.rfind("{")
+    fim = resultado.stderr.rfind("}")
+    if inicio < 0 or fim < inicio:
+        raise RuntimeError(f"Nao foi possivel medir o volume de {clipe}")
+    medidas = json.loads(resultado.stderr[inicio:fim + 1])
+    campos = {"measured_I": "input_i", "measured_TP": "input_tp",
+              "measured_LRA": "input_lra", "measured_thresh": "input_thresh",
+              "offset": "target_offset"}
+    if not all(math.isfinite(float(medidas[c])) for c in campos.values()):
+        return AUDIO_FORMAT
+    parametros = ":".join(f"{opcao}={float(medidas[campo])}" for opcao, campo in campos.items())
+    return f"{AUDIO_FORMAT},{LOUDNESS}:{parametros}:linear=true"
+
+
+def concatenar_segmentos(partes, lista, saida):
+    # O concat com stream copy exige bases de tempo e formatos iguais.
+    # Em especial, AAC 44,1 kHz nao pode ser interpretado como AAC 48 kHz.
+    referencia = None
+    duracao_total = 0.0
+    for parte in partes:
+        dados = dados_midia(parte)
+        assinatura = [tuple(s.get(k) for k in (
+            "codec_type", "codec_name", "time_base", "width", "height",
+            "pix_fmt", "sample_aspect_ratio", "sample_rate", "channels", "channel_layout"
+        )) for s in dados["streams"]]
+        if referencia is not None and assinatura != referencia:
+            raise RuntimeError(f"Segmento incompativel para montagem em 1x: {parte}")
+        referencia = assinatura
+        duracao_total += float(dados["format"]["duration"])
+    with open(lista, "w", encoding="utf-8") as f:
+        for parte in partes:
+            caminho = parte.replace("\\", "/").replace("'", "'\\''")
+            f.write(f"file '{caminho}'\n")
+    roda(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+          "-i", lista, "-c", "copy", "-movflags", "+faststart", saida])
+    validar_duracao(saida, duracao_total, tolerancia=0.15)
+
+
 def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec="libx264"):
     c_v = codec if codec in ("libx264", "libx265") else "libx264"
     roda(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", img_path,
@@ -1173,16 +1247,17 @@ def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec
                   f"boxblur=40:6,eq=brightness=-0.08[bg];[b]scale={LV}:-2[fg];"
                   f"[bg][fg]overlay=(W-w)/2:(H-h)/2," if VERTICAL else "")
                  + f"format=yuv420p,fade=t=in:st=0:d={fade},"
-                 f"fade=t=out:st={max(dur - fade, 0.1)}:d={fade}{escala_saida()}",
+                 f"fade=t=out:st={max(dur - fade, 0.1)}:d={fade}{escala_saida()},setsar=1",
           "-c:v", c_v, "-preset", str(preset), "-crf", str(crf),
           "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-          "-c:a", "aac", "-b:a", "128k", "-shortest", saida])
+          "-video_track_timescale", str(VIDEO_TIMESCALE),
+          "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2", "-shortest", saida])
 
 
 def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None, zoom=1.0, zoom_x=0.5, zoom_y=0.5, crf=24, preset="medium", codec="libx264"):
-    dur = float(subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-         "-of", "csv=p=0", clipe], capture_output=True, text=True).stdout.strip() or 6)
+    dur = duracao_video(clipe)
+    sem_audio = sem_audio or not any(
+        s["codec_type"] == "audio" for s in dados_midia(clipe)["streams"])
 
     ini = 0.5
     fim = max(dur - 0.4, ini + 2.0)
@@ -1224,22 +1299,25 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
               f"fade=t=out:st={fim - 0.35}:d=0.35:alpha=1[ov];"
               f"[v0][ov]overlay=0:0:enable='between(t,{ini},{fim})',"
               f"fade=t=in:st=0:d={fade},fade=t=out:st={max(dur - fade, 0.1):.2f}:d={fade}"
-              f"{escala_saida()}[v]")
+              f"{escala_saida()},setsar=1[v]")
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", clipe,
            "-loop", "1", "-t", str(dur), "-i", overlay_png]
     if sem_audio:
         cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
                 "-filter_complex", filtro, "-map", "[v]", "-map", "2:a"]
     else:
+        audio_normalizado = filtro_audio_normalizado(clipe)
         cmd += ["-filter_complex",
-                filtro + f";[0:a]afade=t=in:st=0:d={fade},"
+                filtro + f";[0:a:0]{audio_normalizado},afade=t=in:st=0:d={fade},"
                          f"afade=t=out:st={max(dur - fade, 0.1):.2f}:d={fade}[a]",
                 "-map", "[v]", "-map", "[a]"]
     c_v = codec if codec in ("libx264", "libx265") else "libx264"
     cmd += ["-t", str(dur), "-r", str(FPS), "-c:v", c_v, "-preset", str(preset),
             "-crf", str(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-            "-c:a", "aac", "-b:a", "128k", saida]
+            "-video_track_timescale", str(VIDEO_TIMESCALE),
+            "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2", saida]
     roda(cmd)
+    validar_duracao(saida, dur)
 
 
 def _cameras_do_lance(ev):
@@ -1547,12 +1625,8 @@ def main():
         partes_gols.append(s)
 
         lista = os.path.join(tmp, "lista.txt")
-        with open(lista, "w", encoding="utf-8") as f:
-            for p in partes:
-                f.write(f"file '{p.replace(chr(92), '/')}'\n")
         print("\njuntando vídeo completo (todos os clipes)...")
-        roda(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-              "-i", lista, "-c", "copy", args.saida])
+        concatenar_segmentos(partes, lista, args.saida)
 
         dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                               "format=duration", "-of", "csv=p=0", args.saida],
@@ -1564,12 +1638,8 @@ def main():
 
         if args.saida_gols and any(item["i"] in por_indice and por_indice[item["i"]][0] == "gol" for item in roteiro):
             lista_gols = os.path.join(tmp, "lista_gols.txt")
-            with open(lista_gols, "w", encoding="utf-8") as f:
-                for p in partes_gols:
-                    f.write(f"file '{p.replace(chr(92), '/')}'\n")
             print("\njuntando vídeo só dos gols...")
-            roda(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-                  "-i", lista_gols, "-c", "copy", args.saida_gols])
+            concatenar_segmentos(partes_gols, lista_gols, args.saida_gols)
             dur_g = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                                   "format=duration", "-of", "csv=p=0", args.saida_gols],
                                  capture_output=True, text=True).stdout.strip()

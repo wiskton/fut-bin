@@ -57,6 +57,21 @@ Ao término da renderização, um alerta visual com troféu, confetes animados, 
 
 ---
 
+## Velocidade e áudio na montagem
+
+O render compartilhado pelo vídeo final e pelos vídeos dos jogadores preserva o
+tempo original dos lances (1x), convertendo a imagem para 30 fps sem acelerar.
+Antes de unir câmeras e cartelas, padroniza a base de tempo do vídeo e o áudio
+em estéreo a 48 kHz. Cada clipe com áudio é medido e normalizado em duas passagens
+para um alvo de -16 LUFS, com limite de pico de -1,5 dBTP, reduzindo diferenças
+de volume entre câmeras. Clipes sem áudio recebem silêncio.
+
+A montagem verifica a duração dos clipes e a compatibilidade dos segmentos;
+inconsistências interrompem o processo com uma mensagem de erro. Arquivos já
+renderizados precisam ser gerados novamente para receber essas correções.
+
+Teste de regressão com FFmpeg: `python -m unittest discover -s tests -v`.
+
 ## Índice
 
 0. [Visual das Telas (Exemplos)](#-visual-das-telas--estilo-transmissão-de-tv--fifa-cardgame)
