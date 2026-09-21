@@ -1248,6 +1248,8 @@
             <span class="hint" style="margin:0; font-size:11px">Marque uma ou mais câmeras. Cada câmera marcada entra no vídeo final, uma depois da outra, repetindo o lance. Use “Ver” para assistir o clipe naquela câmera.</span>
           </div>
           <button class="act" id="btnSalvar">Salvar e avançar</button>
+          <button type="button" class="act" id="btnClipeMaisTrasStep6" style="background:#0284c7; border-color:#38bdf8; font-size:12px; padding:7px 12px; font-weight:700" title="Começa 10 s antes do início deste clipe e grava 20 s (sem marcação); abre o clipe novo aqui">⏪ Gerar clipe 20s para trás</button>
+          <span id="statusClipeMaisTrasStep6" class="hint" style="margin:0; font-size:11px" role="status" aria-live="polite"></span>
           <button type="button" class="warnb" id="btnExcluirClipeStep6" style="font-size:12px; padding:7px 12px" title="Apaga permanentemente o clipe selecionado do computador">🗑 Excluir clipe do disco</button>
           <button type="button" class="ghost" id="btnDescartar" style="font-size:12px; padding:7px 12px" title="Apenas pula este lance da súmula sem apagar o arquivo de vídeo">🚫 Pular da súmula</button>
         </div>
@@ -1295,6 +1297,13 @@
     </div>
   </div>
 
+  <div class="row" style="margin-top:16px; justify-content:flex-end">
+    <button type="button" class="act" onclick="irPara('s-final')">Continuar → vídeo final</button>
+  </div>
+</section>
+
+<!-- ================= 8. VIDEO FINAL ================= -->
+<section id="s-final">
   <div class="card" style="border-top:2px solid var(--accent)" id="cardFundoCartelas">
     <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px">
       <div>
@@ -1451,13 +1460,6 @@
     </div>
   </div>
 
-  <div class="row" style="margin-top:16px; justify-content:flex-end">
-    <button type="button" class="act" onclick="irPara('s-final')">Continuar → vídeo final</button>
-  </div>
-</section>
-
-<!-- ================= 8. VIDEO FINAL ================= -->
-<section id="s-final">
   <div class="card">
     <h2>Montar vídeo final</h2>
     <div class="grid2">
@@ -2351,7 +2353,7 @@ function irPara(id){
   if(id==='s-gols') renderOpcoesCamerasCorte();
   if(id==='s-revisar') renderCameraVer();
   if(id==='s-resumo') renderResumo();
-  if(id==='s-final'){ atualizarPrevisaoDuracao(); carregarContainerVideosGerados(); }
+  if(id==='s-final'){ renderResumo(); carregarContainerVideosGerados(); }   // renderResumo inicia o card de fundo e a previsão de duração
   if(id==='s-jogador'){ renderTelaJogador(); setTimeout(desenharRecorteVertical, 0); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
 }
@@ -5388,6 +5390,40 @@ $('#btnSalvar').onclick = ()=>{
   }
   renderMarcacao();
 };
+
+const btnMaisTrasStep6 = $('#btnClipeMaisTrasStep6');
+if(btnMaisTrasStep6){
+  btnMaisTrasStep6.onclick = async () => {
+    const st = $('#statusClipeMaisTrasStep6');
+    const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];
+    if(!g || !ESTADO.video) return;
+    const ini = Number(g.inicio_s), fim = Number(g.fim_s);
+    if(!Number.isFinite(ini) || !Number.isFinite(fim)){ st.textContent = 'Este clipe não tem início/fim registrados.'; return; }
+    // Volta 10 s antes do início do clipe atual e grava 20 s a partir daí.
+    const novoIni = Math.max(0, Math.round((ini - 10) * 100) / 100);
+    const novoFim = Math.round((novoIni + 20) * 100) / 100;
+    btnMaisTrasStep6.disabled = true;
+    st.innerHTML = `<span class="spinner"></span> Cortando ${fmtTempo(novoIni)} até ${fmtTempo(novoFim)}...`;
+    try {
+      // Sem marcação de propósito: é outro momento do jogo e não pode contar como gol em dobro.
+      const r = await fetch('/api/gols/adicionar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+        video: ESTADO.video.caminho, inicio_s: novoIni, fim_s: novoFim,
+        tempo_s: Math.round(ini * 100) / 100, status: 'pendente', lance: null
+      })});
+      const res = await r.json().catch(() => ({}));
+      if(!r.ok){ st.textContent = 'Erro ao cortar: ' + (res.detail || 'falha no servidor'); return; }
+      await carregarClipes();
+      ESTADO.indiceAtual = res.indice;
+      await sincronizarGolsComBackend();
+      renderMarcacao();
+      $('#statusClipeMaisTrasStep6').textContent = `✓ Clipe #${String(res.indice).padStart(2,'0')} gerado (começa 10 s antes do clipe, 20 s de duração). Marque o que aconteceu nele.`;
+    } catch(err) {
+      st.textContent = 'Erro ao comunicar com o servidor: ' + err;
+    } finally {
+      btnMaisTrasStep6.disabled = false;
+    }
+  };
+}
 
 const btnExcluirStep6 = $('#btnExcluirClipeStep6');
 if(btnExcluirStep6){
