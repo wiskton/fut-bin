@@ -772,6 +772,21 @@
 
 <main>
 
+<!-- ================= 0. INICIO ================= -->
+<section id="s-inicio">
+  <div class="card">
+    <h2>Início</h2>
+    <p class="hint">Escolha entre continuar o corte que já está em andamento ou limpar tudo e começar um novo corte de gols.</p>
+    <div id="inicioResumo" class="hint" style="margin:10px 0">Verificando o que já existe...</div>
+    <div class="row" style="gap:10px; flex-wrap:wrap">
+      <button type="button" class="act" id="btnInicioContinuar">Continuar de onde parei →</button>
+      <button type="button" class="ghost" id="btnInicioNovo">🗑 Limpar e começar novo corte</button>
+    </div>
+    <p class="hint" id="inicioStatus" role="status" aria-live="polite" style="margin-top:10px"></p>
+    <p class="hint" style="font-size:11px; margin-top:10px">Limpar apaga os vídeos escolhidos, o placar, os gols e clipes cortados, as marcações e os vídeos gerados. Ficam o nome do campeonato, o placar final do jogo, os dados e elencos dos times, as fotos dos jogadores, o logo e os arquivos originais de vídeo; uma cópia dos dados vai para <code>backups/</code>.</p>
+  </div>
+</section>
+
 <!-- ================= 1. VIDEO ================= -->
 <section id="s-video">
   <div class="card">
@@ -785,7 +800,14 @@
           <select id="selCameraAlvo" style="width:auto; margin-left:5px"><option value="0">Câmera 1 · principal</option><option value="1">Câmera 2</option><option value="2">Câmera 3</option></select>
         </label>
       </div>
-      <div id="listaCamerasSelecionadas" style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:10px"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+        <button type="button" class="act" id="btnSincronizarCameras">Sincronizar pelo relógio</button>
+        <button type="button" class="ghost" id="btnCancelarSincronizacao" hidden>Cancelar sincronização</button>
+        <button type="button" class="ghost" id="btnDesfazerSincronizacao" hidden>Desfazer sincronização</button>
+      </div>
+      <p class="hint" style="margin-top:6px">Compara o relógio de LED vermelho nos primeiros 10 minutos de cada gravação. O mesmo instante do jogo pode ter tempos diferentes em cada arquivo.</p>
+      <p class="hint" id="statusSincronizarCameras" role="status" aria-live="polite"></p>
+      <div id="listaCamerasSelecionadas" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:8px; margin-top:10px"></div>
     </div>
 
     <div style="margin-top:10px">
@@ -832,6 +854,11 @@
     <h2>Localizar o placar no quadro</h2>
     <p class="hint">Feito uma vez por câmera. Carregue um frame do meio do jogo e arraste um retângulo
       em volta só dos dígitos do placar (sem o cronômetro).</p>
+    <div class="row" style="align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px">
+      <span style="font-size:12px; font-weight:700">📹 Câmera para localizar o placar e analisar:</span>
+      <span id="pickCameraPlacar" class="row" style="gap:6px"></span>
+    </div>
+    <p class="hint" id="dicaCameraPlacar" style="margin:0 0 10px"></p>
     <div class="row">
       <label style="flex:0 0 auto;margin:0">Instante</label>
       <input id="tempoFrame" style="max-width:110px" placeholder="30:00">
@@ -911,11 +938,23 @@
       <div><label>Início do jogo (opcional)</label><input id="inicioJogo" placeholder="8:40"></div>
       <div><label>Fim do jogo / apito final</label><input id="fimJogo" placeholder="58:23"></div>
     </div>
+    <p class="hint" id="infoCameraPlacar3" style="margin:6px 0 0"></p>
     <div class="row" style="margin-top:10px; gap:10px">
       <button class="act" id="btnDetectar">Detectar e cortar automaticamente</button>
       <button class="warnb" id="btnCancelarDetectar" style="display:none; padding:10px 18px; font-weight:600">✕ Cancelar processamento</button>
     </div>
     <div id="detLog" class="log" style="display:none;margin-top:10px"></div>
+  </div>
+
+  <div class="card" id="cardCamerasCorte">
+    <h2>Câmeras dos clipes</h2>
+    <p class="hint">A câmera 1 (a do placar) é sempre cortada. Marque as outras câmeras que também devem ser cortadas — o mesmo instante, alinhado pelo início do jogo do passo 1 — para poder escolher qual ver nos clipes. Sem marcar, elas só são cortadas quando você abre o clipe.</p>
+    <div id="opcoesCamerasCorte" class="row" style="gap:14px; flex-wrap:wrap; margin:8px 0"></div>
+    <div class="row" style="gap:10px">
+      <button class="ghost" id="btnCortarCameras">Cortar câmeras marcadas agora</button>
+      <button class="warnb" id="btnCancelarCortarCameras" style="display:none; padding:10px 18px; font-weight:600">✕ Cancelar processamento</button>
+    </div>
+    <div id="cortarCamerasLog" class="log" style="display:none;margin-top:10px"></div>
   </div>
 
   <div class="card" id="cardZonasDet" style="display:none">
@@ -945,6 +984,11 @@
     <h2>Assista cada corte <span id="contagemClipes" class="hint"></span></h2>
     <p class="hint">Se não foi gol (ou o corte saiu ruim), descarte - remove da lista e apaga o
       clipe.</p>
+    <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px">
+      <span style="font-size:12px; font-weight:700">📹 Ver clipes da câmera:</span>
+      <span id="pickCameraVer" class="row" style="gap:6px"></span>
+      <span id="dicaCameraVer" class="hint" style="margin:0; font-size:11px"></span>
+    </div>
     <div class="grade" id="gradeClipes"></div>
   </div>
 
@@ -1517,6 +1561,11 @@
   <div class="card" id="cardRenderJogador">
     <h2 style="font-size:16px">⚙️ Resolução, qualidade e cores do vídeo</h2>
     <div class="row" style="gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:10px">
+      <div style="min-width:200px"><label>🎞️ Formato</label>
+        <select id="formatoJogador">
+          <option value="16:9" selected>Horizontal 16:9</option>
+          <option value="9:16">Vertical 9:16 (Reels, TikTok, Shorts)</option>
+        </select></div>
       <div style="min-width:240px"><label>📐 Resolução</label>
         <select id="resolucaoJogador" class="sel-resolucao">
           <option value="720">HD 720p</option>
@@ -1562,7 +1611,20 @@
           <button type="button" class="ghost" id="btnPreviaComparar" style="font-size:11px; padding:3px 10px" title="Segure para ver o original">Segure: ver original</button>
         </div>
       </div>
-      <div style="position:relative; max-width:640px; background:#000; border-radius:9px; overflow:hidden">
+      <div id="blocoRecorteVertical" style="display:none; max-width:640px; margin-bottom:8px; padding:8px 10px; border:1px solid #00f0ff; border-radius:8px; background:rgba(0,240,255,0.05)">
+        <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap">
+          <b style="font-size:12px; color:#00f0ff">✂️ Área que entra no vídeo vertical</b>
+          <label style="margin:0; font-size:12px; display:flex; align-items:center; gap:6px">Tamanho
+            <input type="range" id="recorteTamanho" min="35" max="100" value="100" step="1" style="width:130px">
+            <span id="lblRecorteTamanho" style="font-weight:700; color:var(--accent); width:38px">100%</span></label>
+          <button type="button" class="ghost" id="btnRecorteCentralizar" style="font-size:11px; padding:3px 10px">Centralizar</button>
+        </div>
+        <div class="hint" style="margin:6px 0 0; font-size:11px">Arraste o retângulo sobre o quadro para escolher de onde o vídeo vai contar; o que fica fora dele é cortado. Reduza o tamanho para dar zoom. A área vale para todos os clipes do vídeo do jogador.</div>
+      </div>
+      <div id="wrapPreviaJogador" style="position:relative; max-width:640px; background:#000; border-radius:9px; overflow:hidden">
+        <div id="recorteVertical" title="Arraste para escolher a área do vídeo vertical" style="display:none; position:absolute; box-sizing:border-box; border:3px solid #00f7ff; border-radius:4px; box-shadow:0 0 0 999px rgba(0,0,0,.62); cursor:move; touch-action:none; z-index:3">
+          <span style="position:absolute; top:4px; left:5px; font-size:10px; font-weight:800; color:#dfffff; text-shadow:0 1px 2px #000; pointer-events:none">9:16</span>
+        </div>
         <canvas id="videoPreviaJogador" width="1280" height="720" style="width:100%; display:block; aspect-ratio:16/9; background:#000"></canvas>
         <video id="fonteFramePrevia" muted playsinline preload="auto" style="display:none"></video>
         <div id="msgPreviaJogador" class="hint" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; margin:0; pointer-events:none">Carregando prévia...</div>
@@ -1598,8 +1660,13 @@
         <button class="ghost" id="modalFechar" style="margin-left:6px">✕ Fechar</button>
       </div>
     </div>
+    <div id="modalCameras" class="row" style="gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:700">📹 Câmera:</span>
+      <span id="modalCameraBotoes" class="row" style="gap:6px"></span>
+      <span id="modalCameraStatus" class="hint" style="margin:0;font-size:11px"></span>
+    </div>
     <div style="position:relative">
-      <div id="modalVideoViewport" style="position:relative;overflow:hidden;border-radius:9px;background:#000">
+      <div id="modalVideoViewport"style="position:relative;overflow:hidden;border-radius:9px;background:#000">
         <video id="modalVideo" controls autoplay style="width:100%;max-height:68vh;border-radius:9px;background:#000;display:block;transform-origin:center center;transition:transform .15s ease"></video>
         <div id="modalZoomArea" title="Arraste este quadro para escolher onde o zoom será aplicado" style="display:none;position:absolute;box-sizing:border-box;border:3px solid #00f7ff;border-radius:5px;background:rgba(0,247,255,.08);box-shadow:0 0 0 9999px rgba(0,0,0,.20),0 0 14px rgba(0,247,255,.85);cursor:grab;touch-action:none;z-index:3">
           <span style="position:absolute;top:4px;left:5px;font-size:10px;font-weight:800;color:#dfffff;text-shadow:0 1px 2px #000;pointer-events:none">ÁREA DO ZOOM</span>
@@ -1741,7 +1808,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 const PASSOS = [
-  ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
+  ['s-inicio','Início'], ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
   ['s-revisar','4 · Revisar cortes'], ['s-dados','5 · Dados da partida'], ['s-marcar','6 · Marcação'],
   ['s-resumo','7 · Resumo'], ['s-jogador','8 · Jogador'],
 ];
@@ -2214,9 +2281,48 @@ function inicializarVideoCompleto(){
   }
 }
 
+/* ------------------------------------------------------------ inicio / novo corte */
+function passoParaContinuar(){
+  let salvo = null;
+  try { salvo = localStorage.getItem('futbin_ultimo_passo'); } catch(e) {}
+  return (salvo && salvo !== 's-inicio' && $(`#${salvo}`)) ? salvo : 's-video';
+}
+async function renderInicio(){
+  const el = $('#inicioResumo'), btn = $('#btnInicioContinuar');
+  try {
+    const e = await (await fetch('/api/estado')).json();
+    const itens = [];
+    if(e.placar_ok) itens.push('placar marcado');
+    if(e.n_gols) itens.push(`${e.n_gols} gol(s) detectado(s)`);
+    if(e.n_clipes) itens.push(`${e.n_clipes} clipe(s) cortado(s)`);
+    if(e.partida_ok) itens.push('dados da partida');
+    if(e.final_ok || e.final_gols_ok) itens.push('vídeo final gerado');
+    el.textContent = itens.length ? 'Corte em andamento: ' + itens.join(' · ') + '.' : 'Nenhum corte em andamento.';
+    btn.textContent = itens.length ? 'Continuar de onde parei →' : 'Começar → escolher o vídeo';
+    btn.dataset.vazio = itens.length ? '' : '1';
+  } catch(err) {
+    el.textContent = 'Não consegui verificar o estado atual.';
+  }
+}
+$('#btnInicioContinuar').onclick = () => irPara($('#btnInicioContinuar').dataset.vazio ? 's-video' : passoParaContinuar());
+$('#btnInicioNovo').onclick = async () => {
+  if(!confirm('Limpar tudo e começar um novo corte?\n\nSerão apagados: vídeos escolhidos, placar, gols e clipes cortados, marcações e vídeos gerados.\nSão mantidos: nome do campeonato, placar final do jogo, dados e elencos dos times, fotos dos jogadores e logo (uma cópia dos dados vai para backups/).')) return;
+  const st = $('#inicioStatus'), btn = $('#btnInicioNovo');
+  btn.disabled = true; st.textContent = 'Limpando...';
+  try {
+    const r = await fetch('/api/novo-corte', {method:'POST'});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.detail || 'Não foi possível limpar.');
+    ['futbin_partida_cache_v1','futbin_ultimo_passo'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+    location.href = location.pathname + '?passo=s-video';
+  } catch(err) {
+    st.textContent = err.message; btn.disabled = false;
+  }
+};
+
 function irPara(id){
   passoAtual = id;
-  try { localStorage.setItem('futbin_ultimo_passo', id); } catch(e) {}
+  if(id!=='s-inicio'){ try { localStorage.setItem('futbin_ultimo_passo', id); } catch(e) {} }
   $$('section').forEach(s=>s.classList.toggle('on', s.id===id));
   atualizarNav();
   if(id==='s-revisar'){
@@ -2232,8 +2338,12 @@ function irPara(id){
     const mainEl = document.querySelector('main');
     if(mainEl) mainEl.classList.remove('teatro-ativo');
   }
+  if(id==='s-inicio') renderInicio();
+  if(id==='s-placar' || id==='s-gols') renderCameraPlacar();
+  if(id==='s-gols') renderOpcoesCamerasCorte();
+  if(id==='s-revisar') renderCameraVer();
   if(id==='s-resumo') renderResumo();
-  if(id==='s-jogador') renderTelaJogador();
+  if(id==='s-jogador'){ renderTelaJogador(); setTimeout(desenharRecorteVertical, 0); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
 }
 
@@ -2278,6 +2388,7 @@ function estadoParaPartida(){
   return {
     meta: Object.assign({}, S.meta, {video: ESTADO.video ? ESTADO.video.caminho : null,
       cameras: camerasSelecionadas().map(c => c ? ({nome:c.nome, caminho:c.caminho, duracao_s:c.duracao_s, inicio_jogo_s:Number(c.inicio_jogo_s)||0}) : null),
+      camera_placar: ESTADO.cameraPlacar,
       placar:[v.filter(g=>g.time===0).length, v.filter(g=>g.time===1).length]}),
     times: S.times.map((t, idx) => ({
       nome: t.nome,
@@ -2377,10 +2488,16 @@ function camerasSelecionadas(){
   return Array.isArray(ESTADO.cameras) ? ESTADO.cameras : [];
 }
 
+function tempoCamera(s){
+  const ms = Math.round(Math.max(0, Number(s) || 0) * 1000);
+  return fmtTempo(Math.floor(ms / 1000)) + '.' + String(ms % 1000).padStart(3, '0');
+}
+
 function renderCamerasSelecionadas(){
   const el = $('#listaCamerasSelecionadas');
   if(!el) return;
   const cameras = camerasSelecionadas();
+  el.querySelectorAll("video").forEach(v => { v.pause(); v.removeAttribute("src"); v.load(); });
   el.innerHTML = '';
   [0,1,2].forEach(i => {
     const cam = cameras[i];
@@ -2392,6 +2509,100 @@ function renderCamerasSelecionadas(){
       const inicio = Number(cam.inicio_jogo_s) || 0;
       box.innerHTML = `<div style="display:flex; justify-content:space-between; gap:5px"><b style="font-size:12px; color:${i===0?'var(--accent)':'#00f0ff'}">📹 Câmera ${i+1}${i===0?' · principal':''}</b><button type="button" class="ghost" data-remover-camera="${i}" style="padding:1px 5px; font-size:10px">×</button></div><div title="${cam.nome}" style="font-size:11px; font-weight:700; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${cam.nome}</div><label style="font-size:10px; color:var(--dim); margin:6px 0 0">Jogo começa em <input data-inicio-camera="${i}" type="text" value="${fmtTempo(inicio)}" style="width:58px; padding:3px; margin-left:3px"> </label>`;
     }
+    if(cam){
+      const input = box.querySelector('[data-inicio-camera]');
+      input.value = tempoCamera(cam.inicio_jogo_s || 0);
+      input.style.width = '100px';
+      input.setAttribute('aria-label', `Início do jogo na câmera ${i+1}`);
+      const preview = document.createElement('div');
+      preview.innerHTML = `
+        <video controls muted playsinline preload="metadata" aria-label="Preview da câmera ${i+1}" style="display:block; width:100%; aspect-ratio:16/9; background:#000; border-radius:6px; margin-top:10px"></video>
+        <img data-quadro-camera alt="Quadro da câmera ${i+1}" style="display:none; width:100%; border-radius:6px; margin-top:6px">
+        <button type="button" class="ghost" data-ver-quadro style="margin-top:6px">Ver quadro neste tempo</button>
+        <div class="hint" data-status-camera style="margin-top:5px" aria-live="polite">Carregando preview…</div>
+        <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:6px">
+          <button type="button" class="ghost" data-passo="-5">−5 s</button>
+          <button type="button" class="ghost" data-passo="-0.1">−0,1 s</button>
+          <button type="button" class="ghost" data-passo="0.1">+0,1 s</button>
+          <button type="button" class="ghost" data-passo="5">+5 s</button>
+        </div>
+        <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap; margin-top:6px">
+          <input data-busca-camera type="text" placeholder="mm:ss.mmm" aria-label="Tempo do preview da câmera ${i+1}" style="width:110px">
+          <button type="button" class="ghost" data-ir-camera>Ir para tempo</button>
+        </div>
+        <button type="button" class="act" data-marcar-camera style="width:100%; margin-top:6px">Usar este momento como início</button>
+        <p class="hint" style="font-size:11px; margin-top:6px">Encontre o mesmo início do jogo em cada câmera e marque o momento para alinhar os cortes.</p>`;
+      box.appendChild(preview);
+      const video = preview.querySelector('video');
+      const status = preview.querySelector('[data-status-camera]');
+      const busca = preview.querySelector('[data-busca-camera]');
+      let posicao = Number(cam.inicio_jogo_s) || 0;
+      let modoQuadro = false, pedidoQuadro = 0, quadroUrl = null;
+      const quadro = preview.querySelector('[data-quadro-camera]');
+      const duracao = () => Number.isFinite(video.duration) ? video.duration : Number(cam.duracao_s) || 0;
+      const mostrarPosicao = () => status.textContent = `Posição: ${tempoCamera(posicao)} / ${tempoCamera(duracao())}`;
+      const carregarQuadro = async () => {
+        const pedido = ++pedidoQuadro;
+        status.textContent = 'Carregando quadro…';
+        try {
+          const r = await fetch('/api/frame', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({video:cam.caminho || cam.nome, tempo_s:posicao})});
+          if(!r.ok) throw new Error('frame');
+          const blob = await r.blob();
+          if(pedido !== pedidoQuadro || !preview.isConnected) return;
+          if(quadroUrl) URL.revokeObjectURL(quadroUrl);
+          quadroUrl = URL.createObjectURL(blob);
+          quadro.src = quadroUrl;
+          quadro.onload = () => { URL.revokeObjectURL(quadroUrl); quadroUrl = null; };
+          quadro.style.display = 'block';
+          mostrarPosicao();
+        } catch(e){ if(pedido === pedidoQuadro) status.textContent = 'Não foi possível carregar o quadro. Tente outro tempo.'; }
+      };
+      const seek = t => {
+        if(!Number.isFinite(t) || t < 0) return false;
+        video.pause();
+        posicao = duracao() ? Math.min(t, Math.max(0, duracao() - 0.05)) : t;
+        busca.value = tempoCamera(posicao);
+        if(video.readyState >= 1) video.currentTime = posicao;
+        if(modoQuadro) carregarQuadro(); else mostrarPosicao();
+        return true;
+      };
+      box.buscarTempoCamera = seek;
+      busca.value = tempoCamera(posicao);
+      preview.querySelector('[data-ver-quadro]').onclick = () => {
+        video.pause(); modoQuadro = true;
+        const t = parseTempo(busca.value.replace(',', '.'));
+        if(!seek(t)) seek(posicao);
+      };
+      video.onplay = () => { modoQuadro = false; quadro.style.display = 'none'; };
+      video.onloadedmetadata = () => {
+        seek(posicao);
+        busca.value = tempoCamera(video.currentTime);
+        status.textContent = `Posição: ${tempoCamera(video.currentTime)} / ${tempoCamera(video.duration)}`;
+      };
+      video.ontimeupdate = () => {
+        if(!modoQuadro){ posicao = video.currentTime; mostrarPosicao(); }
+      };
+      video.onerror = () => {
+        status.textContent = 'Use Ver quadro neste tempo para visualizar e alinhar este vídeo.';
+      };
+      preview.querySelectorAll('[data-passo]').forEach(b => b.onclick = () => seek(Math.max(0, posicao + Number(b.dataset.passo))));
+      const ir = () => {
+        const t = parseTempo(busca.value.replace(',', '.'));
+        busca.setCustomValidity(seek(t) ? '' : 'Informe um tempo válido, como 01:23.500.');
+        busca.reportValidity();
+      };
+      busca.oninput = () => busca.setCustomValidity('');
+      preview.querySelector('[data-ir-camera]').onclick = ir;
+      busca.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); ir(); } };
+      preview.querySelector('[data-marcar-camera]').onclick = () => {
+        video.pause();
+        cam.inicio_jogo_s = Math.round(posicao * 1000) / 1000;
+        input.value = tempoCamera(cam.inicio_jogo_s);
+        input.setCustomValidity('');
+        agendarSalvar();
+      };
+      video.src = '/video/completo?video=' + encodeURIComponent(cam.caminho || cam.nome);
+    }
     el.appendChild(box);
   });
   el.querySelectorAll('[data-remover-camera]').forEach(b => b.onclick = () => {
@@ -2400,11 +2611,69 @@ function renderCamerasSelecionadas(){
     renderCamerasSelecionadas(); $('#btnIrPlacar').disabled = !ESTADO.video; agendarSalvar();
   });
   el.querySelectorAll('[data-inicio-camera]').forEach(inp => inp.onchange = () => {
-    const i = Number(inp.dataset.inicioCamera); const t = parseTempo(inp.value);
-    if(camerasSelecionadas()[i] && t != null) camerasSelecionadas()[i].inicio_jogo_s = t;
-    inp.value = fmtTempo(t || 0); agendarSalvar();
+    const i = Number(inp.dataset.inicioCamera);
+    const t = parseTempo(inp.value.replace(',', '.'));
+    if(!Number.isFinite(t) || t < 0){
+      inp.setCustomValidity('Informe um tempo válido, como 01:23.500.'); inp.reportValidity(); return;
+    }
+    inp.setCustomValidity('');
+    if(camerasSelecionadas()[i]) camerasSelecionadas()[i].inicio_jogo_s = t;
+    inp.value = tempoCamera(t);
+    inp.closest('div').buscarTempoCamera?.(t);
+    agendarSalvar();
   });
 }
+
+const btnSincronizar = $('#btnSincronizarCameras');
+let sincronizacaoAtiva = null, sincronizacaoAnterior = null;
+const identidadeCameras = () => JSON.stringify(camerasSelecionadas().map(c => c ? [c.caminho,c.inicio_jogo_s] : null));
+btnSincronizar.onclick = async () => {
+  const status = $('#statusSincronizarCameras');
+  const cameras = camerasSelecionadas().map((c,indice) => c ? {indice, video:c.caminho || c.nome} : null).filter(Boolean);
+  if(cameras.length < 2 || !cameras.some(c => c.indice === 0)){
+    status.textContent = 'Selecione a câmera principal e pelo menos mais uma câmera.'; return;
+  }
+  const identidade = identidadeCameras();
+  btnSincronizar.disabled = true;
+  $('#btnDesfazerSincronizacao').hidden = true;
+  $('#btnCancelarSincronizacao').hidden = false;
+  status.textContent = 'Localizando o relógio nas câmeras…';
+  try {
+    const r = await fetch('/api/cameras/sincronizar', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cameras})});
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.detail || 'Não foi possível iniciar a sincronização.');
+    sincronizacaoAtiva = data.id;
+    for(;;){
+      await new Promise(resolve => setTimeout(resolve,1000));
+      const res = await fetch('/api/cameras/sincronizar/' + data.id);
+      const job = await res.json();
+      if(!res.ok) throw new Error(job.detail || 'Falha ao consultar a sincronização.');
+      status.textContent = job.mensagem;
+      if(job.status === 'erro' || job.status === 'cancelado') break;
+      if(job.status !== 'concluido') continue;
+      if(identidadeCameras() !== identidade){status.textContent = 'As câmeras ou tempos foram alterados durante a análise. Execute Sincronizar novamente.';break;}
+      sincronizacaoAnterior = camerasSelecionadas().map(c => c ? {caminho:c.caminho,inicio:c.inicio_jogo_s || 0} : null);
+      for(const c of job.resultado.cameras) camerasSelecionadas()[c.indice].inicio_jogo_s = c.inicio_jogo_s;
+      ESTADO.video = camerasSelecionadas()[0];
+      renderCamerasSelecionadas(); agendarSalvar();
+      status.textContent = 'Câmeras alinhadas pelo relógio. ' + job.resultado.cameras.map(c => `Câmera ${c.indice+1}: ${tempoCamera(c.inicio_jogo_s)}`).join(' · ') + '. Precisão aproximada de 1 segundo. Confira os previews antes de cortar.';
+      $('#btnDesfazerSincronizacao').hidden = false;
+      break;
+    }
+  } catch(e){status.textContent = e.message;}
+  finally {sincronizacaoAtiva = null;btnSincronizar.disabled = false;$('#btnCancelarSincronizacao').hidden = true;}
+};
+$('#btnCancelarSincronizacao').onclick = async () => {
+  if(sincronizacaoAtiva) await fetch('/api/cameras/sincronizar/' + sincronizacaoAtiva + '/cancelar',{method:'POST'});
+};
+$('#btnDesfazerSincronizacao').onclick = () => {
+  if(!sincronizacaoAnterior) return;
+  camerasSelecionadas().forEach((c,i) => {const anterior=sincronizacaoAnterior[i];if(c && anterior && c.caminho===anterior.caminho)c.inicio_jogo_s=anterior.inicio;});
+  renderCamerasSelecionadas();agendarSalvar();
+  $('#statusSincronizarCameras').textContent = 'Tempos anteriores restaurados.';
+  $('#btnDesfazerSincronizacao').hidden = true;
+  sincronizacaoAnterior = null;
+};
 
 function selecionarVideo(v, cameraAlvo=null){
   const alvo = cameraAlvo === null ? Number($('#selCameraAlvo')?.value || 0) : cameraAlvo;
@@ -2827,6 +3096,52 @@ document.addEventListener('click', e => {
 });
 
 /* ------------------------------------------------------------ passo 2: placar + zonas-gatilho */
+/* ------------------------------------------------------------ camera do placar */
+ESTADO.cameraPlacar = 0;   // índice (0..2) da câmera onde o placar é localizado e a análise roda
+function videoPlacar(){
+  return camerasSelecionadas()[ESTADO.cameraPlacar] || ESTADO.video;
+}
+function offsetPlacarS(){
+  // Eventos achados na câmera do placar passam para a linha do tempo da câmera 1.
+  const ref = camerasSelecionadas()[0], cam = camerasSelecionadas()[ESTADO.cameraPlacar];
+  if(!ref || !cam || ESTADO.cameraPlacar === 0) return 0;
+  return (Number(ref.inicio_jogo_s) || 0) - (Number(cam.inicio_jogo_s) || 0);
+}
+function renderCameraPlacar(){
+  const pick = $('#pickCameraPlacar'); if(!pick) return;
+  if(!camerasSelecionadas()[ESTADO.cameraPlacar]) ESTADO.cameraPlacar = 0;
+  pick.innerHTML = '';
+  [0,1,2].forEach(i => {
+    const ok = Boolean(camerasSelecionadas()[i]);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = i === ESTADO.cameraPlacar ? 'act' : 'ghost';
+    b.style.cssText = 'font-size:12px; padding:4px 10px';
+    b.disabled = !ok;
+    b.textContent = `Câmera ${i+1}${i === 0 ? ' · principal' : ''}`;
+    if(!ok) b.title = 'Câmera não enviada no passo 1';
+    b.onclick = () => trocarCameraPlacar(i);
+    pick.appendChild(b);
+  });
+  const dica = $('#dicaCameraPlacar');
+  if(dica){
+    dica.textContent = ESTADO.cameraPlacar === 0 ? '' :
+      'Os gols detectados nesta câmera são convertidos para o tempo da câmera 1 pela sincronização do passo 1 (' +
+      (offsetPlacarS() === 0 ? 'atenção: as câmeras estão sem diferença de início — sincronize antes' : 'diferença de ' + offsetPlacarS().toFixed(1) + ' s') + ').';
+  }
+  const info = $('#infoCameraPlacar3');
+  if(info) info.textContent = `Analisando o placar na câmera ${ESTADO.cameraPlacar + 1}.`;
+}
+function trocarCameraPlacar(i){
+  if(i === ESTADO.cameraPlacar) return;
+  ESTADO.cameraPlacar = i;
+  rectSel = null; ESTADO.placarRect = null;
+  $('#btnConfirmarPlacar').disabled = true; $('#btnIrGols').disabled = true;
+  $('#placarAtual').innerHTML = '<span class="bad">Marque o placar nesta câmera e confirme a região.</span>';
+  $('#previewPlacar').innerHTML = '';
+  renderCameraPlacar(); agendarSalvar();
+  carregarFrame();
+}
+
 let frameNatural = {w:0,h:0};
 let rectSel = null;      // ultimo retangulo arrastado (rascunho, ainda nao salvo)
 let zonasSel = [];       // zonas-gatilho ja adicionadas nesta sessao (lista de [x,y,w,h])
@@ -2837,10 +3152,10 @@ function prepararCanvas(){
   cv.width = img.clientWidth; cv.height = img.clientHeight;
 }
 async function carregarFrame(){
-  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
+  if(!videoPlacar()){ alert('Escolha um vídeo no passo 1.'); return; }
   const tempo_s = parseTempo($('#tempoFrame').value) || 0;
   const r = await fetch('/api/frame', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({video: ESTADO.video.caminho, tempo_s})});
+    body: JSON.stringify({video: videoPlacar().caminho, tempo_s})});
   if(!r.ok){ alert('Não consegui ler esse instante do vídeo.'); return; }
   const blob = await r.blob();
   const img = $('#frameImg');
@@ -2918,9 +3233,9 @@ $('#btnAddZona').onclick = ()=>{
   $('#cardZonasDet').style.display = 'block';
 };
 $('#btnSalvarZonas').onclick = async ()=>{
-  if(!ESTADO.video){ alert('Escolha um vídeo no passo 1.'); return; }
+  if(!videoPlacar()){ alert('Escolha um vídeo no passo 1.'); return; }
   const r = await fetch('/api/zonas', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({video: ESTADO.video.caminho, zonas: zonasSel})});
+    body: JSON.stringify({video: videoPlacar().caminho, zonas: zonasSel})});
   if(!r.ok){ alert('Não consegui salvar as zonas.'); return; }
   $('#btnSalvarZonas').textContent = 'Salvo ✓';
   setTimeout(()=>{ $('#btnSalvarZonas').textContent = 'Salvar zonas'; }, 1500);
@@ -2933,18 +3248,18 @@ async function mostrarBlobEm(el, resp){
   aplicarFiltroBrilho();
 }
 $('#btnVerRecorte').onclick = async ()=>{
-  if(!rectSel || !ESTADO.video) return;
+  if(!rectSel || !videoPlacar()) return;
   const tempo_s = parseTempo($('#tempoFrame').value) || 0;
   const r = await fetch('/api/placar/preview', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({video: ESTADO.video.caminho, tempo_s, rect: rectSel})});
+    body: JSON.stringify({video: videoPlacar().caminho, tempo_s, rect: rectSel})});
   if(!r.ok){ alert('Não consegui gerar o recorte.'); return; }
   await mostrarBlobEm($('#previewPlacar'), r);
 };
 $('#btnConfirmarPlacar').onclick = async ()=>{
-  if(!rectSel || !ESTADO.video) return;
+  if(!rectSel || !videoPlacar()) return;
   const tempo_s = parseTempo($('#tempoFrame').value) || 0;
   const r = await fetch('/api/placar', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({video: ESTADO.video.caminho, rect: rectSel, tempo_s})});
+    body: JSON.stringify({video: videoPlacar().caminho, rect: rectSel, tempo_s})});
   if(!r.ok){ alert('Não consegui salvar a região.'); return; }
   ESTADO.placarRect = rectSel;
   $('#placarAtual').innerHTML = `<span class="ok">✓ Região salva: [${rectSel.join(', ')}]</span>`;
@@ -3000,6 +3315,84 @@ async function acompanharJob(job_id, elLog, btnCancelar = null){
   }
 }
 
+/* ------------------------------------------------------------ cameras dos clipes */
+let cameraVer = 1;   // câmera usada para assistir aos clipes (1 = principal)
+try { cameraVer = Number(localStorage.getItem('futbin_camera_ver')) || 1; } catch(e) {}
+function camerasCarregadas(){ return [1,2,3].filter(n => Boolean(camerasSelecionadas()[n-1])); }
+function cameraVerValida(){
+  return camerasCarregadas().includes(cameraVer) ? cameraVer : 1;
+}
+function definirCameraVer(n){
+  cameraVer = n;
+  try { localStorage.setItem('futbin_camera_ver', String(n)); } catch(e) {}
+}
+function urlClipeDaCamera(indice, cam){
+  const chave = String(indice).padStart(2,'0');
+  if(cam <= 1) return ESTADO.clipes[chave] || null;
+  return `/video/clipes/${indice}/camera/${cam}`;
+}
+function renderCameraVer(){
+  const pick = $('#pickCameraVer'); if(!pick) return;
+  const atual = cameraVerValida();
+  pick.innerHTML = '';
+  [1,2,3].forEach(n => {
+    const ok = camerasCarregadas().includes(n);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = n === atual ? 'act' : 'ghost';
+    b.style.cssText = 'font-size:12px; padding:4px 10px';
+    b.disabled = !ok;
+    b.textContent = `Câmera ${n}${n === 1 ? ' · principal' : ''}`;
+    if(!ok) b.title = 'Câmera não enviada no passo 1';
+    b.onclick = () => { definirCameraVer(n); renderCameraVer(); renderGradeClipes(clipesAtuais); };
+    pick.appendChild(b);
+  });
+  const dica = $('#dicaCameraVer');
+  if(dica) dica.textContent = atual > 1 ? 'Clipes ainda não cortados nessa câmera são gerados ao abrir; para gerar todos de uma vez use o passo 3 › Câmeras dos clipes.' : '';
+}
+function renderOpcoesCamerasCorte(){
+  const box = $('#opcoesCamerasCorte'); if(!box) return;
+  const marcadas = new Set([...box.querySelectorAll('input:checked')].map(i => Number(i.value)));
+  const primeira = !box.dataset.pronto;
+  box.innerHTML = '';
+  box.dataset.pronto = '1';
+  [2,3].forEach(n => {
+    const ok = camerasCarregadas().includes(n);
+    const lab = document.createElement('label');
+    lab.style.cssText = 'display:inline-flex; align-items:center; gap:6px; margin:0; font-size:13px; cursor:' + (ok ? 'pointer' : 'not-allowed') + (ok ? '' : '; opacity:.5');
+    const chk = document.createElement('input');
+    chk.type = 'checkbox'; chk.value = String(n); chk.style.width = 'auto'; chk.disabled = !ok;
+    chk.checked = ok && (primeira || marcadas.has(n));
+    lab.appendChild(chk);
+    lab.appendChild(document.createTextNode(`Câmera ${n}${ok ? '' : ' · não enviada'}`));
+    box.appendChild(lab);
+  });
+  $('#btnCortarCameras').disabled = !camerasCarregadas().some(n => n > 1);
+}
+function camerasParaCortar(){
+  return [...$('#opcoesCamerasCorte').querySelectorAll('input:checked')].map(i => Number(i.value));
+}
+async function cortarCamerasExtras(logEl, btnCanc){
+  const cams = camerasParaCortar();
+  if(!cams.length) return true;
+  const r = await fetch('/api/cameras/cortar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({cameras: cams})});
+  if(!r.ok){
+    const d = await r.json().catch(() => ({}));
+    logEl.style.display = 'block';
+    logEl.textContent = '❌ ' + (d.detail || 'Não consegui cortar as outras câmeras.');
+    return false;
+  }
+  const {job_id} = await r.json();
+  return await acompanharJob(job_id, logEl, btnCanc);
+}
+$('#btnCortarCameras').onclick = async () => {
+  $('#btnCortarCameras').disabled = true;
+  try { await cortarCamerasExtras($('#cortarCamerasLog'), $('#btnCancelarCortarCameras')); }
+  finally { renderOpcoesCamerasCorte(); }
+};
+$('#btnCancelarCortarCameras').onclick = async () => {
+  if(jobAtivoId) await fetch('/api/job/' + jobAtivoId + '/cancelar', {method:'POST'});
+};
+
 /* ------------------------------------------------------------ passo 3: detectar e cortar */
 $('#btnDetectar').onclick = async ()=>{
   const logEl = $('#detLog');
@@ -3021,7 +3414,9 @@ $('#btnDetectar').onclick = async ()=>{
   }
 
   const body = {
-    video: ESTADO.video.caminho,
+    video: videoPlacar().caminho,
+    offset_s: offsetPlacarS(),
+    video_ref: ESTADO.video.caminho,
     gols_totais: $('#golsTotais').value ? parseInt($('#golsTotais').value,10) : null,
     fixo: $('#fixoSel').value === '1',
     inicio: $('#inicioJogo').value || null,
@@ -3057,6 +3452,10 @@ $('#btnDetectar').onclick = async ()=>{
     if(!await acompanharJob(job_id, logEl, btnCanc)) return;
     await carregarClipes();
     $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
+    if(camerasParaCortar().length){
+      logEl.textContent += '\n\nCortando as outras câmeras...';
+      await cortarCamerasExtras(logEl, btnCanc);
+    }
   }catch(e){
     logEl.style.display = 'block';
     logEl.textContent = '❌ Erro: ' + e;
@@ -3084,7 +3483,9 @@ $('#btnDetectarZonas').onclick = async ()=>{
   }
 
   const body = {
-    video: ESTADO.video.caminho,
+    video: videoPlacar().caminho,
+    offset_s: offsetPlacarS(),
+    video_ref: ESTADO.video.caminho,
     eventos_esperados: $('#zonasEventos').value ? parseInt($('#zonasEventos').value, 10) : null,
     inicio: $('#inicioJogo').value || null,
     fim: $('#fimJogo').value || null,
@@ -3572,7 +3973,7 @@ function renderGradeClipes(clipes){
         </div>
       </div>
       <div class="thumb-wrap" style="position:relative">
-        <video src="${c.url}" muted preload="metadata" playsinline></video>
+        <video src="${urlClipeDaCamera(c.indice, cameraVerValida()) || c.url}" muted preload="${cameraVerValida() > 1 ? 'none' : 'metadata'}" playsinline></video>
         <div class="play"></div>
         <div class="check" style="${info ? `display:flex;background:${info.bg};border:1px solid ${info.border};color:${info.cor}` : ''}">${rotuloCheck}</div>
       </div>
@@ -3627,12 +4028,47 @@ function renderGradeClipes(clipes){
   $('#contagemClipes').textContent = `(${contagemGols} gols · ${contagemLances} lances · ${faltam} sem marcação · ordem cronológica ⏱️)`;
 }
 
+function renderModalCameras(c){
+  const box = $('#modalCameraBotoes'), st = $('#modalCameraStatus'), v = $('#modalVideo');
+  if(!box) return;
+  const atual = cameraVerValida();
+  box.innerHTML = '';
+  st.textContent = '';
+  [1,2,3].forEach(n => {
+    const ok = camerasCarregadas().includes(n);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = n === atual ? 'act' : 'ghost';
+    b.style.cssText = 'font-size:12px; padding:4px 10px';
+    b.disabled = !ok;
+    b.textContent = `Câmera ${n}${n === 1 ? ' · principal' : ''}`;
+    if(!ok) b.title = 'Câmera não enviada no passo 1';
+    b.onclick = () => {
+      if(n === cameraVerValida()) return;
+      const tempo = v.currentTime || 0, tocando = !v.paused;
+      definirCameraVer(n);
+      renderCameraVer();
+      const url = urlClipeDaCamera(c.indice, n) || c.url;
+      st.textContent = n > 1 ? `carregando a câmera ${n}…` : '';
+      v.onloadedmetadata = () => { try { v.currentTime = Math.min(tempo, v.duration || tempo); } catch(e) {} };
+      v.onloadeddata = () => { st.textContent = ''; if(tocando) v.play().catch(()=>{}); };
+      v.onerror = () => { st.textContent = `não consegui carregar a câmera ${n} neste clipe`; };
+      v.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      v.load();
+      box.querySelectorAll('button').forEach((x, i) => x.className = (i + 1) === n ? 'act' : 'ghost');
+    };
+    box.appendChild(b);
+  });
+}
+
 function abrirModalClipe(c){
   const vc = $('#videoCompleto');
   if(vc && !vc.paused) vc.pause();
   $('#modalTitulo').textContent = `Clipe #${String(c.indice).padStart(2,'0')}` + (c.tempo?` · ${c.tempo}`:'');
   const v = $('#modalVideo');
-  v.src = c.url + (c.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  const urlModal = urlClipeDaCamera(c.indice, cameraVerValida()) || c.url;
+  v.src = urlModal + (urlModal.includes('?') ? '&' : '?') + 't=' + Date.now();
+  v.onloadedmetadata = v.onloadeddata = v.onerror = null;
+  renderModalCameras(c);
   $('#modalClipe').hidden = false;
   aplicarFiltroBrilho();
   v.play().catch(()=>{});
@@ -3961,7 +4397,8 @@ function abrirModalClipe(c){
     btnVoltarClipe.onclick = () => {
       modoPreviewVideo = false;
       const v = $('#modalVideo');
-      v.src = c.url + (c.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const urlVolta = urlClipeDaCamera(c.indice, cameraVerValida()) || c.url;
+      v.src = urlVolta + (urlVolta.includes('?') ? '&' : '?') + 't=' + Date.now();
       v.play().catch(()=>{});
 
       if(btnPreview) btnPreview.style.display = 'inline-block';
@@ -4310,7 +4747,7 @@ function renderMarcacao(){
   if(!marcadas.length) marcadas = [1];
   g.cameras_clipe = marcadas;
   g.camera = marcadas[0];
-  let cameraVendo = marcadas[0];
+  let cameraVendo = camerasDisponiveis.includes(cameraVerValida()) ? cameraVerValida() : marcadas[0];
   const urlClipeCamera = (cam) => cam <= 1 ? null : `/video/clipes/${g.indice}/camera/${cam}`;
   const blocoCam = $('#blocoCameraClipe');
   const desenharCameras = () => {
@@ -4341,7 +4778,7 @@ function renderMarcacao(){
       ver.style.cssText = 'font-size:11px; padding:3px 9px';
       ver.disabled = !enviada;
       ver.textContent = cam === cameraVendo ? '▶ Vendo' : 'Ver';
-      ver.onclick = () => { cameraVendo = cam; trocarVideoCamera(cam); desenharCameras(); };
+      ver.onclick = () => { cameraVendo = cam; definirCameraVer(cam); trocarVideoCamera(cam); desenharCameras(); };
       wrap.appendChild(lab); wrap.appendChild(ver);
       pick.appendChild(wrap);
     });
@@ -5917,6 +6354,83 @@ function mostrarResultadoVideoJogador(jogador, url){
 }
 
 /* ------------------------------------------------------------ render do jogador: resolução, qualidade e cores */
+/* ------------------------------------------------------------ formato vertical (9:16) do vídeo do jogador */
+const LARG_RECORTE = 81/256;
+let recorteV = {x: (1 - LARG_RECORTE) / 2, y: 0, h: 1};
+function formatoJogadorVertical(){ return $('#formatoJogador') && $('#formatoJogador').value === '9:16'; }
+function limitarRecorte(){
+  recorteV.h = Math.min(1, Math.max(0.35, recorteV.h));
+  recorteV.x = Math.min(1 - recorteV.h * LARG_RECORTE, Math.max(0, recorteV.x));
+  recorteV.y = Math.min(1 - recorteV.h, Math.max(0, recorteV.y));
+}
+function desenharRecorteVertical(){
+  const el = $('#recorteVertical'), wrap = $('#wrapPreviaJogador');
+  if(!el || !wrap) return;
+  const ativo = formatoJogadorVertical();
+  el.style.display = ativo ? 'block' : 'none';
+  $('#blocoRecorteVertical').style.display = ativo ? 'block' : 'none';
+  if(!ativo) return;
+  limitarRecorte();
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  el.style.left = (recorteV.x * W) + 'px'; el.style.top = (recorteV.y * H) + 'px';
+  el.style.width = (recorteV.h * LARG_RECORTE * W) + 'px'; el.style.height = (recorteV.h * H) + 'px';
+  $('#recorteTamanho').value = Math.round(recorteV.h * 100);
+  $('#lblRecorteTamanho').textContent = Math.round(recorteV.h * 100) + '%';
+}
+function salvarRecorteVertical(){
+  try { localStorage.setItem('futbin_jogador_recorte', JSON.stringify(recorteV)); } catch(e) {}
+}
+function rotulosResolucaoJogador(){
+  const vertical = formatoJogadorVertical();
+  const nomes = {720: 'HD', 1080: 'Full HD', 1440: '2K', 2160: '4K'};
+  [...$('#resolucaoJogador').options].forEach(o => {
+    const r = parseInt(o.value, 10);
+    const dim = vertical ? `${r}×${Math.round(r * 16 / 9 / 2) * 2}` : `${r}p`;
+    o.textContent = `${nomes[r] || r} ${dim}` + (r === 1080 ? ' (recomendado)' : '');
+  });
+}
+function inicializarRecorteVertical(){
+  let salvoFmt = null;
+  try {
+    salvoFmt = localStorage.getItem('futbin_jogador_formato');
+    const r = JSON.parse(localStorage.getItem('futbin_jogador_recorte') || 'null');
+    if(r && [r.x, r.y, r.h].every(Number.isFinite)) recorteV = r;
+  } catch(e) {}
+  if(salvoFmt === '9:16' || salvoFmt === '16:9') $('#formatoJogador').value = salvoFmt;
+  const atualizarFormato = () => {
+    try { localStorage.setItem('futbin_jogador_formato', $('#formatoJogador').value); } catch(e) {}
+    rotulosResolucaoJogador(); desenharRecorteVertical();
+  };
+  $('#formatoJogador').onchange = atualizarFormato;
+  $('#recorteTamanho').oninput = e => {
+    // O tamanho muda em torno do centro do retângulo.
+    const cx = recorteV.x + recorteV.h * LARG_RECORTE / 2, cy = recorteV.y + recorteV.h / 2;
+    recorteV.h = parseInt(e.target.value, 10) / 100;
+    recorteV.x = cx - recorteV.h * LARG_RECORTE / 2; recorteV.y = cy - recorteV.h / 2;
+    desenharRecorteVertical(); salvarRecorteVertical();
+  };
+  $('#btnRecorteCentralizar').onclick = () => {
+    recorteV.x = (1 - recorteV.h * LARG_RECORTE) / 2; recorteV.y = (1 - recorteV.h) / 2;
+    desenharRecorteVertical(); salvarRecorteVertical();
+  };
+  const el = $('#recorteVertical'), wrap = $('#wrapPreviaJogador');
+  let arrasto = null;
+  el.addEventListener('pointerdown', e => {
+    arrasto = {px: e.clientX, py: e.clientY, x: recorteV.x, y: recorteV.y};
+    el.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  el.addEventListener('pointermove', e => {
+    if(!arrasto) return;
+    recorteV.x = arrasto.x + (e.clientX - arrasto.px) / wrap.clientWidth;
+    recorteV.y = arrasto.y + (e.clientY - arrasto.py) / wrap.clientHeight;
+    desenharRecorteVertical();
+  });
+  const fim = () => { if(arrasto){ arrasto = null; salvarRecorteVertical(); } };
+  el.addEventListener('pointerup', fim); el.addEventListener('pointercancel', fim);
+  window.addEventListener('resize', desenharRecorteVertical);
+  atualizarFormato();
+}
+
 function paramsRenderJogador(){
   const card = document.querySelector('.perfil-jogador-card.sel');
   const v = id => (parseFloat($(id).value) || 100) / 100;
@@ -5924,6 +6438,7 @@ function paramsRenderJogador(){
     crf: card ? parseInt(card.dataset.crf, 10) : 24,
     codec: card?.dataset.codec || 'libx264',
     resolucao: parseInt($('#resolucaoJogador').value, 10) || 1080,
+    ...(formatoJogadorVertical() ? {formato: '9:16', recorte: [recorteV.x, recorteV.y, recorteV.h]} : {}),
     brilho: v('#jgBrilho'), contraste: v('#jgContraste'), saturacao: v('#jgSaturacao'),
   };
 }
@@ -6031,6 +6546,7 @@ async function atualizarPreviaJogador(jogador){
   carregarClipePreviaJogador();
 }
 inicializarRenderJogador();
+inicializarRecorteVertical();
 
 $('#btnMontarJogador').onclick = async ()=>{
   const jogador = $('#selJogadorDestaques').value;
@@ -6148,7 +6664,7 @@ $('#btnMontar').onclick = async ()=>{
   const pPasso = urlParams.get('passo') || (window.location.hash ? window.location.hash.substring(1) : null);
   let passoSalvo = null;
   try { passoSalvo = localStorage.getItem('futbin_ultimo_passo'); } catch(e) {}
-  const passoInicial = (pPasso && $(`#${pPasso}`)) ? pPasso : ((passoSalvo && $(`#${passoSalvo}`)) ? passoSalvo : 's-video');
+  const passoInicial = (pPasso && $(`#${pPasso}`)) ? pPasso : 's-inicio';
   montarNav();
   // Não renderiza a etapa escolhida ainda: primeiro recuperamos partida.json.
   // Isso evita que o resumo seja aberto vazio ao recarregar a página.
@@ -6179,6 +6695,7 @@ $('#btnMontar').onclick = async ()=>{
   }
   if(partida){
     S.meta = partida.meta || S.meta; S.times = partida.times || S.times;
+    if(partida.meta && [0,1,2].includes(partida.meta.camera_placar)) ESTADO.cameraPlacar = partida.meta.camera_placar;
     if(partida.meta && Array.isArray(partida.meta.cameras) && partida.meta.cameras.length){
       ESTADO.cameras = [null, null, null];
       partida.meta.cameras.slice(0,3).forEach((cam, i) => {

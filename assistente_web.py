@@ -242,16 +242,62 @@ def _recorte_zoom(frame: np.ndarray, rect: List[int], zoom: int = 8) -> np.ndarr
 JOBS: dict = {}
 
 
-def _iniciar_job(cmd: List[str]) -> str:
+def _iniciar_job(cmd: List[str], pos=None) -> str:
+    """`pos` (opcional) roda quando o processo termina bem, antes de o job virar "done"."""
     job_id = uuid.uuid4().hex[:8]
     job = {"status": "queued", "log": [], "linha_atual": "", "returncode": None,
            "lock": threading.Lock(), "iniciado_em": time.time()}
     JOBS[job_id] = job
-    threading.Thread(target=_rodar_job, args=(job, cmd), daemon=True).start()
+    threading.Thread(target=_rodar_job, args=(job, cmd, pos), daemon=True).start()
     return job_id
 
 
-def _rodar_job(job: dict, cmd: List[str]) -> None:
+def _indices_em_gols_json() -> set:
+    if not os.path.exists(GOLS_JSON):
+        return set()
+    try:
+        with open(GOLS_JSON, encoding="utf-8-sig") as f:
+            return {ev["indice"] for ev in json.load(f).get("gols", []) if "indice" in ev}
+    except Exception:
+        return set()
+
+
+def _alinhar_eventos_novos(indices_antes: set, offset_s: float, video_ref: Optional[str]):
+    """Leva os eventos achados agora para a linha do tempo da camera 1.
+
+    A deteccao pode rodar em outra camera (a que mostra o placar); os tempos que ela grava
+    valem para aquele arquivo. Como os clipes e as demais cameras se alinham pela camera 1,
+    os eventos novos sao deslocados por `offset_s` (inicio_jogo da camera 1 menos o da camera
+    usada). Novo evento que cair em cima de um que ja existia (mesma jogada vista de novo) e
+    descartado.
+    """
+    if not os.path.exists(GOLS_JSON):
+        return
+    with open(GOLS_JSON, encoding="utf-8-sig") as f:
+        dados = json.load(f)
+    if offset_s:
+        antigos = [ev.get("tempo_s") for ev in dados.get("gols", [])
+                   if ev.get("indice") in indices_antes and ev.get("tempo_s") is not None]
+        finais = []
+        for ev in dados.get("gols", []):
+            if ev.get("indice") not in indices_antes:
+                for chave in ("tempo_s", "inicio_s", "fim_s"):
+                    if ev.get(chave) is not None:
+                        ev[chave] = round(max(ev[chave] + offset_s, 0.0), 2)
+                t = ev.get("tempo_s")
+                if t is not None:
+                    ev["tempo"] = _fmt_tempo(t)
+                    if any(abs(t - a) < MIN_INTERVALO_S for a in antigos):
+                        continue
+            finais.append(ev)
+        dados["gols"] = finais
+    if video_ref:
+        dados["video"] = os.path.basename(video_ref)
+    with open(GOLS_JSON, "w", encoding="utf-8") as f:
+        json.dump(dados, f, indent=2, ensure_ascii=False)
+
+
+def _rodar_job(job: dict, cmd: List[str], pos=None) -> None:
     job["status"] = "running"
     try:
         kwargs = {}
@@ -299,8 +345,16 @@ def _rodar_job(job: dict, cmd: List[str]) -> None:
             if buf.strip():
                 job["log"].append(buf.strip())
             job["linha_atual"] = ""
-            job["status"] = "done" if proc.returncode == 0 else "error"
             job["returncode"] = proc.returncode
+        if proc.returncode == 0 and pos is not None:
+            try:
+                pos()
+            except Exception as exc:
+                with job["lock"]:
+                    job["log"].append(f"AVISO: nao consegui alinhar os tempos com a camera 1: {exc}")
+        with job["lock"]:
+            if job["status"] != "canceled":
+                job["status"] = "done" if proc.returncode == 0 else "error"
 
         if proc.returncode == 0 and any("montar_video.py" in str(arg) for arg in cmd):
             _notificar_sistema(
@@ -346,6 +400,12 @@ def api_cancelar_job(job_id: str):
         raise HTTPException(404, "job desconhecido")
     with job["lock"]:
         proc = job.get("proc")
+        if "cancelar" in job and job["status"] == "running":
+            job["cancelar"] = True
+            job["status"] = "canceled"
+            job["linha_atual"] = ""
+            job["log"].append("⚠ Processamento cancelado pelo usuário.")
+            return {"ok": True, "status": "canceled"}
         if proc and job["status"] in ("running", "queued"):
             job["status"] = "canceled"
             try:
@@ -556,6 +616,80 @@ def api_resultado_youtube(job_id: str):
 
 # --------------------------------------------------------------- placar (regiao)
 
+# Clock synchronization jobs are separate from video rendering jobs.
+SYNC_JOBS = {}
+SYNC_LOCK = threading.Lock()
+
+
+@app.post('/api/cameras/sincronizar')
+def api_sincronizar_cameras(payload: dict = Body(...)):
+    from sincronizar_cameras import synchronize
+    cameras = payload.get('cameras')
+    if not isinstance(cameras, list) or not 2 <= len(cameras) <= 3:
+        raise HTTPException(400, 'Selecione duas ou três câmeras.')
+    resolved = []
+    for camera in cameras:
+        if not isinstance(camera, dict) or type(camera.get('indice')) is not int or camera['indice'] not in (0, 1, 2):
+            raise HTTPException(400, 'Câmera inválida.')
+        path = camera.get('video')
+        if not isinstance(path, str):
+            raise HTTPException(400, 'Vídeo inválido.')
+        resolved.append({'indice':camera['indice'], 'video':_resolver_video(path)})
+    resolved.sort(key=lambda c:c['indice'])
+    if resolved[0]['indice'] != 0 or len({c['indice'] for c in resolved}) != len(resolved):
+        raise HTTPException(400, 'Selecione a câmera principal e câmeras distintas.')
+    with SYNC_LOCK:
+        for key in list(SYNC_JOBS):
+            if time.monotonic()-SYNC_JOBS[key]['criado'] > 3600:
+                del SYNC_JOBS[key]
+        if any(j['status']=='executando' for j in SYNC_JOBS.values()):
+            raise HTTPException(409, 'Já existe uma sincronização em andamento. Aguarde terminar.')
+        job_id = uuid.uuid4().hex
+        job = {'status':'executando','mensagem':'Localizando relógios…','resultado':None,'cancelar':False,'criado':time.monotonic()}
+        SYNC_JOBS[job_id] = job
+    def progress(message):
+        with SYNC_LOCK:
+            job['mensagem'] = message
+    def run():
+        try:
+            result = synchronize(resolved, progress, lambda:job['cancelar'])
+            with SYNC_LOCK:
+                if job['cancelar']:
+                    job.update(status='cancelado',mensagem='Sincronização cancelada. Tempos mantidos.')
+                else:
+                    job.update(status='concluido',mensagem='Relógios alinhados.',resultado=result)
+        except InterruptedError as exc:
+            with SYNC_LOCK:
+                job.update(status='cancelado',mensagem=str(exc))
+        except ValueError as exc:
+            with SYNC_LOCK:
+                job.update(status='erro',mensagem=str(exc))
+        except Exception:
+            with SYNC_LOCK:
+                job.update(status='erro',mensagem='Não foi possível comparar os relógios. Os tempos anteriores foram mantidos.')
+    threading.Thread(target=run, daemon=True).start()
+    return {'id':job_id}
+
+
+@app.get('/api/cameras/sincronizar/{job_id}')
+def api_status_sincronizar(job_id: str):
+    with SYNC_LOCK:
+        job = SYNC_JOBS.get(job_id)
+        if not job:
+            raise HTTPException(404, 'Sincronização não encontrada.')
+        return {key:job[key] for key in ('status','mensagem','resultado')}
+
+
+@app.post('/api/cameras/sincronizar/{job_id}/cancelar')
+def api_cancelar_sincronizar(job_id: str):
+    with SYNC_LOCK:
+        job = SYNC_JOBS.get(job_id)
+        if not job:
+            raise HTTPException(404, 'Sincronização não encontrada.')
+        job['cancelar'] = True
+    return {'ok':True}
+
+
 @app.post("/api/frame")
 def api_frame(payload: dict = Body(...)):
     video = _resolver_video(payload["video"])
@@ -651,6 +785,8 @@ class IniciarDeteccao(BaseModel):
     metade: str = "baixo"
     inicio: Optional[str] = None
     fim: Optional[str] = None
+    offset_s: float = 0.0            # camera 1 - camera usada (segundos), para alinhar os eventos novos
+    video_ref: Optional[str] = None  # camera 1
 
 
 @app.post("/api/detectar/iniciar")
@@ -671,7 +807,8 @@ def api_iniciar_deteccao(body: IniciarDeteccao):
         cmd += ["--inicio", body.inicio]
     if body.fim:
         cmd += ["--fim", body.fim]
-    return {"job_id": _iniciar_job(cmd)}
+    antes = _indices_em_gols_json()
+    return {"job_id": _iniciar_job(cmd, lambda: _alinhar_eventos_novos(antes, body.offset_s, body.video_ref))}
 
 
 class IniciarDeteccaoZonas(BaseModel):
@@ -680,6 +817,8 @@ class IniciarDeteccaoZonas(BaseModel):
     limiar: Optional[float] = None
     inicio: Optional[str] = None
     fim: Optional[str] = None
+    offset_s: float = 0.0
+    video_ref: Optional[str] = None
 
 
 @app.post("/api/zonas/detectar/iniciar")
@@ -703,7 +842,8 @@ def api_iniciar_deteccao_zonas(body: IniciarDeteccaoZonas):
         cmd += ["--inicio", body.inicio]
     if body.fim:
         cmd += ["--fim", body.fim]
-    return {"job_id": _iniciar_job(cmd)}
+    antes = _indices_em_gols_json()
+    return {"job_id": _iniciar_job(cmd, lambda: _alinhar_eventos_novos(antes, body.offset_s, body.video_ref))}
 
 
 @app.get("/api/gols")
@@ -1434,6 +1574,77 @@ def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: f
     return saida
 
 
+class CortarCameras(BaseModel):
+    cameras: List[int]
+
+
+@app.post("/api/cameras/cortar")
+def api_cortar_cameras(body: CortarCameras):
+    """Corta agora os clipes das cameras 2/3 escolhidas (senao so saem quando o clipe e aberto).
+
+    Usa os mesmos inicio/fim do gols.json e o alinhamento por inicio_jogo_s da partida.
+    O progresso aparece no mesmo formato dos outros jobs (/api/job/{id}).
+    """
+    cams = [c for c in dict.fromkeys(body.cameras) if c in (2, 3)]
+    if not cams:
+        raise HTTPException(400, "escolha a camera 2 e/ou a camera 3")
+    if not os.path.exists(GOLS_JSON):
+        raise HTTPException(400, "detecte ou adicione os clipes antes de cortar outras cameras")
+    cameras = _cameras_da_partida()
+    faltando = [c for c in cams if len(cameras) < c or not cameras[c - 1] or not cameras[0]]
+    if faltando:
+        raise HTTPException(400, "camera " + ", ".join(map(str, faltando)) + " nao foi escolhida no passo 1")
+    with open(GOLS_JSON, encoding="utf-8-sig") as f:
+        eventos = [e for e in json.load(f).get("gols", [])
+                   if e.get("inicio_s") is not None and e.get("fim_s") is not None]
+
+    job_id = uuid.uuid4().hex[:8]
+    job = {"status": "running", "log": [], "linha_atual": "", "returncode": None,
+           "lock": threading.Lock(), "iniciado_em": time.time(), "cancelar": False}
+    JOBS[job_id] = job
+
+    def rodar():
+        falhas = 0
+        try:
+            total = len(eventos) * len(cams)
+            feitos = 0
+            for cam in cams:
+                for ev in eventos:
+                    if job["cancelar"]:
+                        return
+                    feitos += 1
+                    with job["lock"]:
+                        job["linha_atual"] = f"camera {cam}: clipe #{int(ev['indice']):02d} ({feitos}/{total})"
+                    try:
+                        ok = _cortar_clipe_camera(int(ev["indice"]), cam, float(ev["inicio_s"]), float(ev["fim_s"]))
+                    except Exception:
+                        ok = None
+                    if not ok:
+                        falhas += 1
+                        with job["lock"]:
+                            job["log"].append(f"camera {cam}: nao consegui cortar o clipe #{int(ev['indice']):02d}")
+            with job["lock"]:
+                if job["cancelar"]:
+                    return
+                job["log"].append(f"cortados {total - falhas} de {total} clipes.")
+                job["linha_atual"] = ""
+                job["returncode"] = 0 if falhas == 0 else 1
+                job["status"] = "done" if falhas == 0 else "error"
+        except Exception as exc:
+            with job["lock"]:
+                job["log"].append(f"ERRO: {exc}")
+                job["returncode"] = 1
+                job["status"] = "error"
+        finally:
+            if job["cancelar"]:
+                with job["lock"]:
+                    job["status"] = "canceled"
+                    job["linha_atual"] = ""
+
+    threading.Thread(target=rodar, daemon=True).start()
+    return {"job_id": job_id}
+
+
 @app.api_route("/video/clipes/{indice}/camera/{camera}", methods=["GET", "HEAD"])
 def video_clipe_camera(indice: int, camera: int):
     """Clipe visto pela câmera pedida (a 1 é o clipe principal)."""
@@ -1476,6 +1687,17 @@ def api_get_partida():
 
 @app.post("/api/partida")
 def api_salvar_partida(payload: dict = Body(...)):
+    # Uma aba com estado antigo (aberta antes de o placar final ser informado) nao pode
+    # apagar o placar_jogo salvo: so a ausencia da chave preserva; [null, null] apaga de proposito.
+    meta = payload.get("meta")
+    if isinstance(meta, dict) and "placar_jogo" not in meta and os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                antigo = (json.load(f).get("meta") or {}).get("placar_jogo")
+            if antigo is not None:
+                meta["placar_jogo"] = antigo
+        except Exception:
+            pass
     with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
     return {"ok": True}
@@ -1798,6 +2020,8 @@ class IniciarMontagem(BaseModel):
     nome_saida: str | None = None
     video_jogador: bool = False
     resolucao: int | None = None
+    formato: str | None = None          # "16:9" (padrao) ou "9:16"
+    recorte: list[float] | None = None  # 9:16: [x, y, altura] do retangulo escolhido no quadro (0 a 1)
     brilho: float | None = None
     saturacao: float | None = None
     contraste: float | None = None
@@ -1833,6 +2057,10 @@ def api_iniciar_montagem(body: IniciarMontagem):
         cmd.extend(["--codec", str(body.codec)])
     if body.resolucao in (480, 720, 1080, 1440, 2160):
         cmd.extend(["--resolucao", str(body.resolucao)])
+    if body.formato == "9:16":
+        cmd.extend(["--formato", "9:16"])
+        if body.recorte and len(body.recorte) == 3:
+            cmd.extend(["--recorte", ",".join(f"{max(0.0, min(1.0, float(v))):.4f}" for v in body.recorte)])
 
     fc = {}
     if os.path.exists(PARTIDA_JSON):
@@ -1976,6 +2204,68 @@ def api_estado():
         "final_ok": os.path.isfile(FINAL_VIDEO),
         "final_gols_ok": os.path.isfile(FINAL_VIDEO_GOLS),
     }
+
+
+@app.post("/api/novo-corte")
+def api_novo_corte():
+    """Limpa tudo do corte atual para comecar outro do zero.
+
+    Apaga placar, zonas, gols/clipes, marcacoes da partida e os videos gerados
+    (final/ e videos_jogadores/). Mantem nomes, dados e placar final do jogo e dos
+    times (partida.json). Nao mexe nos videos originais (videos/), nas fotos
+    dos jogadores nem no logo. Os JSONs pequenos vao para
+    backups/<data-hora>/ antes de sumir, para dar para recuperar.
+    """
+    import shutil
+
+    ocupados = [j for j in list(JOBS.values()) + list(SYNC_JOBS.values())
+                if j.get("status") in ("running", "queued", "executando")]
+    if ocupados:
+        raise HTTPException(409, "Ha um processamento em andamento. Cancele ou espere terminar antes de limpar.")
+
+    backup_dir = os.path.join(PROJECT_DIR, "backups", time.strftime("%Y%m%d-%H%M%S"))
+    for origem in (PARTIDA_JSON, PLACAR_FILE, ZONAS_FILE, GOLS_JSON):
+        if os.path.isfile(origem):
+            os.makedirs(backup_dir, exist_ok=True)
+            destino = os.path.basename(origem)
+            if origem == GOLS_JSON:
+                destino = "gols_gols.json"
+            shutil.copy2(origem, os.path.join(backup_dir, destino))
+
+    apagados = []
+    # Mantem so o que se reaproveita entre cortes: dados do campeonato e dos times.
+    # Videos, placar e todas as marcacoes (gols, lances, roteiro...) pertencem ao corte antigo.
+    if os.path.isfile(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                antiga = json.load(f)
+        except Exception:
+            antiga = {}
+        meta = antiga.get("meta") or {}
+        nova = {
+            "meta": {k: meta[k] for k in ("data", "comp", "local", "pelada", "placar_jogo") if k in meta},
+            "times": antiga.get("times") or [],
+        }
+        with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
+            json.dump(nova, f, ensure_ascii=False, indent=2)
+    for arq in (PLACAR_FILE, ZONAS_FILE):
+        if os.path.isfile(arq):
+            os.remove(arq)
+            apagados.append(os.path.basename(arq))
+    for pasta in (GOLS_DIR, FINAL_DIR, PLAYER_VIDEOS_DIR):
+        if os.path.isdir(pasta):
+            for nome in os.listdir(pasta):
+                caminho = os.path.join(pasta, nome)
+                if os.path.isdir(caminho) and not os.path.islink(caminho):
+                    shutil.rmtree(caminho, ignore_errors=True)
+                else:
+                    try:
+                        os.remove(caminho)
+                    except OSError:
+                        pass
+            apagados.append(os.path.basename(pasta) + "/")
+    return {"ok": True, "apagados": apagados,
+            "backup": os.path.relpath(backup_dir, PROJECT_DIR) if os.path.isdir(backup_dir) else None}
 
 
 # --------------------------------------------------------------- estatico / boot

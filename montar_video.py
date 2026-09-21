@@ -36,13 +36,82 @@ L, A = 1920, 1080
 # segmento final é reescalado; 1080 mantém o comportamento original.
 ALTURA_SAIDA = 1080
 
+# Formato vertical (9:16): as cartelas continuam sendo desenhadas em 1920x1080 e ficam centralizadas
+# sobre um fundo desfocado; os clipes são recortados por um retângulo 9:16 escolhido no quadro.
+VERTICAL = False
+LV, AV = 1080, 1920            # tela vertical base; a resolução final escala a partir dela
+RECORTE = (0.21875, 0.0, 1.0)   # x, y (canto superior esquerdo) e altura do recorte, tudo de 0 a 1 do quadro
+
 
 def escala_saida():
-    """Filtro ffmpeg que leva o quadro 1920x1080 à resolução escolhida."""
+    """Filtro ffmpeg que leva o quadro-base à resolução escolhida."""
+    if VERTICAL:
+        if ALTURA_SAIDA == LV:
+            return ""
+        return f",scale={ALTURA_SAIDA}:{int(round(ALTURA_SAIDA * AV / LV / 2)) * 2}:flags=lanczos"
     if ALTURA_SAIDA == A:
         return ""
     largura = int(round(ALTURA_SAIDA * L / A / 2)) * 2
     return f",scale={largura}:{ALTURA_SAIDA}:flags=lanczos"
+
+
+def filtro_recorte_vertical():
+    """Recorta o retângulo 9:16 escolhido e leva à tela vertical base."""
+    x0, y0, hf = RECORTE
+    return (f"crop=w=ih*{hf:.4f}*9/16:h=ih*{hf:.4f}:x='min(iw*{x0:.4f},iw-ow)':y='min(ih*{y0:.4f},ih-oh)',"
+            f"scale={LV}:{AV}:flags=lanczos")
+
+
+def overlay_para_vertical(img):
+    """Reorganiza a faixa de lance (1920x1080) para a tela vertical: placar no topo,
+    marca d'água no canto e a faixa do lance embaixo, maiores para ler no celular."""
+    import numpy as np
+    saida = Image.new("RGBA", (LV, AV), (0, 0, 0, 0))
+    alfa = np.array(img.getchannel("A")) > 0
+    if not alfa.any():
+        return saida
+
+    def bbox(mascara):
+        ys, xs = np.where(mascara)
+        return (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1) if len(xs) else None
+
+    corte_y = A // 5
+    topo = alfa.copy(); topo[corte_y:] = False
+    base = alfa.copy(); base[:corte_y] = False
+    # Topo: separa o placar (esquerda) da marca d'água (direita) pelo maior vazio entre eles.
+    cols = np.where(topo.any(axis=0))[0]
+    grupos, ini, ant = [], None, None
+    for c in cols:
+        if ini is None:
+            ini = ant = int(c)
+        elif c > ant + 40:
+            grupos.append((ini, ant + 1)); ini = ant = int(c)
+        else:
+            ant = int(c)
+    if ini is not None:
+        grupos.append((ini, ant + 1))
+
+    def colar(regiao, escala, x, y):
+        b = bbox(regiao)
+        if not b:
+            return
+        rec = img.crop(b)
+        rec = rec.resize((max(1, int(rec.width * escala)), max(1, int(rec.height * escala))), Image.Resampling.LANCZOS)
+        saida.alpha_composite(rec, (max(0, x if x >= 0 else LV + x - rec.width), y))
+
+    margem = 40
+    for k, (x0, x1) in enumerate(grupos):
+        regiao = topo.copy(); regiao[:, :x0] = False; regiao[:, x1:] = False
+        if k == 0 and len(grupos) > 1:
+            colar(regiao, 1.4, margem, 150)        # placar
+        else:
+            colar(regiao, 1.6, -margem, 150)       # marca d'agua (alinhada a direita)
+    b = bbox(base)
+    if b:
+        escala = min(2.0, (LV - 2 * margem) / (b[2] - b[0]))
+        altura = int((b[3] - b[1]) * escala)
+        colar(base, escala, margem, AV - 380 - altura)   # acima da area coberta pela interface do celular
+    return saida
 FPS = 30
 FUNDO = (11, 15, 23)
 PAINEL = (18, 24, 38)
@@ -1100,7 +1169,10 @@ def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec
     roda(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", img_path,
           "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
           "-t", str(dur), "-r", str(FPS),
-          "-vf", f"format=yuv420p,fade=t=in:st=0:d={fade},"
+          "-vf", (f"split[a][b];[a]scale={LV}:{AV}:force_original_aspect_ratio=increase,crop={LV}:{AV},"
+                  f"boxblur=40:6,eq=brightness=-0.08[bg];[b]scale={LV}:-2[fg];"
+                  f"[bg][fg]overlay=(W-w)/2:(H-h)/2," if VERTICAL else "")
+                 + f"format=yuv420p,fade=t=in:st=0:d={fade},"
                  f"fade=t=out:st={max(dur - fade, 0.1)}:d={fade}{escala_saida()}",
           "-c:v", c_v, "-preset", str(preset), "-crf", str(crf),
           "-pix_fmt", "yuv420p", "-movflags", "+faststart",
@@ -1142,8 +1214,11 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
     filtro_zoom = "" if zoom <= 1.01 else (
         f"crop=iw/{zoom:.2f}:ih/{zoom:.2f}:(iw-ow)*{zoom_x:.4f}:(ih-oh)*{zoom_y:.4f},"
     )
-    vf = (f"{filtro_zoom}scale={L}:{A}:force_original_aspect_ratio=decrease,"
-          f"pad={L}:{A}:(ow-iw)/2:(oh-ih)/2,fps={FPS}{filtro_cor},format=yuv420p")
+    if VERTICAL:
+        vf = f"{filtro_recorte_vertical()},fps={FPS}{filtro_cor},format=yuv420p"
+    else:
+        vf = (f"{filtro_zoom}scale={L}:{A}:force_original_aspect_ratio=decrease,"
+              f"pad={L}:{A}:(ow-iw)/2:(oh-ih)/2,fps={FPS}{filtro_cor},format=yuv420p")
     filtro = (f"[0:v]{vf}[v0];"
               f"[1:v]format=rgba,fade=t=in:st={ini}:d=0.35:alpha=1,"
               f"fade=t=out:st={fim - 0.35}:d=0.35:alpha=1[ov];"
@@ -1280,9 +1355,22 @@ def main():
     ap.add_argument("--codec", default="libx264", help="Codec de vídeo (libx264, libx265)")
     ap.add_argument("--resolucao", type=int, default=1080, choices=[480, 720, 1080, 1440, 2160],
                     help="Altura do vídeo final em pixels (16:9)")
+    ap.add_argument("--formato", choices=["16:9", "9:16"], default="16:9",
+                    help="9:16 gera video vertical; a resolucao passa a ser a LARGURA (720, 1080, ...)")
+    ap.add_argument("--recorte", default=None,
+                    help="9:16: retangulo escolhido no quadro como x,y,altura (0 a 1), ex.: 0.22,0,1")
     args = ap.parse_args()
-    global ALTURA_SAIDA
+    global ALTURA_SAIDA, VERTICAL, RECORTE
     ALTURA_SAIDA = args.resolucao
+    if args.formato == "9:16":
+        VERTICAL = True
+        if args.recorte:
+            try:
+                x0, y0, hf = (float(v) for v in args.recorte.split(","))
+                hf = min(1.0, max(0.2, hf))
+                RECORTE = (min(1.0, max(0.0, x0)), min(1.0, max(0.0, y0)), hf)
+            except ValueError:
+                print("AVISO: --recorte invalido; usando o recorte central.")
 
     with open(args.partida, encoding="utf-8-sig") as f:
         d = json.load(f)
@@ -1410,8 +1498,9 @@ def main():
             placar_a, placar_b = placar_no_momento(ev)
 
             png = os.path.join(tmp, f"ov{n:03d}.png")
-            cartela_lance(ev, d["times"], tipo, placar_a, placar_b,
-                          gol_neste_clipe=gol_neste_clipe, time_gol=time_gol, d_=d).save(png)
+            ov = cartela_lance(ev, d["times"], tipo, placar_a, placar_b,
+                               gol_neste_clipe=gol_neste_clipe, time_gol=time_gol, d_=d)
+            (overlay_para_vertical(ov) if VERTICAL else ov).save(png)
 
             rot = ev.get("autor") or ev.get("lance") or "lance"
             status_placar = f"[{placar_a} × {placar_b}]"
