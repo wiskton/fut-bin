@@ -46,7 +46,7 @@ Seletor intuitivo com 4 perfis de compressão (Otimizado CRF 24 economizando ~50
 ![Assistente Web - Perfis de Compressão e Estimativa de Duração](docs/screenshots/08_assistente_montagem_qualidade.png)
 
 ### 8b. Vídeo do Jogador — Resolução, Qualidade & Cores com Prévia
-Na tela do jogador (passo 8) dá para escolher a **resolução** (720p, 1080p, 2K ou 4K), o perfil de compressão e ajustar **brilho, contraste e saturação**, igual à tela dos vídeos. Um quadro real de um clipe do jogador mostra como a imagem vai ficar, com slider para trocar de cena e botão para comparar com o original. A tela dos vídeos também ganhou o seletor de resolução.
+Na tela do jogador (passo 9) dá para escolher a **resolução** (720p, 1080p, 2K ou 4K), o perfil de compressão e ajustar **brilho, contraste e saturação**, igual à tela dos vídeos. Um quadro real de um clipe do jogador mostra como a imagem vai ficar, com slider para trocar de cena e botão para comparar com o original. A tela dos vídeos também ganhou o seletor de resolução.
 
 ### 8c. Escalação Tática — Goleiro na Própria Área
 O goleiro é sempre desenhado dentro da pequena área no campo da abertura. Quem não tem posição escolhida recebe o padrão por ordem do elenco (1º goleiro), e a escalação completa é gravada no `partida.json`.
@@ -108,9 +108,12 @@ Abre `http://127.0.0.1:8000` automaticamente e guia por 7 passos:
    completa com foto e posições para o campinho tático da abertura.
 6. **Marcação com Modo Teatro** — player em tela ampla (estilo YouTube com atalho <kbd>T</kbd>),
    selecionando autor do gol e assistência de forma rápida e confortável com salvamento instantâneo.
-7. **Resumo & montagem** — escolha do perfil de compressão (CRF 24 otimizado, WhatsApp ou super leve),
+7. **Resumo** — placar calculado, conferência de gols faltando, pódio, cronologia e a identidade
+   visual das cartelas.
+8. **Vídeo final** — escolha do perfil de compressão (CRF 24 otimizado, WhatsApp ou super leve),
    estimativa de duração calculada em tempo real, renderização com alerta comemorativo e download dos
    vídeos finais prontos em Full HD.
+9. **Jogador** — estatísticas e vídeo individual de cada jogador (horizontal 16:9 ou vertical 9:16).
 
 **Onde fica o vídeo**: em qualquer pasta do seu computador - o navegador de pastas do passo 1
 alcança o disco inteiro (a mesma conta que roda o `./run.sh site`). O assistente lê o arquivo

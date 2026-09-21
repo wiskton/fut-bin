@@ -993,8 +993,8 @@
   </div>
 
   <div class="card" id="cardVideoCompleto">
-    <h2>Assistir ao vídeo completo do jogo</h2>
-    <p class="hint">Assista ao jogo na íntegra para conferir os lances e cortar jogadas faltantes.</p>
+    <h2>Assistir ao vídeo completo do jogo <span id="rotCameraCompleto" class="hint" style="font-size:12px"></span></h2>
+    <p class="hint">Assista ao jogo na íntegra para conferir os lances e cortar jogadas faltantes. Acompanha a câmera escolhida em "Ver clipes da câmera"; os tempos mostrados e digitados são sempre os do jogo (câmera 1), e o corte sai em todas as câmeras.</p>
     <video id="videoCompleto" controls preload="metadata" style="width:100%; max-height:460px; border-radius:9px; background:#000; margin-top:6px"></video>
     <div class="row" style="margin-top:6px; align-items:center; gap:10px; background:var(--panel2); padding:6px 12px; border-radius:7px; border:1px solid var(--line); flex-wrap:wrap">
       <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho:</span>
@@ -1451,6 +1451,13 @@
     </div>
   </div>
 
+  <div class="row" style="margin-top:16px; justify-content:flex-end">
+    <button type="button" class="act" onclick="irPara('s-final')">Continuar → vídeo final</button>
+  </div>
+</section>
+
+<!-- ================= 8. VIDEO FINAL ================= -->
+<section id="s-final">
   <div class="card">
     <h2>Montar vídeo final</h2>
     <div class="grid2">
@@ -1540,7 +1547,8 @@
     <div id="containerVideosGerados" style="margin-top:12px"></div>
     <div id="montarLog" class="log" style="display:none;margin-top:10px"></div>
     <div id="resultadoFinal" style="margin-top:10px"></div>
-    <div class="row" style="margin-top:16px; justify-content:flex-end">
+    <div class="row" style="margin-top:16px; justify-content:space-between; flex-wrap:wrap; gap:8px">
+      <button type="button" class="ghost" onclick="irPara('s-resumo')">← Voltar ao resumo</button>
       <button type="button" class="act" onclick="irPara('s-jogador')">Continuar → estatísticas do jogador</button>
     </div>
   </div>
@@ -1641,7 +1649,7 @@
   <div id="resultadoJogador" class="hint" style="margin-top:10px"></div>
   <div id="montarLogJogador" class="log" style="display:none;margin-top:10px"></div>
   <div id="videosJogadoresSalvos" style="margin-top:12px"></div>
-  <div class="row" style="margin-top:14px"><button type="button" class="ghost" onclick="irPara('s-resumo')">← Voltar ao resumo</button></div>
+  <div class="row" style="margin-top:14px"><button type="button" class="ghost" onclick="irPara('s-final')">← Voltar ao vídeo final</button></div>
 </section>
 
 </main>
@@ -1810,7 +1818,7 @@ const $$ = s => [...document.querySelectorAll(s)];
 const PASSOS = [
   ['s-inicio','Início'], ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
   ['s-revisar','4 · Revisar cortes'], ['s-dados','5 · Dados da partida'], ['s-marcar','6 · Marcação'],
-  ['s-resumo','7 · Resumo'], ['s-jogador','8 · Jogador'],
+  ['s-resumo','7 · Resumo'], ['s-final','8 · Vídeo final'], ['s-jogador','9 · Jogador'],
 ];
 let passoAtual = 's-video';
 
@@ -2163,7 +2171,7 @@ function fecharModalRender(){
 
 function fecharModalRenderEAssistir(qual){
   fecharModalRender();
-  irPara('s-resumo');
+  irPara('s-final');
   const resFinal = document.getElementById('resultadoFinal');
   if(resFinal){
     resFinal.scrollIntoView({behavior:'smooth', block:'start'});
@@ -2270,8 +2278,8 @@ function inicializarVideoCompleto(){
   const st = $('#statusVideoCompleto');
   if(!vc) return;
   if(vc.getAttribute('data-carregado') && vc.src) return;
-  const caminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : '';
-  const urlEsperada = '/video/completo' + (caminho ? ('?video=' + encodeURIComponent(caminho)) : '');
+  const urlEsperada = urlVideoCompleto(cameraVerValida());
+  rotuloCameraVideoCompleto();
   if(vc.getAttribute('data-carregado') !== urlEsperada){
     vc.setAttribute('data-carregado', urlEsperada);
     if(st) st.innerHTML = '<span class="spinner"></span> Carregando vídeo do jogo...';
@@ -2343,6 +2351,7 @@ function irPara(id){
   if(id==='s-gols') renderOpcoesCamerasCorte();
   if(id==='s-revisar') renderCameraVer();
   if(id==='s-resumo') renderResumo();
+  if(id==='s-final'){ atualizarPrevisaoDuracao(); carregarContainerVideosGerados(); }
   if(id==='s-jogador'){ renderTelaJogador(); setTimeout(desenharRecorteVertical, 0); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
 }
@@ -3323,8 +3332,57 @@ function cameraVerValida(){
   return camerasCarregadas().includes(cameraVer) ? cameraVer : 1;
 }
 function definirCameraVer(n){
+  const antes = cameraVerValida();
   cameraVer = n;
   try { localStorage.setItem('futbin_camera_ver', String(n)); } catch(e) {}
+  trocarVideoCompleto(antes);
+}
+// Tempo do jogo (linha do tempo da câmera 1) = tempo do arquivo da câmera n + offsetCameraS(n).
+function offsetCameraS(n){
+  const ref = camerasSelecionadas()[0], cam = camerasSelecionadas()[(n || 1) - 1];
+  if(!ref || !cam || !n || n === 1) return 0;
+  return (Number(ref.inicio_jogo_s) || 0) - (Number(cam.inicio_jogo_s) || 0);
+}
+function caminhoVideoCompleto(n){
+  const cam = camerasSelecionadas()[(n || 1) - 1];
+  return (cam && cam.caminho) || (ESTADO.video && ESTADO.video.caminho) || '';
+}
+function urlVideoCompleto(n){
+  const caminho = caminhoVideoCompleto(n);
+  return '/video/completo' + (caminho ? ('?video=' + encodeURIComponent(caminho)) : '');
+}
+function tempoJogoDoVideoCompleto(){
+  const vc = $('#videoCompleto');
+  return (vc ? (vc.currentTime || 0) : 0) + offsetCameraS(cameraVerValida());
+}
+function irParaTempoJogo(t){
+  const vc = $('#videoCompleto');
+  if(!vc) return;
+  vc.currentTime = Math.max(0, t - offsetCameraS(cameraVerValida()));
+  $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
+}
+function rotuloCameraVideoCompleto(){
+  const el = $('#rotCameraCompleto');
+  if(el) el.textContent = camerasCarregadas().length > 1 ? `· câmera ${cameraVerValida()}` : '';
+}
+function trocarVideoCompleto(anterior){
+  const vc = $('#videoCompleto');
+  rotuloCameraVideoCompleto();
+  if(!vc || !vc.getAttribute('data-carregado')) return;   // ainda não carregado: o carregamento inicial já usa a câmera atual
+  const nova = cameraVerValida();
+  if(nova === anterior) return;
+  const tJogo = (vc.currentTime || 0) + offsetCameraS(anterior);
+  const tocando = !vc.paused;
+  const url = urlVideoCompleto(nova);
+  const st = $('#statusVideoCompleto');
+  vc.setAttribute('data-carregado', url);
+  if(st) st.innerHTML = `<span class="spinner"></span> Carregando a câmera ${nova}...`;
+  vc.addEventListener('loadedmetadata', () => {
+    try { vc.currentTime = Math.max(0, tJogo - offsetCameraS(nova)); } catch(e) {}
+    if(tocando) vc.play().catch(() => {});
+  }, {once: true});
+  vc.src = url; vc.load();
+  if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
 }
 function urlClipeDaCamera(indice, cam){
   const chave = String(indice).padStart(2,'0');
@@ -3532,8 +3590,7 @@ $$('.btnVel').forEach(btn => {
 });
 
 $('#videoCompleto').addEventListener('timeupdate', () => {
-  const t = $('#videoCompleto').currentTime || 0;
-  $('#tempoCompletoTxt').textContent = fmtTempo(t);
+  $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
 });
 
 $('#videoCompleto').addEventListener('loadedmetadata', () => {
@@ -3564,8 +3621,7 @@ function pularParaTempoVideo(){
   }
   const vc = $('#videoCompleto');
   if(vc){
-    vc.currentTime = t;
-    $('#tempoCompletoTxt').textContent = fmtTempo(t);
+    irParaTempoJogo(t);
     vc.play().catch(()=>{});
   }
 }
@@ -3583,7 +3639,7 @@ if(btnMenos15){
     const vc = $('#videoCompleto');
     if(vc){
       vc.currentTime = Math.max(0, (vc.currentTime || 0) - 15);
-      $('#tempoCompletoTxt').textContent = fmtTempo(vc.currentTime);
+      $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
     }
   };
 }
@@ -3593,7 +3649,7 @@ if(btnMais15){
     const vc = $('#videoCompleto');
     if(vc){
       vc.currentTime = Math.min(vc.duration || 999999, (vc.currentTime || 0) + 15);
-      $('#tempoCompletoTxt').textContent = fmtTempo(vc.currentTime);
+      $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
     }
   };
 }
@@ -3700,8 +3756,7 @@ async function processarFilaCortes(){
 
 $('#btnGerarClipeCompleto').onclick = () => {
   if(!ESTADO.video){ alert('Selecione um vídeo primeiro no passo 1.'); return; }
-  const vc = $('#videoCompleto');
-  const t = vc ? (vc.currentTime || 0) : 0;
+  const t = tempoJogoDoVideoCompleto();
 
   // Evita duplo-clique acidental exato no mesmo segundo dentro de 350ms
   const agora = Date.now();
@@ -4249,7 +4304,7 @@ function abrirModalClipe(c){
 
     if(modoPreviewVideo){
       const v = $('#modalVideo');
-      v.currentTime = novoInicio;
+      v.currentTime = Math.max(0, novoInicio - offsetCameraS(cameraVerValida()));
       v.play().catch(()=>{});
     }
   }
@@ -4378,13 +4433,12 @@ function abrirModalClipe(c){
   if(btnPreview){
     btnPreview.onclick = () => {
       modoPreviewVideo = true;
-      const caminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : '';
-      const urlVideoCompleto = '/video/completo' + (caminho ? ('?video=' + encodeURIComponent(caminho)) : '');
+      const camPrev = cameraVerValida();
       const novoInicio = Math.max(0, Math.round((inicioOriginal + modalOffsetSec) * 100) / 100);
 
       const v = $('#modalVideo');
-      v.src = urlVideoCompleto;
-      v.currentTime = novoInicio;
+      v.src = urlVideoCompleto(camPrev);
+      v.currentTime = Math.max(0, novoInicio - offsetCameraS(camPrev));
       v.play().catch(()=>{});
 
       btnPreview.style.display = 'none';
