@@ -45,6 +45,9 @@ import sys
 import threading
 import time
 import uuid
+
+from preview_video import preview_key
+from video_quality import CLIP_QUALITY_VERSION, clip_command as _comando_corte_qualidade_maxima
 from typing import List, Optional
 
 import cv2
@@ -73,7 +76,6 @@ FINAL_VIDEO = os.path.join(FINAL_DIR, "melhores_momentos.mp4")
 FINAL_VIDEO_GOLS = os.path.join(FINAL_DIR, "apenas_gols.mp4")
 # Os destaques individuais são independentes dos dois vídeos finais da partida.
 PLAYER_VIDEOS_DIR = os.path.join(PROJECT_DIR, "videos_jogadores")
-
 
 def _nome_download_video(tipo: str) -> str:
     """Nome amigável do arquivo baixado, baseado nos dados da partida."""
@@ -524,6 +526,49 @@ def video_completo(video: Optional[str] = None):
     if not caminho or not os.path.isfile(caminho):
         raise HTTPException(404, "video nao encontrado")
     return FileResponse(caminho, media_type="video/mp4")
+
+
+# Cópias leves são exclusivas da visualização; os cortes usam o original.
+PREVIEW_DIR = os.path.join(PROJECT_DIR, ".preview_cache")
+PREVIEW_JOBS = {}
+PREVIEW_LOCK = threading.Lock()
+
+
+class PreviewBody(BaseModel):
+    video: str
+    altura: int = 360
+
+
+@app.post("/api/video/previa")
+def api_previa_video(body: PreviewBody):
+    if body.altura not in (360, 480):
+        raise HTTPException(400, "Escolha 360p ou 480p")
+    source = _resolver_video(body.video)
+    key = preview_key(source, body.altura)
+    output = os.path.join(PREVIEW_DIR, key + ".mp4")
+    url = "/video/previa/" + key
+    with PREVIEW_LOCK:
+        if os.path.isfile(output) and os.path.getsize(output) > 0:
+            return {"pronto": True, "url": url}
+        job_id = PREVIEW_JOBS.get(key)
+        job = JOBS.get(job_id)
+        if job is None or job["status"] in ("error", "canceled", "done"):
+            job_id = _iniciar_job([
+                PYTHON_EXEC, os.path.join(PROJECT_DIR, "preview_video.py"),
+                source, str(body.altura), output,
+            ])
+            PREVIEW_JOBS[key] = job_id
+    return {"pronto": False, "job_id": job_id, "url": url}
+
+
+@app.api_route("/video/previa/{key}", methods=["GET", "HEAD"])
+def video_previa(key: str):
+    if not re.fullmatch(r"[a-f0-9]{64}", key):
+        raise HTTPException(404, "Prévia não encontrada")
+    path = os.path.join(PREVIEW_DIR, key + ".mp4")
+    if not os.path.isfile(path):
+        raise HTTPException(404, "Prévia ainda não está pronta")
+    return FileResponse(path, media_type="video/mp4")
 
 
 @app.get("/api/explorar")
@@ -1066,13 +1111,10 @@ def api_adicionar_gol(body: AdicionarGol):
     # Corta APENAS o novo clipe diretamente com ffmpeg para o arquivo exclusivo
     dur = round(fim_s - inicio_s, 2)
     saida_clipe = os.path.join(CLIPES_DIR, f"gol_{novo_indice:02d}.mp4")
-    subprocess.run([
-        "ffmpeg", "-y", "-loglevel", "error",
-        "-ss", str(inicio_s), "-i", video, "-t", str(dur),
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-        "-c:a", "aac", "-avoid_negative_ts", "make_zero", saida_clipe,
-    ], check=False)
+    subprocess.run(
+        _comando_corte_qualidade_maxima(video, inicio_s, dur, saida_clipe),
+        check=False,
+    )
 
     # Uma pasta de clipes por câmera: corta o mesmo instante nas câmeras 2 e 3, se existirem.
     for cam_extra in (2, 3):
@@ -1550,7 +1592,7 @@ def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: f
     pasta = _pasta_clipes_camera(camera)
     os.makedirs(pasta, exist_ok=True)
     saida = os.path.join(pasta, f"gol_{indice:02d}.mp4")
-    marca = f"{inicio_cam:.2f}|{duracao:.2f}|{origem}"
+    marca = f"{CLIP_QUALITY_VERSION}|{inicio_cam:.2f}|{duracao:.2f}|{origem}"
     arq_marca = saida + ".corte"
     with _CAM_LOCK:
         if os.path.isfile(saida) and os.path.isfile(arq_marca):
@@ -1562,9 +1604,8 @@ def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: f
                 pass
         tmp = saida + ".part.mp4"
         r = subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{inicio_cam:.3f}", "-i", origem,
-             "-t", f"{duracao:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-             "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", tmp],
+            _comando_corte_qualidade_maxima(origem, float(f"{inicio_cam:.3f}"),
+                                             float(f"{duracao:.3f}"), tmp),
             capture_output=True, text=True)
         if r.returncode != 0 or not os.path.isfile(tmp):
             return None

@@ -524,3 +524,21 @@ Vale registrar para ninguém repetir o caminho.
 Construído sobre ferramentas abertas: ffmpeg, OpenCV, NumPy, Pillow. A exploração inicial de visão computacional usou [roboflow/sports](https://github.com/roboflow/sports).
 
 Use e adapte à vontade.
+
+## Reprodução leve na tela 4
+
+Em **Revisar os cortes → Assistir ao vídeo completo**, escolha **Qualidade para
+assistir → 360p** para facilitar a revisão em 5x, ou 480p para mais detalhes.
+A preparação acontece em segundo plano e mostra o tempo já processado. Na
+primeira vez pode demorar alguns minutos; a cópia é reaproveitada nas próximas
+visitas. É possível voltar para Original a qualquer momento.
+
+A versão leve usa 15 quadros por segundo e mantém a duração original: ao trocar,
+o player conserva a posição e a velocidade. Cada câmera tem sua própria cópia.
+As marcações, os cortes e as exportações continuam usando os arquivos originais.
+Os cortes curtos preservam a resolução e a taxa de quadros da câmera, usando
+H.264 CRF 14 e áudio AAC 320 kb/s para qualidade visual muito alta.
+Essa configuração é compartilhada pelos cortes automáticos, manuais, ajustes
+de duração e câmeras alternativas. A resolução leve é usada somente no player.
+As cópias ficam em `.preview_cache/`, exigem FFmpeg e espaço em disco. A fluidez
+em 5x também depende do computador e do navegador.

@@ -12,3 +12,6 @@ videos/
 *.json
 !config*.json
 /fut-bin
+
+# Cópias leves de reprodução, recriáveis a partir do original
+.preview_cache/

@@ -30,6 +30,7 @@ import tempfile
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 from PIL import Image, ImageDraw, ImageFont, ImageFile
+from video_quality import clip_command
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 L, A = 1920, 1080
@@ -1366,9 +1367,8 @@ def clipe_da_camera_sincronizada(ev, cameras, pasta_tmp):
     duracao = fim_ref - inicio_ref
     saida = os.path.join(pasta_tmp, f"cam{camera}_{int(ev.get('indice', 0)):02d}.mp4")
     try:
-        roda(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{inicio_cam:.3f}", "-i", origem,
-              "-t", f"{duracao:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-              "-c:a", "aac", "-movflags", "+faststart", saida])
+        roda(clip_command(origem, float(f"{inicio_cam:.3f}"),
+                          float(f"{duracao:.3f}"), saida))
         return saida if os.path.exists(saida) else None
     except Exception:
         return None

@@ -1009,6 +1009,17 @@
       <button type="button" class="ghost btn-brilho-diminuir" style="font-size:11px; padding:2px 8px">💡 Diminuir brilho (-55%)</button>
       <button type="button" class="ghost btn-brilho-reset" style="font-size:11px; padding:2px 8px">Normal (100%)</button>
     </div>
+    <div class="row" style="margin-top:10px; gap:10px; align-items:center; flex-wrap:wrap">
+      <label for="qualidadeVideoCompleto" style="margin:0">Qualidade para assistir:</label>
+      <select id="qualidadeVideoCompleto" style="max-width:260px">
+        <option value="original">Original</option>
+        <option value="360">360p · mais leve para 5x</option>
+        <option value="480">480p · leve, com mais detalhes</option>
+      </select>
+      <button type="button" class="ghost" id="btnPrepararPrevia">Preparar / aplicar</button>
+    </div>
+    <p class="hint">Para assistir em 5x, escolha 360p. A primeira preparação pode levar alguns minutos; depois a cópia fica salva. <b>O corte de 15s sempre usa o arquivo original em resolução e qualidade máximas.</b></p>
+    <div id="statusPreviaCompleto" class="hint" role="status" aria-live="polite"></div>
     <div id="statusVideoCompleto" class="hint" style="margin-top:6px"></div>
     <div class="row" style="margin-top:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px">
       <div class="row" style="gap:6px">
@@ -2301,6 +2312,7 @@ function inicializarVideoCompleto(){
   if(vc.getAttribute('data-carregado') !== urlEsperada){
     vc.setAttribute('data-carregado', urlEsperada);
     if(st) st.innerHTML = '<span class="spinner"></span> Carregando vídeo do jogo...';
+    vc.addEventListener('loadedmetadata', () => aplicarQualidadeVideoCompleto(), {once:true});
     vc.src = urlEsperada;
     vc.load();
     if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
@@ -3387,24 +3399,88 @@ function rotuloCameraVideoCompleto(){
   const el = $('#rotCameraCompleto');
   if(el) el.textContent = camerasCarregadas().length > 1 ? `· câmera ${cameraVerValida()}` : '';
 }
+// Cada escolha invalida respostas antigas de outra qualidade ou câmera.
+let pedidoPreviaCompleto = 0;
+let restaurarVideoCompleto = null;
+let posicaoPendenteCompleto = null;
+function posicaoVideoCompleto(){
+  const vc = $('#videoCompleto');
+  return posicaoPendenteCompleto || {tempo:vc.currentTime || 0, tocando:!vc.paused};
+}
+function aplicarFonteVideoCompleto(url, tempoArquivo, tocando){
+  const vc = $('#videoCompleto');
+  const velocidade = vc.playbackRate;
+  // Uma segunda escolha antes dos metadados não deve devolver o vídeo ao zero.
+  posicaoPendenteCompleto = {tempo:tempoArquivo, tocando};
+  vc.defaultPlaybackRate = velocidade;
+  if(restaurarVideoCompleto) vc.removeEventListener('loadedmetadata', restaurarVideoCompleto);
+  restaurarVideoCompleto = () => {
+    vc.currentTime = Math.max(0, Math.min(tempoArquivo, Number.isFinite(vc.duration) ? vc.duration : tempoArquivo));
+    vc.playbackRate = vc.defaultPlaybackRate;
+    posicaoPendenteCompleto = null;
+    if(tocando) vc.play().catch(() => {});
+    restaurarVideoCompleto = null;
+  };
+  vc.addEventListener('loadedmetadata', restaurarVideoCompleto, {once:true});
+  vc.setAttribute('data-carregado', url);
+  vc.src = url;
+  vc.load();
+  vc.playbackRate = velocidade;
+  if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
+}
+async function aplicarQualidadeVideoCompleto(){
+  const pedido = ++pedidoPreviaCompleto;
+  const qualidade = $('#qualidadeVideoCompleto').value;
+  const vc = $('#videoCompleto'), status = $('#statusPreviaCompleto');
+  const camera = cameraVerValida(), caminho = caminhoVideoCompleto(camera);
+  try { localStorage.setItem('futbin_qualidade_revisao', qualidade); } catch(e) {}
+  const atual = () => pedido === pedidoPreviaCompleto && camera === cameraVerValida() && caminho === caminhoVideoCompleto(camera);
+  if(qualidade === 'original'){
+    const url = urlVideoCompleto(camera);
+    if(vc.getAttribute('data-carregado') !== url) aplicarFonteVideoCompleto(url, posicaoVideoCompleto().tempo, posicaoVideoCompleto().tocando);
+    status.textContent = 'Qualidade original.';
+    return;
+  }
+  if(!caminho){ status.textContent = 'Escolha o vídeo no passo 1 antes de preparar a versão leve.'; return; }
+  status.textContent = `Preparando ${qualidade}p… Você pode continuar usando o vídeo enquanto aguarda.`;
+  try {
+    const response = await fetch('/api/video/previa', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({video:caminho, altura:Number(qualidade)})});
+    const data = await response.json().catch(() => ({}));
+    if(response.status === 404){
+      throw new Error('O servidor ainda está na versão antiga. Feche o fut-bin, abra novamente e então clique em Preparar / aplicar.');
+    }
+    if(!response.ok) throw new Error(data.detail || `Não foi possível iniciar a preparação (erro ${response.status}).`);
+    while(!data.pronto){
+      if(!atual()) return;
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      if(!atual()) return;
+      const r = await fetch('/api/job/' + data.job_id);
+      if(!r.ok) throw new Error('Não foi possível consultar a preparação. Tente novamente.');
+      const job = await r.json();
+      if(!atual()) return;
+      if(job.status === 'error' || job.status === 'canceled') throw new Error('A preparação não terminou. Confira se o FFmpeg está instalado e se há espaço em disco; clique em Preparar / aplicar para tentar novamente.');
+      if(job.status === 'done') break;
+      const progress = [...(job.log || []), job.linha_atual || ''].reverse().find(line => line.startsWith('out_time='));
+      status.textContent = `Preparando ${qualidade}p…` + (progress ? ' Processado: ' + progress.slice(9, 17) + '.' : '') + ' Você pode continuar usando o vídeo.';
+    }
+    if(!atual()) return;
+    if(vc.getAttribute('data-carregado') !== data.url) aplicarFonteVideoCompleto(data.url, posicaoVideoCompleto().tempo, posicaoVideoCompleto().tocando);
+    status.textContent = `${qualidade}p pronto. Cortes e exportações continuam na qualidade original.`;
+  } catch(error){
+    if(atual()) status.textContent = 'Não foi possível aplicar a versão leve. ' + error.message;
+  }
+}
 function trocarVideoCompleto(anterior){
   const vc = $('#videoCompleto');
   rotuloCameraVideoCompleto();
-  if(!vc || !vc.getAttribute('data-carregado')) return;   // ainda não carregado: o carregamento inicial já usa a câmera atual
+  if(!vc || !vc.getAttribute('data-carregado')) return;
   const nova = cameraVerValida();
   if(nova === anterior) return;
-  const tJogo = (vc.currentTime || 0) + offsetCameraS(anterior);
-  const tocando = !vc.paused;
-  const url = urlVideoCompleto(nova);
-  const st = $('#statusVideoCompleto');
-  vc.setAttribute('data-carregado', url);
-  if(st) st.innerHTML = `<span class="spinner"></span> Carregando a câmera ${nova}...`;
-  vc.addEventListener('loadedmetadata', () => {
-    try { vc.currentTime = Math.max(0, tJogo - offsetCameraS(nova)); } catch(e) {}
-    if(tocando) vc.play().catch(() => {});
-  }, {once: true});
-  vc.src = url; vc.load();
-  if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
+  ++pedidoPreviaCompleto;
+  const posicao = posicaoVideoCompleto();
+  const tempo = posicao.tempo + offsetCameraS(anterior) - offsetCameraS(nova);
+  aplicarFonteVideoCompleto(urlVideoCompleto(nova), tempo, posicao.tocando);
+  vc.addEventListener('loadedmetadata', () => aplicarQualidadeVideoCompleto(), {once:true});
 }
 function urlClipeDaCamera(indice, cam){
   const chave = String(indice).padStart(2,'0');
@@ -3601,11 +3677,18 @@ $('#btnDetectarZonas').onclick = async ()=>{
 $('#btnIrRevisar').onclick = ()=>irPara('s-revisar');
 
 /* ------------------------------------------------------------ passo 4: revisar os cortes */
+try {
+  const qualidade = localStorage.getItem('futbin_qualidade_revisao');
+  if(['original','360','480'].includes(qualidade)) $('#qualidadeVideoCompleto').value = qualidade;
+} catch(e) {}
+$('#qualidadeVideoCompleto').onchange = aplicarQualidadeVideoCompleto;
+$('#btnPrepararPrevia').onclick = aplicarQualidadeVideoCompleto;
+
 $$('.btnVel').forEach(btn => {
   btn.onclick = () => {
     const vel = parseFloat(btn.dataset.vel);
     const vc = $('#videoCompleto');
-    if(vc) vc.playbackRate = vel;
+    if(vc) { vc.defaultPlaybackRate = vel; vc.playbackRate = vel; }
     $$('.btnVel').forEach(b => b.classList.remove('sel'));
     btn.classList.add('sel');
   };
@@ -3719,7 +3802,7 @@ async function processarFilaCortes(){
     if(logEl){
       logEl.style.display = 'block';
       const filaMsg = filaCortes.length > 0 ? ` (+${filaCortes.length} na fila)` : '';
-      logEl.innerHTML = `<span class="spinner"></span> <b>Cortando clipe (${job.rotuloClipe})</b> de ${fmtTempo(job.inicio_s)} até ${fmtTempo(job.fim_s)} (${job.dur}s)${filaMsg}...`;
+      logEl.innerHTML = `<span class="spinner"></span> <b>Cortando do original em qualidade máxima (${job.rotuloClipe})</b> de ${fmtTempo(job.inicio_s)} até ${fmtTempo(job.fim_s)} (${job.dur}s)${filaMsg}...`;
     }
 
     try {

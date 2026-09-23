@@ -32,6 +32,7 @@ import subprocess
 import cv2
 import numpy as np
 from tqdm import tqdm
+from video_quality import clip_command
 
 # --- amostragem ---
 SAMPLE_FPS = 5.0        # amostras por segundo
@@ -440,13 +441,10 @@ def cortar(video_path, eventos, output_dir):
     for ev in tqdm(eventos, desc="cortando"):
         saida = os.path.join(destino, f"gol_{ev['indice']:02d}.mp4")
         dur = ev["fim_s"] - ev["inicio_s"]
-        subprocess.run([
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-ss", str(ev["inicio_s"]), "-i", video_path, "-t", str(dur),
-            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-            "-c:a", "aac", "-avoid_negative_ts", "make_zero", saida,
-        ], check=False)
+        subprocess.run(
+            clip_command(video_path, ev["inicio_s"], dur, saida),
+            check=False,
+        )
     print(f"clipes em {os.path.abspath(destino)}")
 
 
