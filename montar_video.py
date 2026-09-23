@@ -45,6 +45,38 @@ LV, AV = 1080, 1920            # tela vertical base; a resolução final escala 
 RECORTE = (0.21875, 0.0, 1.0)   # x, y (canto superior esquerdo) e altura do recorte, tudo de 0 a 1 do quadro
 
 
+def obter_zoom_camera(ev: dict, camera: int) -> tuple:
+    """Zoom (zoom, zoom_x, zoom_y) marcado para a câmera indicada deste lance.
+
+    A câmera 1 usa os campos legados zoom/zoom_x/zoom_y (compatibilidade com
+    partida.json/gols.json antigos). As câmeras 2 e 3 têm enquadramento
+    próprio, guardado em zoom_por_camera, porque cada câmera física filma o
+    jogo de um ângulo/distância diferente - o recorte de uma não serve pra
+    outra. Sem marcação própria, a câmera extra começa sem zoom (1.0).
+    """
+    if int(camera) <= 1:
+        return (
+            float(ev.get("zoom", 1.0) or 1.0),
+            float(ev.get("zoom_x", 0.5) if ev.get("zoom_x") is not None else 0.5),
+            float(ev.get("zoom_y", 0.5) if ev.get("zoom_y") is not None else 0.5),
+        )
+    dados = (ev.get("zoom_por_camera") or {}).get(str(int(camera))) or {}
+    return (
+        float(dados.get("zoom", 1.0) or 1.0),
+        float(dados.get("zoom_x", 0.5) if dados.get("zoom_x") is not None else 0.5),
+        float(dados.get("zoom_y", 0.5) if dados.get("zoom_y") is not None else 0.5),
+    )
+
+
+def definir_zoom_camera(ev: dict, camera: int, zoom: float, zoom_x: float, zoom_y: float) -> None:
+    """Grava o zoom da câmera indicada em `ev`, no mesmo formato usado por obter_zoom_camera."""
+    if int(camera) <= 1:
+        ev["zoom"], ev["zoom_x"], ev["zoom_y"] = zoom, zoom_x, zoom_y
+        return
+    por_camera = ev.setdefault("zoom_por_camera", {})
+    por_camera[str(int(camera))] = {"zoom": zoom, "zoom_x": zoom_x, "zoom_y": zoom_y}
+
+
 def escala_saida():
     """Filtro ffmpeg que leva o quadro-base à resolução escolhida."""
     if VERTICAL:
@@ -1479,6 +1511,8 @@ def main():
                 ev_z["zoom"] = src["zoom"]
                 ev_z["zoom_x"] = src.get("zoom_x", 0.5)
                 ev_z["zoom_y"] = src.get("zoom_y", 0.5)
+            if src and src.get("zoom_por_camera"):
+                ev_z["zoom_por_camera"] = src["zoom_por_camera"]
     except (OSError, ValueError):
         pass
 
@@ -1586,8 +1620,9 @@ def main():
                 s = os.path.join(tmp, f"s{n:03d}_c{cam}.mp4")
                 sufixo = f" (câmera {cam})" if len(fontes) > 1 else ""
                 print(f"  [{n:02d}/{len(roteiro)}] {ev.get('tempo','')} {status_placar} {tipo}: {rot}{sufixo}")
+                zoom_cam, zoom_x_cam, zoom_y_cam = obter_zoom_camera(ev, cam)
                 seg_de_clipe(clipe, png, s, args.sem_audio, ajuste_cor=ajuste_cor,
-                              zoom=ev.get("zoom", 1.0), zoom_x=ev.get("zoom_x", 0.5), zoom_y=ev.get("zoom_y", 0.5),
+                              zoom=zoom_cam, zoom_x=zoom_x_cam, zoom_y=zoom_y_cam,
                               crf=args.crf, preset=args.preset, codec=args.codec)
                 partes.append(s)
                 if tipo == "gol":

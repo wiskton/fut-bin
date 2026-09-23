@@ -4188,6 +4188,26 @@ function renderGradeClipes(clipes){
   $('#contagemClipes').textContent = `(${contagemGols} gols · ${contagemLances} lances · ${faltam} sem marcação · ordem cronológica ⏱️)`;
 }
 
+// Cada câmera filma o jogo de um ângulo/distância diferente, então o zoom marcado
+// numa câmera não serve pra outra: fica guardado por câmera (câmera 1 usa os campos
+// legados zoom/zoom_x/zoom_y; 2 e 3 ficam em zoom_por_camera). Espelha
+// obter_zoom_camera/definir_zoom_camera do montar_video.py.
+function zoomDaCamera(ev, cam){
+  const numCam = Number(cam) || 1;
+  const fonte = numCam <= 1 ? ev : ((ev.zoom_por_camera || {})[numCam] || (ev.zoom_por_camera || {})[String(numCam)] || {});
+  return {
+    zoom: Number.isFinite(Number(fonte.zoom)) ? Number(fonte.zoom) : 1,
+    zoom_x: Number.isFinite(Number(fonte.zoom_x)) ? Number(fonte.zoom_x) : 0.5,
+    zoom_y: Number.isFinite(Number(fonte.zoom_y)) ? Number(fonte.zoom_y) : 0.5,
+  };
+}
+function definirZoomDaCamera(ev, cam, zoom, zoom_x, zoom_y){
+  const numCam = Number(cam) || 1;
+  if(numCam <= 1){ ev.zoom = zoom; ev.zoom_x = zoom_x; ev.zoom_y = zoom_y; return; }
+  ev.zoom_por_camera = ev.zoom_por_camera || {};
+  ev.zoom_por_camera[numCam] = { zoom, zoom_x, zoom_y };
+}
+
 function renderModalCameras(c){
   const box = $('#modalCameraBotoes'), st = $('#modalCameraStatus'), v = $('#modalVideo');
   if(!box) return;
@@ -4215,9 +4235,93 @@ function renderModalCameras(c){
       v.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
       v.load();
       box.querySelectorAll('button').forEach((x, i) => x.className = (i + 1) === n ? 'act' : 'ghost');
+      configurarZoomModal(c, n);
     };
     box.appendChild(b);
   });
+}
+
+function configurarZoomModal(c, cam){
+  const v = $('#modalVideo');
+  const zoomInput = $('#modalZoomClipe');
+  const zoomValor = $('#modalZoomClipeValor');
+  const zoomReset = $('#btnModalZoomReset');
+  const zoomArea = $('#modalZoomArea');
+  const zoomViewport = $('#modalVideoViewport');
+  const estado = zoomDaCamera(c, cam);
+  const aplicarZoomClipe = (valor) => {
+    const zoom = Math.max(1, Math.min(2.2, Number(valor) || 1));
+    const focoX = Math.max(0, Math.min(1, Number(estado.zoom_x)));
+    const focoY = Math.max(0, Math.min(1, Number(estado.zoom_y)));
+    const tamanho = 100 / zoom;
+    // O vídeo fica sem transformação para o quadro indicar a área de origem com precisão.
+    if(v) v.style.transform = 'scale(1)';
+    estado.zoom = zoom;
+    if(zoomValor) zoomValor.textContent = `${Math.round(zoom * 100)}%`;
+    if(zoomArea){
+      zoomArea.style.display = zoom > 1.01 ? 'block' : 'none';
+      zoomArea.style.width = `${tamanho}%`;
+      zoomArea.style.height = `${tamanho}%`;
+      zoomArea.style.left = `${focoX * (100 - tamanho)}%`;
+      zoomArea.style.top = `${focoY * (100 - tamanho)}%`;
+    }
+    return zoom;
+  };
+  const salvarZoomClipe = async (valor, focoX = estado.zoom_x, focoY = estado.zoom_y) => {
+    const zoom = aplicarZoomClipe(valor);
+    estado.zoom_x = Math.max(0, Math.min(1, Number.isFinite(Number(focoX)) ? Number(focoX) : 0.5));
+    estado.zoom_y = Math.max(0, Math.min(1, Number.isFinite(Number(focoY)) ? Number(focoY) : 0.5));
+    definirZoomDaCamera(c, cam, zoom, estado.zoom_x, estado.zoom_y);
+    const estadoClipe = (ESTADO.gols || []).find(item => item.indice === c.indice);
+    if(estadoClipe) definirZoomDaCamera(estadoClipe, cam, zoom, estado.zoom_x, estado.zoom_y);
+    try {
+      await fetch('/api/gols/zoom', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ indice: c.indice, zoom, zoom_x: estado.zoom_x, zoom_y: estado.zoom_y, camera: cam })
+      });
+    } catch(err) {
+      console.warn('Não foi possível salvar o zoom do clipe', err);
+    }
+  };
+  if(zoomInput){
+    zoomInput.value = String(Math.round(estado.zoom * 100));
+    aplicarZoomClipe(estado.zoom);
+    zoomInput.oninput = () => aplicarZoomClipe(Number(zoomInput.value) / 100);
+    zoomInput.onchange = () => salvarZoomClipe(Number(zoomInput.value) / 100);
+  }
+  if(zoomReset){
+    zoomReset.onclick = () => {
+      if(zoomInput) zoomInput.value = '100';
+      salvarZoomClipe(1);
+    };
+  }
+  if(zoomArea && zoomViewport){
+    zoomArea.onpointerdown = (event) => {
+      if(estado.zoom <= 1.01) return;
+      event.preventDefault();
+      zoomArea.setPointerCapture(event.pointerId);
+      zoomArea.style.cursor = 'grabbing';
+      const mover = (moveEvent) => {
+        const rect = zoomViewport.getBoundingClientRect();
+        const zoom = estado.zoom;
+        const largura = rect.width / zoom;
+        const altura = rect.height / zoom;
+        const limiteX = Math.max(1, rect.width - largura);
+        const limiteY = Math.max(1, rect.height - altura);
+        estado.zoom_x = Math.max(0, Math.min(1, (moveEvent.clientX - rect.left - largura / 2) / limiteX));
+        estado.zoom_y = Math.max(0, Math.min(1, (moveEvent.clientY - rect.top - altura / 2) / limiteY));
+        aplicarZoomClipe(zoom);
+      };
+      const soltar = () => {
+        zoomArea.style.cursor = 'grab';
+        salvarZoomClipe(estado.zoom);
+        window.removeEventListener('pointermove', mover);
+        window.removeEventListener('pointerup', soltar);
+      };
+      window.addEventListener('pointermove', mover);
+      window.addEventListener('pointerup', soltar, {once:true});
+    };
+  }
 }
 
 function abrirModalClipe(c){
@@ -4233,86 +4337,8 @@ function abrirModalClipe(c){
   aplicarFiltroBrilho();
   v.play().catch(()=>{});
 
-  // O quadro marca o recorte que será ampliado no vídeo final.
-  const zoomInput = $('#modalZoomClipe');
-  const zoomValor = $('#modalZoomClipeValor');
-  const zoomReset = $('#btnModalZoomReset');
-  const zoomArea = $('#modalZoomArea');
-  const zoomViewport = $('#modalVideoViewport');
-  const aplicarZoomClipe = (valor) => {
-    const zoom = Math.max(1, Math.min(2.2, Number(valor) || 1));
-    const focoX = Math.max(0, Math.min(1, Number.isFinite(Number(c.zoom_x)) ? Number(c.zoom_x) : 0.5));
-    const focoY = Math.max(0, Math.min(1, Number.isFinite(Number(c.zoom_y)) ? Number(c.zoom_y) : 0.5));
-    const tamanho = 100 / zoom;
-    // O vídeo fica sem transformação para o quadro indicar a área de origem com precisão.
-    v.style.transform = 'scale(1)';
-    if(zoomValor) zoomValor.textContent = `${Math.round(zoom * 100)}%`;
-    if(zoomArea){
-      zoomArea.style.display = zoom > 1.01 ? 'block' : 'none';
-      zoomArea.style.width = `${tamanho}%`;
-      zoomArea.style.height = `${tamanho}%`;
-      zoomArea.style.left = `${focoX * (100 - tamanho)}%`;
-      zoomArea.style.top = `${focoY * (100 - tamanho)}%`;
-    }
-    return zoom;
-  };
-  const salvarZoomClipe = async (valor, focoX = c.zoom_x, focoY = c.zoom_y) => {
-    const zoom = aplicarZoomClipe(valor);
-    c.zoom = zoom;
-    c.zoom_x = Math.max(0, Math.min(1, Number.isFinite(Number(focoX)) ? Number(focoX) : 0.5));
-    c.zoom_y = Math.max(0, Math.min(1, Number.isFinite(Number(focoY)) ? Number(focoY) : 0.5));
-    const estadoClipe = (ESTADO.gols || []).find(item => item.indice === c.indice);
-    if(estadoClipe) Object.assign(estadoClipe, {zoom: c.zoom, zoom_x: c.zoom_x, zoom_y: c.zoom_y});
-    try {
-      await fetch('/api/gols/zoom', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ indice: c.indice, zoom, zoom_x: c.zoom_x, zoom_y: c.zoom_y })
-      });
-    } catch(err) {
-      console.warn('Não foi possível salvar o zoom do clipe', err);
-    }
-  };
-  if(zoomInput){
-    zoomInput.value = String(Math.round((Number(c.zoom) || 1) * 100));
-    if(!Number.isFinite(Number(c.zoom_x))) c.zoom_x = 0.5;
-    if(!Number.isFinite(Number(c.zoom_y))) c.zoom_y = 0.5;
-    aplicarZoomClipe(Number(zoomInput.value) / 100);
-    zoomInput.oninput = () => aplicarZoomClipe(Number(zoomInput.value) / 100);
-    zoomInput.onchange = () => salvarZoomClipe(Number(zoomInput.value) / 100);
-  }
-  if(zoomReset){
-    zoomReset.onclick = () => {
-      if(zoomInput) zoomInput.value = '100';
-      salvarZoomClipe(1);
-    };
-  }
-  if(zoomArea && zoomViewport){
-    zoomArea.onpointerdown = (event) => {
-      if((Number(c.zoom) || 1) <= 1.01) return;
-      event.preventDefault();
-      zoomArea.setPointerCapture(event.pointerId);
-      zoomArea.style.cursor = 'grabbing';
-      const mover = (moveEvent) => {
-        const rect = zoomViewport.getBoundingClientRect();
-        const zoom = Number(c.zoom) || 1;
-        const largura = rect.width / zoom;
-        const altura = rect.height / zoom;
-        const limiteX = Math.max(1, rect.width - largura);
-        const limiteY = Math.max(1, rect.height - altura);
-        c.zoom_x = Math.max(0, Math.min(1, (moveEvent.clientX - rect.left - largura / 2) / limiteX));
-        c.zoom_y = Math.max(0, Math.min(1, (moveEvent.clientY - rect.top - altura / 2) / limiteY));
-        aplicarZoomClipe(zoom);
-      };
-      const soltar = () => {
-        zoomArea.style.cursor = 'grab';
-        salvarZoomClipe(Number(c.zoom) || 1);
-        window.removeEventListener('pointermove', mover);
-        window.removeEventListener('pointerup', soltar);
-      };
-      window.addEventListener('pointermove', mover);
-      window.addEventListener('pointerup', soltar, {once:true});
-    };
-  }
+  // O quadro marca o recorte que será ampliado no vídeo final; cada câmera tem o seu.
+  configurarZoomModal(c, cameraVerValida());
 
   const idx = clipesAtuais.findIndex(x => x.indice === c.indice);
   const temAnterior = idx > 0;
@@ -4764,7 +4790,7 @@ document.addEventListener('keydown', (e)=>{
 });
 
 /* ------------------------------------------------------------ passo 6: marcacao */
-function configurarZoomMarcacao(g){
+function configurarZoomMarcacao(g, cam = 1){
   const v = $('#vid');
   const viewport = $('#videoMarcacaoViewport');
   const area = $('#marcacaoZoomArea');
@@ -4772,18 +4798,21 @@ function configurarZoomMarcacao(g){
   const valorEl = $('#marcacaoZoomValor');
   const reset = $('#btnMarcacaoZoomReset');
   const clipe = clipesAtuais.find(item => item.indice === g.indice);
-  if(g.zoom == null && clipe) g.zoom = clipe.zoom;
-  if(g.zoom_x == null && clipe) g.zoom_x = clipe.zoom_x;
-  if(g.zoom_y == null && clipe) g.zoom_y = clipe.zoom_y;
-  if(!Number.isFinite(Number(g.zoom))) g.zoom = 1;
-  if(!Number.isFinite(Number(g.zoom_x))) g.zoom_x = 0.5;
-  if(!Number.isFinite(Number(g.zoom_y))) g.zoom_y = 0.5;
+  // Sem marcação própria pra esta câmera ainda: herda uma vez o que já foi
+  // marcado na listagem de clipes (c), pra não perder ajuste feito no passo 4.
+  const jaTem = cam <= 1 ? (g.zoom != null) : Boolean((g.zoom_por_camera || {})[cam]);
+  if(!jaTem && clipe){
+    const doClipe = zoomDaCamera(clipe, cam);
+    definirZoomDaCamera(g, cam, doClipe.zoom, doClipe.zoom_x, doClipe.zoom_y);
+  }
+  const estado = zoomDaCamera(g, cam);
 
   const desenhar = () => {
-    const zoom = Math.max(1, Math.min(2.2, Number(g.zoom) || 1));
-    const x = Math.max(0, Math.min(1, Number(g.zoom_x)));
-    const y = Math.max(0, Math.min(1, Number(g.zoom_y)));
+    const zoom = Math.max(1, Math.min(2.2, Number(estado.zoom) || 1));
+    const x = Math.max(0, Math.min(1, Number(estado.zoom_x)));
+    const y = Math.max(0, Math.min(1, Number(estado.zoom_y)));
     const tamanho = 100 / zoom;
+    estado.zoom = zoom;
     if(input) input.value = String(Math.round(zoom * 100));
     if(valorEl) valorEl.textContent = `${Math.round(zoom * 100)}%`;
     if(area){
@@ -4795,31 +4824,32 @@ function configurarZoomMarcacao(g){
     }
   };
   const salvar = async () => {
-    if(clipe) Object.assign(clipe, {zoom:g.zoom, zoom_x:g.zoom_x, zoom_y:g.zoom_y});
+    definirZoomDaCamera(g, cam, estado.zoom, estado.zoom_x, estado.zoom_y);
+    if(clipe) definirZoomDaCamera(clipe, cam, estado.zoom, estado.zoom_x, estado.zoom_y);
     try {
       await fetch('/api/gols/zoom', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({indice:g.indice, zoom:g.zoom, zoom_x:g.zoom_x, zoom_y:g.zoom_y})
+        body:JSON.stringify({indice:g.indice, zoom:estado.zoom, zoom_x:estado.zoom_x, zoom_y:estado.zoom_y, camera:cam})
       });
     } catch(err) { console.warn('Não foi possível salvar o zoom', err); }
   };
   desenhar();
   if(input){
-    input.oninput = () => { g.zoom = Number(input.value) / 100; desenhar(); };
+    input.oninput = () => { estado.zoom = Number(input.value) / 100; desenhar(); };
     input.onchange = () => salvar();
   }
-  if(reset) reset.onclick = () => { g.zoom = 1; g.zoom_x = 0.5; g.zoom_y = 0.5; desenhar(); salvar(); };
+  if(reset) reset.onclick = () => { estado.zoom = 1; estado.zoom_x = 0.5; estado.zoom_y = 0.5; desenhar(); salvar(); };
   if(area && viewport){
     area.onpointerdown = (event) => {
-      if((Number(g.zoom) || 1) <= 1.01) return;
+      if(estado.zoom <= 1.01) return;
       event.preventDefault();
       area.setPointerCapture(event.pointerId);
       area.style.cursor = 'grabbing';
       const mover = (moveEvent) => {
         const rect = viewport.getBoundingClientRect();
-        const largura = rect.width / g.zoom, altura = rect.height / g.zoom;
-        g.zoom_x = Math.max(0, Math.min(1, (moveEvent.clientX - rect.left - largura / 2) / Math.max(1, rect.width - largura)));
-        g.zoom_y = Math.max(0, Math.min(1, (moveEvent.clientY - rect.top - altura / 2) / Math.max(1, rect.height - altura)));
+        const largura = rect.width / estado.zoom, altura = rect.height / estado.zoom;
+        estado.zoom_x = Math.max(0, Math.min(1, (moveEvent.clientX - rect.left - largura / 2) / Math.max(1, rect.width - largura)));
+        estado.zoom_y = Math.max(0, Math.min(1, (moveEvent.clientY - rect.top - altura / 2) / Math.max(1, rect.height - altura)));
         desenhar();
       };
       const soltar = () => {
@@ -4938,7 +4968,7 @@ function renderMarcacao(){
       ver.style.cssText = 'font-size:11px; padding:3px 9px';
       ver.disabled = !enviada;
       ver.textContent = cam === cameraVendo ? '▶ Vendo' : 'Ver';
-      ver.onclick = () => { cameraVendo = cam; definirCameraVer(cam); trocarVideoCamera(cam); desenharCameras(); };
+      ver.onclick = () => { cameraVendo = cam; definirCameraVer(cam); trocarVideoCamera(cam); desenharCameras(); configurarZoomMarcacao(g, cameraVendo); };
       wrap.appendChild(lab); wrap.appendChild(ver);
       pick.appendChild(wrap);
     });
@@ -4987,7 +5017,7 @@ function renderMarcacao(){
     else { v.onloadeddata = null; v.onerror = null; v.src=url; v.load(); }
   } else { v.removeAttribute('src'); v.load(); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
-  configurarZoomMarcacao(g);
+  configurarZoomMarcacao(g, cameraVendo);
 
   const placarBadgeHtml = g.placar
     ? `<span style="background:var(--panel2); border:1px solid var(--line); font-family:ui-monospace,monospace; font-weight:700; font-size:12px; padding:3px 8px; border-radius:5px; margin-left:8px">Placar: ${g.placar}</span>`

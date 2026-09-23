@@ -1180,14 +1180,22 @@ class AjustarZoomClipe(BaseModel):
     zoom: float = 1.0
     zoom_x: float = 0.5
     zoom_y: float = 0.5
+    camera: int = 1
 
 
 @app.post("/api/gols/zoom")
 def api_ajustar_zoom_clipe(body: AjustarZoomClipe):
-    """Salva o zoom central de um clipe para a prévia e a montagem final."""
+    """Salva o zoom central de um clipe para a prévia e a montagem final.
+
+    Cada câmera tem seu próprio enquadramento (câmeras diferentes filmam o
+    jogo de ângulos/distâncias diferentes), então o zoom é gravado separado
+    por câmera - ver montar_video.definir_zoom_camera/obter_zoom_camera.
+    """
+    import montar_video
     zoom = round(min(2.2, max(1.0, float(body.zoom))), 2)
     zoom_x = round(min(1.0, max(0.0, float(body.zoom_x))), 4)
     zoom_y = round(min(1.0, max(0.0, float(body.zoom_y))), 4)
+    camera = min(3, max(1, int(body.camera or 1)))
     with GOLS_LOCK:
         if not os.path.exists(GOLS_JSON):
             raise HTTPException(400, "gols.json nao existe")
@@ -1196,9 +1204,7 @@ def api_ajustar_zoom_clipe(body: AjustarZoomClipe):
         evento = next((ev for ev in dados.get("gols", []) if ev.get("indice") == body.indice), None)
         if not evento:
             raise HTTPException(404, "Clipe nao encontrado")
-        evento["zoom"] = zoom
-        evento["zoom_x"] = zoom_x
-        evento["zoom_y"] = zoom_y
+        montar_video.definir_zoom_camera(evento, camera, zoom, zoom_x, zoom_y)
         with open(GOLS_JSON, "w", encoding="utf-8") as f:
             json.dump(dados, f, indent=2, ensure_ascii=False)
 
@@ -1209,14 +1215,12 @@ def api_ajustar_zoom_clipe(body: AjustarZoomClipe):
                 for lista_nome in ("_todosGols", "gols", "lances"):
                     for item in partida.get(lista_nome, []):
                         if item.get("indice") == body.indice:
-                            item["zoom"] = zoom
-                            item["zoom_x"] = zoom_x
-                            item["zoom_y"] = zoom_y
+                            montar_video.definir_zoom_camera(item, camera, zoom, zoom_x, zoom_y)
                 with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
                     json.dump(partida, f, indent=2, ensure_ascii=False)
             except Exception:
                 pass
-    return {"ok": True, "zoom": zoom, "zoom_x": zoom_x, "zoom_y": zoom_y}
+    return {"ok": True, "zoom": zoom, "zoom_x": zoom_x, "zoom_y": zoom_y, "camera": camera}
 
 
 @app.post("/api/gols/confirmar")
@@ -1390,6 +1394,7 @@ def api_confirmar_gol(body: ConfirmarGol):
                         "zoom": ev_info.get("zoom", 1.0),
                         "zoom_x": ev_info.get("zoom_x", 0.5),
                         "zoom_y": ev_info.get("zoom_y", 0.5),
+                        "zoom_por_camera": ev_info.get("zoom_por_camera") or {},
                         "camera": ev_info.get("camera", 1),
                         "fonte": ev_info.get("fonte")
                     })
@@ -1408,6 +1413,7 @@ def api_confirmar_gol(body: ConfirmarGol):
                         "zoom": ev_info.get("zoom", 1.0),
                         "zoom_x": ev_info.get("zoom_x", 0.5),
                         "zoom_y": ev_info.get("zoom_y", 0.5),
+                        "zoom_por_camera": ev_info.get("zoom_por_camera") or {},
                         "camera": ev_info.get("camera", 1),
                         "fonte": ev_info.get("fonte")
                     })
@@ -1533,6 +1539,7 @@ def api_clipes():
         zoom_val = ev.get("zoom") if ev.get("zoom") is not None else p_ev.get("zoom", 1.0)
         zoom_x_val = ev.get("zoom_x") if ev.get("zoom_x") is not None else p_ev.get("zoom_x", 0.5)
         zoom_y_val = ev.get("zoom_y") if ev.get("zoom_y") is not None else p_ev.get("zoom_y", 0.5)
+        zoom_por_camera_val = ev.get("zoom_por_camera") or p_ev.get("zoom_por_camera") or {}
 
         # A duração real do MP4 é necessária para montar capítulos do YouTube,
         # inclusive para clipes importados que não têm inicio_s/fim_s anotados.
@@ -1551,6 +1558,7 @@ def api_clipes():
             "cameras_clipe": ev.get("cameras_clipe") or p_ev.get("cameras_clipe") or [ev.get("camera") or p_ev.get("camera") or 1],
             "zoom": zoom_val,
             "zoom_x": zoom_x_val, "zoom_y": zoom_y_val,
+            "zoom_por_camera": zoom_por_camera_val,
         })
     # Ordenado cronologicamente pelo tempo_s (ou inicio_s) do clip
     return {"clipes": sorted(clipes, key=lambda c: (c.get("tempo_s") if c.get("tempo_s") is not None else 999999, c["indice"]))}
