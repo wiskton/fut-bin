@@ -9,6 +9,8 @@ gols/
 folhas/
 final/
 videos/
+sessoes/
+backups/
 *.json
 !config*.json
 /fut-bin

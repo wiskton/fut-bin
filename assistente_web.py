@@ -61,6 +61,8 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from detectar_gols import ANTES_S, DEPOIS_S, MIN_INTERVALO_S
+import gerenciador_sessoes
+gerenciador_sessoes.inicializar()
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(PROJECT_DIR, "web")
@@ -1751,6 +1753,10 @@ def api_salvar_partida(payload: dict = Body(...)):
             pass
     with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
+    try:
+        gerenciador_sessoes.salvar_sessao_atual()
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -2233,6 +2239,93 @@ def api_videos_jogadores():
     return {"videos": videos}
 
 
+# --------------------------------------------------------------- sessoes (multi-video / historico)
+
+class CriarSessaoBody(BaseModel):
+    nome: Optional[str] = None
+    reaproveitar_times: bool = True
+
+
+class RenomearSessaoBody(BaseModel):
+    nome: str
+
+
+class DuplicarSessaoBody(BaseModel):
+    nome: Optional[str] = None
+
+
+@app.get("/api/sessoes")
+def api_sessoes_listar():
+    return {
+        "sessao_ativa_id": gerenciador_sessoes.obter_id_sessao_ativa(),
+        "sessoes": gerenciador_sessoes.listar_sessoes(),
+    }
+
+
+@app.post("/api/sessoes/criar")
+def api_sessoes_criar(body: CriarSessaoBody = Body(default_factory=CriarSessaoBody)):
+    ocupados = [j for j in list(JOBS.values()) + list(SYNC_JOBS.values())
+                if j.get("status") in ("running", "queued", "executando")]
+    if ocupados:
+        raise HTTPException(409, "Há um processamento em andamento. Cancele ou aguarde antes de criar outra sessão.")
+    try:
+        sessao = gerenciador_sessoes.criar_nova_sessao(nome=body.nome, reaproveitar_times=body.reaproveitar_times)
+        _DURACAO_CACHE.clear()
+        return {"ok": True, "sessao": sessao}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/sessoes/{sessao_id}/ativar")
+def api_sessoes_ativar(sessao_id: str):
+    ocupados = [j for j in list(JOBS.values()) + list(SYNC_JOBS.values())
+                if j.get("status") in ("running", "queued", "executando")]
+    if ocupados:
+        raise HTTPException(409, "Há um processamento em andamento. Cancele ou aguarde antes de trocar de sessão.")
+    try:
+        sessao = gerenciador_sessoes.ativar_sessao(sessao_id)
+        _DURACAO_CACHE.clear()
+        return {"ok": True, "sessao": sessao}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/sessoes/{sessao_id}/renomear")
+def api_sessoes_renomear(sessao_id: str, body: RenomearSessaoBody):
+    try:
+        sessao = gerenciador_sessoes.renomear_sessao(sessao_id, body.nome)
+        return {"ok": True, "sessao": sessao}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/sessoes/{sessao_id}/duplicar")
+def api_sessoes_duplicar(sessao_id: str, body: DuplicarSessaoBody = Body(default_factory=DuplicarSessaoBody)):
+    try:
+        sessao = gerenciador_sessoes.duplicar_sessao(sessao_id, body.nome)
+        return {"ok": True, "sessao": sessao}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/sessoes/{sessao_id}")
+def api_sessoes_excluir(sessao_id: str):
+    try:
+        res = gerenciador_sessoes.excluir_sessao(sessao_id)
+        return res
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/sessoes/salvar")
+def api_sessoes_salvar():
+    try:
+        gerenciador_sessoes.salvar_sessao_atual()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
 # --------------------------------------------------------------- estado (retomar de onde parou)
 
 @app.get("/api/estado")
@@ -2245,6 +2338,7 @@ def api_estado():
         except Exception:
             n_gols = 0
     n_clipes = len([n for n in os.listdir(CLIPES_DIR) if n.endswith(".mp4")]) if os.path.isdir(CLIPES_DIR) else 0
+    sessao_ativa = gerenciador_sessoes.obter_sessao(gerenciador_sessoes.obter_id_sessao_ativa())
     return {
         "placar_ok": os.path.exists(PLACAR_FILE),
         "gols_ok": n_gols > 0,
@@ -2254,6 +2348,7 @@ def api_estado():
         "partida_ok": os.path.exists(PARTIDA_JSON),
         "final_ok": os.path.isfile(FINAL_VIDEO),
         "final_gols_ok": os.path.isfile(FINAL_VIDEO_GOLS),
+        "sessao_ativa": sessao_ativa,
     }
 
 
@@ -2273,6 +2368,11 @@ def api_novo_corte():
                 if j.get("status") in ("running", "queued", "executando")]
     if ocupados:
         raise HTTPException(409, "Ha um processamento em andamento. Cancele ou espere terminar antes de limpar.")
+
+    try:
+        gerenciador_sessoes.salvar_sessao_atual()
+    except Exception:
+        pass
 
     backup_dir = os.path.join(PROJECT_DIR, "backups", time.strftime("%Y%m%d-%H%M%S"))
     for origem in (PARTIDA_JSON, PLACAR_FILE, ZONAS_FILE, GOLS_JSON):
