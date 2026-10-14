@@ -58,6 +58,17 @@
   .card h2{margin:0 0 14px;font-size:13px;text-transform:uppercase;letter-spacing:1px;
            color:#ffd700;font-weight:800;display:flex;align-items:center;gap:8px}
   .card h2::before{content:'◈';color:var(--accent);font-size:14px}
+  .player-video-completo{position:relative;margin-top:10px;background:#000;border-radius:9px;overflow:hidden}
+  #videoCompleto{display:block;width:100%;max-height:460px;background:#000}
+  #videoCompleto::-webkit-media-controls-fullscreen-button{display:none}
+  .acoes-video-completo{position:absolute;top:12px;right:12px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;z-index:2;max-width:calc(100% - 24px)}
+  .acoes-video-completo button{font-weight:700;box-shadow:0 2px 10px #0009}
+  .acoes-video-completo .ghost{background:#101820e6;color:#fff}
+  .status-corte-sobre-video{position:absolute;left:12px;bottom:64px;max-width:calc(100% - 24px);padding:8px 12px;border-radius:7px;background:#071019e8;color:#fff;z-index:2;pointer-events:none}
+  .player-video-completo:fullscreen{width:100%;height:100%;border-radius:0;margin:0;display:flex;align-items:center;justify-content:center}
+  .player-video-completo:fullscreen #videoCompleto{width:100%;height:100%;max-height:none;object-fit:contain}
+  .player-video-completo:fullscreen .acoes-video-completo{top:20px;right:20px}
+
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.grid2{grid-template-columns:1fr}}
 
@@ -1059,7 +1070,36 @@
   <div class="card" id="cardVideoCompleto">
     <h2>Assistir ao vídeo completo do jogo <span id="rotCameraCompleto" class="hint" style="font-size:12px"></span></h2>
     <p class="hint">Assista ao jogo na íntegra para conferir os lances e cortar jogadas faltantes. Acompanha a câmera escolhida em "Ver clipes da câmera"; os tempos mostrados e digitados são sempre os do jogo (câmera 1), e o corte sai em todas as câmeras.</p>
-    <video id="videoCompleto" controls preload="metadata" style="width:100%; max-height:460px; border-radius:9px; background:#000; margin-top:6px"></video>
+    <div class="row" style="margin-top:12px; background:var(--panel2); padding:12px; border-radius:8px; border:1px solid var(--line); align-items:center; gap:10px; flex-wrap:wrap">
+      <label style="margin:0; flex:0 0 auto">Duração do clipe:</label>
+      <div style="display:flex; align-items:center; gap:4px">
+        <input id="duracaoCorteCompleto" type="number" value="15" min="2" max="120" style="width:70px; text-align:center">
+        <span class="hint" style="margin:0">segundos</span>
+      </div>
+      <select id="posicaoCorteCompleto" style="max-width:260px">
+        <option value="antes">Últimos 15s até aqui (acabou de sair o lance)</option>
+        <option value="depois">15s a partir daqui (início do lance)</option>
+        <option value="centro">Centralizado no instante atual</option>
+      </select>
+      <select id="tipoCorteCompleto" style="max-width:235px">
+        <option value="pendente" selected>⏳ Sem marcação (ver depois)</option>
+        <option value="gol">⚽ Gol</option>
+        <option value="lance">🎬 Outro lance</option>
+      </select>
+      <div class="row" style="gap:8px; margin-left:auto; align-items:center">
+        <span id="badgeFilaCortes" style="display:none; background:linear-gradient(135deg, #00f0ff, #00ff87); color:#04140a; font-weight:800; font-size:11px; padding:4px 10px; border-radius:20px; box-shadow:0 0 12px rgba(0,240,255,0.4); animation:hudPulseGlow 1.5s infinite">⚡ 1 na fila</span>
+        <button type="button" class="ghost" id="btnGerarClipeCompletoMaisTras" style="font-weight:700; font-size:12px; padding:8px 14px; border-color:var(--accent)" title="Gera clipe dos 15 segundos anteriores ao instante atual">⏪ Gerar 15s mais pra trás</button>
+        <button type="button" class="act" id="btnGerarClipeCompleto">🎬 Gerar clipe deste instante</button>
+      </div>
+    </div>
+    <div id="playerVideoCompleto" class="player-video-completo">
+      <video id="videoCompleto" controls controlsList="nofullscreen" preload="metadata"></video>
+      <div class="acoes-video-completo">
+        <button type="button" class="act" id="btnCortar15sSobreVideo" title="Gerar os 15 segundos anteriores ao tempo atual sem sair da tela cheia">✂ Cortar últimos 15s</button>
+        <button type="button" class="ghost" id="btnTelaCheiaCompleto" aria-label="Entrar em tela cheia" aria-pressed="false">⛶ Tela cheia</button>
+      </div>
+      <div id="statusCorteSobreVideo" class="status-corte-sobre-video" role="status" aria-live="polite" hidden></div>
+    </div>
     <div class="row" style="margin-top:6px; align-items:center; gap:10px; background:var(--panel2); padding:6px 12px; border-radius:7px; border:1px solid var(--line); flex-wrap:wrap">
       <span style="font-size:12px; font-weight:600; color:var(--dim); display:flex; align-items:center; gap:4px">🔆 Brilho:</span>
       <input type="range" class="slider-brilho-sync" min="15" max="180" value="100" step="5" style="width:100px; cursor:pointer" title="Diminua para ler placar com reflexo/estourado">
@@ -1109,28 +1149,6 @@
           <span class="hint" style="margin:0; font-size:11px; display:block">Instante atual:</span>
           <span id="tempoCompletoTxt" style="font-size:16px; font-weight:700; color:var(--accent); font-family:ui-monospace,monospace">00:00</span>
         </div>
-      </div>
-    </div>
-    <div class="row" style="margin-top:12px; background:var(--panel2); padding:12px; border-radius:8px; border:1px solid var(--line); align-items:center; gap:10px; flex-wrap:wrap">
-      <label style="margin:0; flex:0 0 auto">Duração do clipe:</label>
-      <div style="display:flex; align-items:center; gap:4px">
-        <input id="duracaoCorteCompleto" type="number" value="15" min="2" max="120" style="width:70px; text-align:center">
-        <span class="hint" style="margin:0">segundos</span>
-      </div>
-      <select id="posicaoCorteCompleto" style="max-width:260px">
-        <option value="antes">Últimos 15s até aqui (acabou de sair o lance)</option>
-        <option value="depois">15s a partir daqui (início do lance)</option>
-        <option value="centro">Centralizado no instante atual</option>
-      </select>
-      <select id="tipoCorteCompleto" style="max-width:235px">
-        <option value="pendente" selected>⏳ Sem marcação (ver depois)</option>
-        <option value="gol">⚽ Gol</option>
-        <option value="lance">🎬 Outro lance</option>
-      </select>
-      <div class="row" style="gap:8px; margin-left:auto; align-items:center">
-        <span id="badgeFilaCortes" style="display:none; background:linear-gradient(135deg, #00f0ff, #00ff87); color:#04140a; font-weight:800; font-size:11px; padding:4px 10px; border-radius:20px; box-shadow:0 0 12px rgba(0,240,255,0.4); animation:hudPulseGlow 1.5s infinite">⚡ 1 na fila</span>
-        <button type="button" class="ghost" id="btnGerarClipeCompletoMaisTras" style="font-weight:700; font-size:12px; padding:8px 14px; border-color:var(--accent)" title="Gera clipe dos 15 segundos anteriores ao instante atual">⏪ Gerar 15s mais pra trás</button>
-        <button type="button" class="act" id="btnGerarClipeCompleto">🎬 Gerar clipe deste instante</button>
       </div>
     </div>
     <div id="logCorteCompleto" class="log" style="display:none; margin-top:10px"></div>
@@ -4167,6 +4185,43 @@ if(btnMaisTrasCompleto){
   };
 }
 
+/* Tela cheia inclui o player e as ações, para o corte continuar acessível. */
+function informarCorteSobreVideo(mensagem){
+  const status = $('#statusCorteSobreVideo');
+  status.textContent = mensagem;
+  status.hidden = !mensagem;
+}
+async function alternarTelaCheiaCompleto(){
+  const player = $('#playerVideoCompleto');
+  try {
+    if(document.fullscreenElement === player) await document.exitFullscreen();
+    else if(player.requestFullscreen) await player.requestFullscreen();
+    else informarCorteSobreVideo('Tela cheia indisponível neste navegador.');
+  } catch(e) {
+    informarCorteSobreVideo('Não foi possível abrir a tela cheia. Tente novamente.');
+  }
+}
+$('#btnTelaCheiaCompleto').onclick = alternarTelaCheiaCompleto;
+$('#videoCompleto').addEventListener('dblclick', event => {
+  event.preventDefault();
+  alternarTelaCheiaCompleto();
+});
+document.addEventListener('fullscreenchange', () => {
+  const cheia = document.fullscreenElement === $('#playerVideoCompleto');
+  const btn = $('#btnTelaCheiaCompleto');
+  btn.textContent = cheia ? '⛶ Sair da tela cheia' : '⛶ Tela cheia';
+  btn.setAttribute('aria-label', cheia ? 'Sair da tela cheia' : 'Entrar em tela cheia');
+  btn.setAttribute('aria-pressed', String(cheia));
+});
+$('#btnCortar15sSobreVideo').onclick = () => {
+  const vc = $('#videoCompleto');
+  if(!ESTADO.video || !vc.readyState || vc.currentTime <= 0 || tempoJogoDoVideoCompleto() <= 0){
+    informarCorteSobreVideo('Reproduza o vídeo até o fim do lance para cortar os segundos anteriores.');
+    return;
+  }
+  $('#btnGerarClipeCompletoMaisTras').click();
+};
+
 /* Fila de processamento de cortes do vídeo completo */
 const filaCortes = [];
 let processandoFilaCortes = false;
@@ -4198,6 +4253,7 @@ async function processarFilaCortes(){
   while(filaCortes.length > 0){
     const job = filaCortes.shift();
     atualizarIndicadorFila();
+    informarCorteSobreVideo(`Cortando ${fmtTempo(job.inicio_s)} a ${fmtTempo(job.fim_s)}…`);
 
     if(logEl){
       logEl.style.display = 'block';
@@ -4220,12 +4276,14 @@ async function processarFilaCortes(){
       });
       const res = await r.json();
       if(!r.ok){
+        informarCorteSobreVideo('Erro ao gerar o corte. Confira o registro de cortes.');
         if(logEl) logEl.innerHTML = `<span class="bad">❌ Erro ao cortar (${fmtTempo(job.inicio_s)}): ${res.detail || 'falha no servidor'}</span>`;
         continue;
       }
 
       await carregarClipes();
 
+      informarCorteSobreVideo(`✓ Clipe #${res.indice} pronto: ${fmtTempo(job.inicio_s)} a ${fmtTempo(job.fim_s)}.`);
       const novoClipe = clipesAtuais.find(c => c.indice === res.indice);
       mostrarAlertaClipePronto({
         indice: res.indice,
@@ -4243,6 +4301,7 @@ async function processarFilaCortes(){
         logEl.innerHTML = `<span class="ok">✓ Clipe #${String(res.indice).padStart(2,'0')} inserido com sucesso (${fmtTempo(job.inicio_s)} a ${fmtTempo(job.fim_s)})${resto}!</span>`;
       }
     } catch(e) {
+      informarCorteSobreVideo('Erro ao comunicar com o servidor para gerar o corte.');
       if(logEl) logEl.innerHTML = `<span class="bad">❌ Erro ao comunicar com o servidor: ${e}</span>`;
     }
   }
@@ -4312,6 +4371,7 @@ $('#btnGerarClipeCompleto').onclick = () => {
 
   const jaEstaProcessando = processandoFilaCortes;
   filaCortes.push(job);
+  informarCorteSobreVideo(`Corte adicionado: ${fmtTempo(inicio_s)} a ${fmtTempo(fim_s)}${jaEstaProcessando ? " · aguardando na fila" : ""}.`);
   atualizarIndicadorFila();
 
   // Feedback visual no botão
