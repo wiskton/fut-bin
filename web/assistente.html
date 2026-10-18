@@ -74,6 +74,9 @@
 
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  #listaCamerasSelecionadas{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  @media(max-width:900px){#listaCamerasSelecionadas{grid-template-columns:1fr 1fr}}
+  @media(max-width:600px){#listaCamerasSelecionadas{grid-template-columns:1fr}}
 
   label{display:block;font-size:12px;color:var(--dim);margin:9px 0 4px;font-weight:600}
   input,textarea,select{width:100%;background:rgba(16,24,36,0.85);border:1px solid var(--line);
@@ -885,7 +888,7 @@
       </div>
       <p class="hint" style="margin-top:6px">Compara o relógio de LED vermelho nos primeiros 10 minutos de cada gravação. O mesmo instante do jogo pode ter tempos diferentes em cada arquivo.</p>
       <p class="hint" id="statusSincronizarCameras" role="status" aria-live="polite"></p>
-      <div id="listaCamerasSelecionadas" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:8px; margin-top:10px"></div>
+      <div id="listaCamerasSelecionadas" style="margin-top:10px"></div>
     </div>
 
     <div style="margin-top:10px">
@@ -1419,159 +1422,64 @@
 <!-- ================= 8. VIDEO FINAL ================= -->
 <section id="s-final">
   <div class="card" style="border-top:2px solid var(--accent)" id="cardFundoCartelas">
-    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px">
+    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px">
       <div>
         <h2 style="margin:0; font-size:18px; display:flex; align-items:center; gap:8px">
-          <span>🎬</span> Imagem de Fundo das Cartelas do Vídeo
+          <span>🎬</span> Cores & Fundo por Câmera
         </h2>
         <div class="hint" style="margin-top:4px">
-          Escolha um frame da partida e ajuste saturação, brilho, contraste e desfoque para gerar as imagens das cartelas com visual profissional de transmissão esportiva.
+          Configure brilho, saturação e preset de cor individualmente para cada câmera — cada gravação pode ter condições de luz diferentes.
         </div>
       </div>
       <div class="row" style="gap:8px">
-        <button type="button" class="ghost" id="btnRestaurarFundoPadrao" title="Restaurar padrão escuro clássico">Restaurar Padrão</button>
-        <button type="button" class="act" id="btnSalvarFundoCartela" style="font-weight:700">✓ Aplicar Frame</button>
+        <button type="button" class="ghost" id="btnRestaurarFundoPadrao">Restaurar Padrão</button>
+        <button type="button" class="act" id="btnSalvarFundoCartela" style="font-weight:700">✓ Aplicar Frame Câmera 1</button>
       </div>
     </div>
 
-    <div style="display:grid; grid-template-columns: 360px 1fr; gap:20px; align-items:start">
-      <!-- Coluna de Controles -->
-      <div style="background:var(--panel2); padding:16px; border-radius:10px; border:1px solid var(--line)">
-        <!-- 1. Instante do Vídeo -->
-        <div style="margin-bottom:14px">
-          <label style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--txt)">
-            1. Escolher Frame do Vídeo
-          </label>
-          <div class="row" style="gap:8px; margin-top:6px">
-            <input type="text" id="tempoFundoInput" value="02:30" placeholder="MM:SS" style="width:90px; text-align:center; font-family:monospace; font-weight:700">
-            <button type="button" class="ghost" id="btnCapturarFrameFundo" style="flex:1">Capturar Frame</button>
-          </div>
-          <input type="range" id="rangeTempoFundo" min="0" max="3600" step="1" value="150" style="width:100%; margin-top:8px">
-          
-          <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:8px">
-            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(60)">⏱ 01:00</button>
-            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(300)">⏱ 05:00</button>
-            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(900)">⏱ 15:00</button>
-            <button type="button" class="ghost btnPequeno" onclick="carregarFramePredefinido(1500)">⏱ 25:00</button>
-            <button type="button" class="ghost btnPequeno" id="btnFrameGolDestaque">⚽ Frame Gol</button>
-          </div>
+    <!-- 3 CÂMERAS LADO A LADO -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px" id="gridCamerasFundo">
+
+      <!-- ---- template câmera: repetido 3x via JS ---- -->
+
+    </div>
+
+    <!-- PREVIEW CARTELAS COMPARTILHADO (usa câmera 1 como referência) -->
+    <div style="border-top:1px solid var(--line); padding-top:14px">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px">
+        <div class="row" style="gap:6px; flex-wrap:wrap">
+          <button type="button" class="btnTabPreview active" id="tabPrevFundo" onclick="trocarAbaPreviewFundo('frame')">🖼 Frame Ajustado</button>
+          <button type="button" class="btnTabPreview" id="tabPrevPlacar" onclick="trocarAbaPreviewFundo('placar')">⚽ Placar &amp; Gol</button>
+          <button type="button" class="btnTabPreview" id="tabPrevAbertura" onclick="trocarAbaPreviewFundo('abertura')">🏟 Abertura</button>
+          <button type="button" class="btnTabPreview" id="tabPrevFim" onclick="trocarAbaPreviewFundo('fim_de_jogo')">🏁 Placar Final</button>
+          <button type="button" class="btnTabPreview" id="tabPrevDestaques" onclick="trocarAbaPreviewFundo('destaques')">⭐ Destaques</button>
+          <button type="button" class="btnTabPreview" id="tabPrevRecomendados" onclick="trocarAbaPreviewFundo('assista_outros_videos')">🎬 Recomendados</button>
         </div>
-
-        <hr style="border:0; border-top:1px solid var(--line); margin:14px 0">
-
-        <!-- 2. Ajustes de Imagem -->
-        <div>
-          <label style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:8px">
-            2. Presets de Cores e Iluminação
-          </label>
-          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; margin-bottom:14px">
-            <button type="button" class="ghost btnPresetCard active" data-preset="claro_vivido" onclick="aplicarPresetFundo('claro_vivido')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px; border-color:var(--accent)">
-              <span style="font-weight:700; color:var(--accent)">🌟 Claro & Vívido</span>
-              <span style="color:var(--txt-dim); font-size:10px">Cores vivas e bem claro (Recomendado)</span>
-            </button>
-            <button type="button" class="ghost btnPresetCard" data-preset="super_claro" onclick="aplicarPresetFundo('super_claro')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px">
-              <span style="font-weight:700; color:#fde047">☀️ Super Iluminado</span>
-              <span style="color:var(--txt-dim); font-size:10px">Jogos à noite / quadras escuras</span>
-            </button>
-            <button type="button" class="ghost btnPresetCard" data-preset="fifa" onclick="aplicarPresetFundo('fifa')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px">
-              <span style="font-weight:700; color:#38bdf8">🎮 Estilo FIFA / Game</span>
-              <span style="color:var(--txt-dim); font-size:10px">Saturação alta e gramado vivo</span>
-            </button>
-            <button type="button" class="ghost btnPresetCard" data-preset="tv" onclick="aplicarPresetFundo('tv')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px">
-              <span style="font-weight:700; color:#4ade80">📺 Transmissão TV</span>
-              <span style="color:var(--txt-dim); font-size:10px">Visual balanceado SporTV / HD</span>
-            </button>
-            <button type="button" class="ghost btnPresetCard" data-preset="original" onclick="aplicarPresetFundo('original')" style="text-align:left; padding:6px 10px; font-size:11px; display:flex; flex-direction:column; gap:2px; grid-column: span 2">
-              <span style="font-weight:700">🔄 Original da Câmera (100% Puro)</span>
-              <span style="color:var(--txt-dim); font-size:10px">Sem filtros e sem escurecimento</span>
-            </button>
-          </div>
-
-          <!-- Brilho -->
-          <div style="margin-top:10px">
-            <div class="row" style="justify-content:space-between; font-size:12px">
-              <span>Brilho</span>
-              <span id="lblFundoBrilho" style="font-weight:700; color:var(--accent)">125%</span>
-            </div>
-            <input type="range" id="fundoBrilho" min="20" max="250" value="125" step="5" style="width:100%">
-          </div>
-
-          <!-- Saturação -->
-          <div style="margin-top:8px">
-            <div class="row" style="justify-content:space-between; font-size:12px">
-              <span>Saturação</span>
-              <span id="lblFundoSaturacao" style="font-weight:700; color:var(--accent)">145%</span>
-            </div>
-            <input type="range" id="fundoSaturacao" min="0" max="250" value="145" step="5" style="width:100%">
-          </div>
-
-          <!-- Contraste -->
-          <div style="margin-top:8px">
-            <div class="row" style="justify-content:space-between; font-size:12px">
-              <span>Contraste</span>
-              <span id="lblFundoContraste" style="font-weight:700">112%</span>
-            </div>
-            <input type="range" id="fundoContraste" min="50" max="200" value="112" step="2" style="width:100%">
-          </div>
-
-          <!-- Desfoque -->
-          <div style="margin-top:8px">
-            <div class="row" style="justify-content:space-between; font-size:12px">
-              <span>Desfoque (Blur TV)</span>
-              <span id="lblFundoDesfoque" style="font-weight:700">0 px (nítido)</span>
-            </div>
-            <input type="range" id="fundoDesfoque" min="0" max="25" value="0" style="width:100%">
-          </div>
-
-          <!-- Vinheta -->
-          <div style="margin-top:8px">
-            <div class="row" style="justify-content:space-between; font-size:12px">
-              <span>Vinheta / Escurecimento</span>
-              <span id="lblFundoVinheta" style="font-weight:700">0% (desativada)</span>
-            </div>
-            <input type="range" id="fundoVinheta" min="0" max="90" value="0" step="5" style="width:100%">
-          </div>
-
-          <div style="margin-top:14px; padding-top:10px; border-top:1px solid var(--line)">
-            <label class="row" style="font-size:12px; cursor:pointer">
-              <input type="checkbox" id="chkAplicarClipes" style="width:auto">
-              <span>Aplicar saturação e brilho também aos clipes de vídeo</span>
-            </label>
-          </div>
+        <span id="statusSalvoFundo" style="font-size:12px; font-weight:700; color:var(--accent); display:none">✓ Aplicado!</span>
+      </div>
+      <div style="position:relative; width:100%; aspect-ratio:16/9; background:#080b11; border-radius:10px; overflow:hidden; border:1px solid var(--line); box-shadow:0 6px 20px rgba(0,0,0,0.6)">
+        <img id="imgFundoPreview" src="/web/fundo_raw.png" style="width:100%; height:100%; object-fit:cover; display:block" onerror="this.src='/web/fundo_cartela.png'">
+        <div id="overlayFundoPreview" style="position:absolute; inset:0; background:transparent; pointer-events:none"></div>
+        <img id="imgCartelaRenderPreview" src="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:none; z-index:2">
+        <div id="loadingFundoPreview" style="position:absolute; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:5">
+          <span style="color:#fff; font-weight:700; font-size:14px">⏳ Renderizando prévia...</span>
         </div>
       </div>
-
-      <!-- Coluna de Prévia ao Vivo -->
-      <div>
-        <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
-          <div class="row" style="gap:6px; flex-wrap:wrap">
-            <button type="button" class="btnTabPreview active" id="tabPrevFundo" onclick="trocarAbaPreviewFundo('frame')">🖼 Frame Ajustado</button>
-            <button type="button" class="btnTabPreview" id="tabPrevPlacar" onclick="trocarAbaPreviewFundo('placar')">⚽ Placar & Gol no Jogo</button>
-            <button type="button" class="btnTabPreview" id="tabPrevAbertura" onclick="trocarAbaPreviewFundo('abertura')">🏟 Cartela Abertura</button>
-            <button type="button" class="btnTabPreview" id="tabPrevFim" onclick="trocarAbaPreviewFundo('fim_de_jogo')">🏁 Placar Final</button>
-            <button type="button" class="btnTabPreview" id="tabPrevDestaques" onclick="trocarAbaPreviewFundo('destaques')">⭐ Destaques</button>
-            <button type="button" class="btnTabPreview" id="tabPrevRecomendados" onclick="trocarAbaPreviewFundo('assista_outros_videos')">🎬 Vídeos recomendados</button>
-          </div>
-          <span id="statusSalvoFundo" style="font-size:12px; font-weight:700; color:var(--accent); display:none">✓ Aplicado com Sucesso!</span>
-        </div>
-
-        <div style="position:relative; width:100%; aspect-ratio:16/9; background:#080b11; border-radius:10px; overflow:hidden; border:1px solid var(--line); box-shadow:0 6px 20px rgba(0,0,0,0.6)">
-          <img id="imgFundoPreview" src="/web/fundo_raw.png" style="width:100%; height:100%; object-fit:cover; display:block" onerror="this.src='/web/fundo_cartela.png'">
-          <div id="overlayFundoPreview" style="position:absolute; inset:0; background:transparent; pointer-events:none"></div>
-          
-          <img id="imgCartelaRenderPreview" src="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:none; z-index:2">
-          
-          <div id="loadingFundoPreview" style="position:absolute; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:5">
-            <span style="color:#fff; font-weight:700; font-size:14px">⏳ Renderizando prévia...</span>
-          </div>
-        </div>
-        
-        <div class="hint" style="margin-top:8px; display:flex; justify-content:space-between">
-          <span>Resolução das imagens: <b>1920 × 1080 (Full HD Broadcast)</b></span>
-          <span id="frameTimestampInfo">Instante do vídeo: 02:30</span>
-        </div>
+      <div class="hint" style="margin-top:8px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px">
+        <span>Resolução: <b>1920 × 1080 Full HD</b></span>
+        <span id="frameTimestampInfo">Instante: 02:30</span>
       </div>
     </div>
+
+    <!-- inputs hidden para compatibilidade com funções existentes (câmera 1 = principal) -->
+    <input type="hidden" id="fundoBrilho"    value="125">
+    <input type="hidden" id="fundoSaturacao" value="145">
+    <input type="hidden" id="fundoContraste" value="112">
+    <input type="hidden" id="fundoDesfoque"  value="0">
+    <input type="hidden" id="fundoVinheta"   value="0">
+    <input type="hidden" id="chkAplicarClipes" value="false">
+    <input type="hidden" id="tempoFundoInput" value="02:30">
+    <input type="hidden" id="rangeTempoFundo" value="150">
   </div>
 
   <div class="card">
@@ -2849,7 +2757,7 @@ function estadoParaPartida(){
 
   return {
     meta: Object.assign({}, S.meta, {video: ESTADO.video ? ESTADO.video.caminho : null,
-      cameras: camerasSelecionadas().map(c => c ? ({nome:c.nome, caminho:c.caminho, duracao_s:c.duracao_s, inicio_jogo_s:Number(c.inicio_jogo_s)||0}) : null),
+      cameras: camerasSelecionadas().map(c => c ? ({nome:c.nome, caminho:c.caminho, duracao_s:c.duracao_s, inicio_jogo_s:Number(c.inicio_jogo_s)||0, preset:c.preset||null}) : null),
       camera_placar: ESTADO.cameraPlacar,
       placar:[v.filter(g=>g.time===0).length, v.filter(g=>g.time===1).length]}),
     times: S.times.map((t, idx) => ({
@@ -2956,118 +2864,198 @@ function tempoCamera(s){
   return fmtTempo(Math.floor(ms / 1000)) + '.' + String(ms % 1000).padStart(3, '0');
 }
 
+/* ------------------------------------------------------------------ presets de câmera */
+const CAMERA_PRESETS = [
+  { id: 'principal',  rotulo: 'Principal',       icon: '🎥', desc: 'Câmera principal do jogo',          cor: '#00ff87' },
+  { id: 'lateral',    rotulo: 'Lateral',          icon: '📹', desc: 'Ângulo lateral do campo',           cor: '#00f0ff' },
+  { id: 'gol',        rotulo: 'Câmera do Gol',    icon: '🥅', desc: 'Atrás do gol / área',              cor: '#fbbf24' },
+  { id: 'drone',      rotulo: 'Drone / Topo',     icon: '🚁', desc: 'Vista aérea ou topo',              cor: '#a78bfa' },
+  { id: 'celular',    rotulo: 'Celular',           icon: '📱', desc: 'Filmagem com celular na mão',      cor: '#fb7185' },
+  { id: 'fixa',       rotulo: 'Câmera Fixa',      icon: '📌', desc: 'Tripé fixo sem operador',          cor: '#38bdf8' },
+];
+
 function renderCamerasSelecionadas(){
   const el = $('#listaCamerasSelecionadas');
   if(!el) return;
   const cameras = camerasSelecionadas();
   el.querySelectorAll("video").forEach(v => { v.pause(); v.removeAttribute("src"); v.load(); });
   el.innerHTML = '';
+
   [0,1,2].forEach(i => {
     const cam = cameras[i];
+    const corLabel = i === 0 ? 'var(--accent)' : '#00f0ff';
     const box = document.createElement('div');
-    box.style.cssText = 'border:1px solid var(--line); border-radius:7px; padding:8px; min-height:83px; background:var(--panel2)';
-    if(!cam){
-      box.innerHTML = `<b style="font-size:12px; color:var(--dim)">Câmera ${i+1}${i===0?' · principal':''}</b><div class="hint" style="font-size:11px; margin-top:8px">Nenhum vídeo escolhido</div>`;
-    } else {
-      const inicio = Number(cam.inicio_jogo_s) || 0;
-      box.innerHTML = `<div style="display:flex; justify-content:space-between; gap:5px"><b style="font-size:12px; color:${i===0?'var(--accent)':'#00f0ff'}">📹 Câmera ${i+1}${i===0?' · principal':''}</b><button type="button" class="ghost" data-remover-camera="${i}" style="padding:1px 5px; font-size:10px">×</button></div><div title="${cam.nome}" style="font-size:11px; font-weight:700; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${cam.nome}</div><label style="font-size:10px; color:var(--dim); margin:6px 0 0">Jogo começa em <input data-inicio-camera="${i}" type="text" value="${fmtTempo(inicio)}" style="width:58px; padding:3px; margin-left:3px"> </label>`;
-    }
+    box.style.cssText = `border:1px solid var(--line); border-radius:9px; padding:10px; background:var(--panel2); display:flex; flex-direction:column; gap:0; min-height:100px;`;
+
+    /* ---- cabeçalho ---- */
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:4px; margin-bottom:6px';
+    const titulo = document.createElement('b');
+    titulo.style.cssText = `font-size:12px; color:${corLabel}`;
+    titulo.textContent = `📹 Câmera ${i+1}${i===0?' · principal':''}`;
+    header.appendChild(titulo);
     if(cam){
-      const input = box.querySelector('[data-inicio-camera]');
-      input.value = tempoCamera(cam.inicio_jogo_s || 0);
-      input.style.width = '100px';
-      input.setAttribute('aria-label', `Início do jogo na câmera ${i+1}`);
-      const preview = document.createElement('div');
-      preview.innerHTML = `
-        <video controls muted playsinline preload="metadata" aria-label="Preview da câmera ${i+1}" style="display:block; width:100%; aspect-ratio:16/9; background:#000; border-radius:6px; margin-top:10px"></video>
-        <img data-quadro-camera alt="Quadro da câmera ${i+1}" style="display:none; width:100%; border-radius:6px; margin-top:6px">
-        <button type="button" class="ghost" data-ver-quadro style="margin-top:6px">Ver quadro neste tempo</button>
-        <div class="hint" data-status-camera style="margin-top:5px" aria-live="polite">Carregando preview…</div>
-        <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:6px">
-          <button type="button" class="ghost" data-passo="-5">−5 s</button>
-          <button type="button" class="ghost" data-passo="-0.1">−0,1 s</button>
-          <button type="button" class="ghost" data-passo="0.1">+0,1 s</button>
-          <button type="button" class="ghost" data-passo="5">+5 s</button>
-        </div>
-        <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap; margin-top:6px">
-          <input data-busca-camera type="text" placeholder="mm:ss.mmm" aria-label="Tempo do preview da câmera ${i+1}" style="width:110px">
-          <button type="button" class="ghost" data-ir-camera>Ir para tempo</button>
-        </div>
-        <button type="button" class="act" data-marcar-camera style="width:100%; margin-top:6px">Usar este momento como início</button>
-        <p class="hint" style="font-size:11px; margin-top:6px">Encontre o mesmo início do jogo em cada câmera e marque o momento para alinhar os cortes.</p>`;
-      box.appendChild(preview);
-      const video = preview.querySelector('video');
-      const status = preview.querySelector('[data-status-camera]');
-      const busca = preview.querySelector('[data-busca-camera]');
-      let posicao = Number(cam.inicio_jogo_s) || 0;
-      let modoQuadro = false, pedidoQuadro = 0, quadroUrl = null;
-      const quadro = preview.querySelector('[data-quadro-camera]');
-      const duracao = () => Number.isFinite(video.duration) ? video.duration : Number(cam.duracao_s) || 0;
-      const mostrarPosicao = () => status.textContent = `Posição: ${tempoCamera(posicao)} / ${tempoCamera(duracao())}`;
-      const carregarQuadro = async () => {
-        const pedido = ++pedidoQuadro;
-        status.textContent = 'Carregando quadro…';
-        try {
-          const r = await fetch('/api/frame', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({video:cam.caminho || cam.nome, tempo_s:posicao})});
-          if(!r.ok) throw new Error('frame');
-          const blob = await r.blob();
-          if(pedido !== pedidoQuadro || !preview.isConnected) return;
-          if(quadroUrl) URL.revokeObjectURL(quadroUrl);
-          quadroUrl = URL.createObjectURL(blob);
-          quadro.src = quadroUrl;
-          quadro.onload = () => { URL.revokeObjectURL(quadroUrl); quadroUrl = null; };
-          quadro.style.display = 'block';
-          mostrarPosicao();
-        } catch(e){ if(pedido === pedidoQuadro) status.textContent = 'Não foi possível carregar o quadro. Tente outro tempo.'; }
-      };
-      const seek = t => {
-        if(!Number.isFinite(t) || t < 0) return false;
-        video.pause();
-        posicao = duracao() ? Math.min(t, Math.max(0, duracao() - 0.05)) : t;
-        busca.value = tempoCamera(posicao);
-        if(video.readyState >= 1) video.currentTime = posicao;
-        if(modoQuadro) carregarQuadro(); else mostrarPosicao();
-        return true;
-      };
-      box.buscarTempoCamera = seek;
-      busca.value = tempoCamera(posicao);
-      preview.querySelector('[data-ver-quadro]').onclick = () => {
-        video.pause(); modoQuadro = true;
-        const t = parseTempo(busca.value.replace(',', '.'));
-        if(!seek(t)) seek(posicao);
-      };
-      video.onplay = () => { modoQuadro = false; quadro.style.display = 'none'; };
-      video.onloadedmetadata = () => {
-        seek(posicao);
-        busca.value = tempoCamera(video.currentTime);
-        status.textContent = `Posição: ${tempoCamera(video.currentTime)} / ${tempoCamera(video.duration)}`;
-      };
-      video.ontimeupdate = () => {
-        if(!modoQuadro){ posicao = video.currentTime; mostrarPosicao(); }
-      };
-      video.onerror = () => {
-        status.textContent = 'Use Ver quadro neste tempo para visualizar e alinhar este vídeo.';
-      };
-      preview.querySelectorAll('[data-passo]').forEach(b => b.onclick = () => seek(Math.max(0, posicao + Number(b.dataset.passo))));
-      const ir = () => {
-        const t = parseTempo(busca.value.replace(',', '.'));
-        busca.setCustomValidity(seek(t) ? '' : 'Informe um tempo válido, como 01:23.500.');
-        busca.reportValidity();
-      };
-      busca.oninput = () => busca.setCustomValidity('');
-      preview.querySelector('[data-ir-camera]').onclick = ir;
-      busca.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); ir(); } };
-      preview.querySelector('[data-marcar-camera]').onclick = () => {
-        video.pause();
-        cam.inicio_jogo_s = Math.round(posicao * 1000) / 1000;
-        input.value = tempoCamera(cam.inicio_jogo_s);
-        input.setCustomValidity('');
-        agendarSalvar();
-      };
-      video.src = '/video/completo?video=' + encodeURIComponent(cam.caminho || cam.nome);
+      const btnRem = document.createElement('button');
+      btnRem.type = 'button'; btnRem.className = 'ghost'; btnRem.dataset.removerCamera = i;
+      btnRem.style.cssText = 'padding:1px 6px; font-size:11px';
+      btnRem.textContent = '×'; btnRem.title = `Remover Câmera ${i+1}`;
+      header.appendChild(btnRem);
     }
+    box.appendChild(header);
+
+    if(!cam){
+      const vazio = document.createElement('div');
+      vazio.className = 'hint';
+      vazio.style.cssText = 'font-size:11px; margin-top:4px; flex:1';
+      vazio.textContent = 'Nenhum vídeo escolhido';
+      box.appendChild(vazio);
+      el.appendChild(box);
+      return;
+    }
+
+    /* ---- nome do arquivo ---- */
+    const nomeEl = document.createElement('div');
+    nomeEl.title = cam.nome;
+    nomeEl.style.cssText = 'font-size:11px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--txt); margin-bottom:6px';
+    nomeEl.textContent = cam.nome;
+    box.appendChild(nomeEl);
+
+    /* ---- PRESETS ---- */
+    const presetSec = document.createElement('div');
+    presetSec.style.cssText = 'margin-bottom:8px';
+    const presetLabel = document.createElement('div');
+    presetLabel.style.cssText = 'font-size:10px; color:var(--dim); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px';
+    presetLabel.textContent = 'Tipo de câmera';
+    presetSec.appendChild(presetLabel);
+
+    const presetGrid = document.createElement('div');
+    presetGrid.style.cssText = 'display:grid; grid-template-columns:repeat(3,1fr); gap:4px';
+    CAMERA_PRESETS.forEach(p => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const ativo = (cam.preset || (i===0?'principal':'lateral')) === p.id;
+      btn.style.cssText = `padding:4px 3px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; border:1.5px solid ${ativo ? p.cor : 'var(--line)'}; background:${ativo ? `${p.cor}22` : 'var(--panel)'}; color:${ativo ? p.cor : 'var(--dim)'}; display:flex; flex-direction:column; align-items:center; gap:1px; transition:all .15s; white-space:nowrap; overflow:hidden`;
+      btn.title = p.desc;
+      btn.innerHTML = `<span style="font-size:14px">${p.icon}</span><span>${p.rotulo}</span>`;
+      btn.onclick = () => {
+        cam.preset = p.id;
+        agendarSalvar();
+        /* atualiza visual sem rerenderizar tudo */
+        presetGrid.querySelectorAll('button').forEach((b, bi) => {
+          const pp = CAMERA_PRESETS[bi];
+          const isNow = pp.id === p.id;
+          b.style.border = `1.5px solid ${isNow ? pp.cor : 'var(--line)'}`;
+          b.style.background = isNow ? `${pp.cor}22` : 'var(--panel)';
+          b.style.color = isNow ? pp.cor : 'var(--dim)';
+        });
+      };
+      presetGrid.appendChild(btn);
+    });
+    presetSec.appendChild(presetGrid);
+    box.appendChild(presetSec);
+
+    /* ---- tempo de início ---- */
+    const inicioLabel = document.createElement('label');
+    inicioLabel.style.cssText = 'font-size:10px; color:var(--dim); margin:0 0 6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap';
+    inicioLabel.innerHTML = `Jogo começa em`;
+    const input = document.createElement('input');
+    input.type = 'text'; input.dataset.inicioCamera = i;
+    input.value = tempoCamera(cam.inicio_jogo_s || 0);
+    input.style.cssText = 'width:105px; padding:3px 6px; font-size:11px';
+    input.setAttribute('aria-label', `Início do jogo na câmera ${i+1}`);
+    inicioLabel.appendChild(input);
+    box.appendChild(inicioLabel);
+
+    /* ---- preview / seek ---- */
+    const preview = document.createElement('div');
+    preview.innerHTML = `
+      <video controls muted playsinline preload="metadata" aria-label="Preview da câmera ${i+1}" style="display:block; width:100%; aspect-ratio:16/9; background:#000; border-radius:6px; margin-bottom:6px"></video>
+      <img data-quadro-camera alt="Quadro da câmera ${i+1}" style="display:none; width:100%; border-radius:6px; margin-bottom:6px">
+      <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:5px">
+        <button type="button" class="ghost" data-passo="-5" style="font-size:11px; padding:3px 7px">−5 s</button>
+        <button type="button" class="ghost" data-passo="-0.1" style="font-size:11px; padding:3px 7px">−0,1 s</button>
+        <button type="button" class="ghost" data-passo="0.1" style="font-size:11px; padding:3px 7px">+0,1 s</button>
+        <button type="button" class="ghost" data-passo="5" style="font-size:11px; padding:3px 7px">+5 s</button>
+      </div>
+      <div style="display:flex; gap:4px; align-items:center; margin-bottom:5px">
+        <input data-busca-camera type="text" placeholder="mm:ss.mmm" aria-label="Tempo do preview da câmera ${i+1}" style="flex:1; min-width:0; font-size:11px">
+        <button type="button" class="ghost" data-ir-camera style="font-size:11px; padding:3px 8px; white-space:nowrap">Ir</button>
+        <button type="button" class="ghost" data-ver-quadro style="font-size:11px; padding:3px 8px; white-space:nowrap">📷</button>
+      </div>
+      <div class="hint" data-status-camera style="font-size:10px; margin-bottom:5px" aria-live="polite">Carregando preview…</div>
+      <button type="button" class="act" data-marcar-camera style="width:100%; font-size:11px; padding:5px">✓ Usar este momento como início</button>
+      <p class="hint" style="font-size:10px; margin-top:5px; margin-bottom:0">Encontre o mesmo início em cada câmera e marque para alinhar os cortes.</p>`;
+    box.appendChild(preview);
+
+    const video = preview.querySelector('video');
+    const status = preview.querySelector('[data-status-camera]');
+    const busca = preview.querySelector('[data-busca-camera]');
+    let posicao = Number(cam.inicio_jogo_s) || 0;
+    let modoQuadro = false, pedidoQuadro = 0, quadroUrl = null;
+    const quadro = preview.querySelector('[data-quadro-camera]');
+    const duracao = () => Number.isFinite(video.duration) ? video.duration : Number(cam.duracao_s) || 0;
+    const mostrarPosicao = () => status.textContent = `Posição: ${tempoCamera(posicao)} / ${tempoCamera(duracao())}`;
+    const carregarQuadro = async () => {
+      const pedido = ++pedidoQuadro;
+      status.textContent = 'Carregando quadro…';
+      try {
+        const r = await fetch('/api/frame', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({video:cam.caminho || cam.nome, tempo_s:posicao})});
+        if(!r.ok) throw new Error('frame');
+        const blob = await r.blob();
+        if(pedido !== pedidoQuadro || !preview.isConnected) return;
+        if(quadroUrl) URL.revokeObjectURL(quadroUrl);
+        quadroUrl = URL.createObjectURL(blob);
+        quadro.src = quadroUrl;
+        quadro.onload = () => { URL.revokeObjectURL(quadroUrl); quadroUrl = null; };
+        quadro.style.display = 'block';
+        mostrarPosicao();
+      } catch(e){ if(pedido === pedidoQuadro) status.textContent = 'Não foi possível carregar o quadro. Tente outro tempo.'; }
+    };
+    const seek = t => {
+      if(!Number.isFinite(t) || t < 0) return false;
+      video.pause();
+      posicao = duracao() ? Math.min(t, Math.max(0, duracao() - 0.05)) : t;
+      busca.value = tempoCamera(posicao);
+      if(video.readyState >= 1) video.currentTime = posicao;
+      if(modoQuadro) carregarQuadro(); else mostrarPosicao();
+      return true;
+    };
+    box.buscarTempoCamera = seek;
+    busca.value = tempoCamera(posicao);
+    preview.querySelector('[data-ver-quadro]').onclick = () => {
+      video.pause(); modoQuadro = true;
+      const t = parseTempo(busca.value.replace(',', '.'));
+      if(!seek(t)) seek(posicao);
+    };
+    video.onplay = () => { modoQuadro = false; quadro.style.display = 'none'; };
+    video.onloadedmetadata = () => {
+      seek(posicao);
+      busca.value = tempoCamera(video.currentTime);
+      status.textContent = `Posição: ${tempoCamera(video.currentTime)} / ${tempoCamera(video.duration)}`;
+    };
+    video.ontimeupdate = () => { if(!modoQuadro){ posicao = video.currentTime; mostrarPosicao(); } };
+    video.onerror = () => { status.textContent = 'Use 📷 para visualizar e alinhar este vídeo.'; };
+    preview.querySelectorAll('[data-passo]').forEach(b => b.onclick = () => seek(Math.max(0, posicao + Number(b.dataset.passo))));
+    const ir = () => {
+      const t = parseTempo(busca.value.replace(',', '.'));
+      busca.setCustomValidity(seek(t) ? '' : 'Informe um tempo válido, como 01:23.500.');
+      busca.reportValidity();
+    };
+    busca.oninput = () => busca.setCustomValidity('');
+    preview.querySelector('[data-ir-camera]').onclick = ir;
+    busca.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); ir(); } };
+    preview.querySelector('[data-marcar-camera]').onclick = () => {
+      video.pause();
+      cam.inicio_jogo_s = Math.round(posicao * 1000) / 1000;
+      input.value = tempoCamera(cam.inicio_jogo_s);
+      input.setCustomValidity('');
+      agendarSalvar();
+    };
+    video.src = '/video/completo?video=' + encodeURIComponent(cam.caminho || cam.nome);
+
     el.appendChild(box);
   });
+
   el.querySelectorAll('[data-remover-camera]').forEach(b => b.onclick = () => {
     const i = Number(b.dataset.removerCamera); camerasSelecionadas()[i] = null;
     if(i === 0) ESTADO.video = null;
@@ -6252,75 +6240,228 @@ function obterAvatarJogadorHtml(nome, tamanho = 32, timeIdx = null){
 let abaPreviewAtual = 'frame';
 let tempoFundoSegundos = 150;
 
-function atualizarFiltrosCssFundo(){
-  const b = parseFloat($('#fundoBrilho').value) || 125;
-  const s = parseFloat($('#fundoSaturacao').value) || 145;
-  const c = parseFloat($('#fundoContraste').value) || 112;
-  const d = parseFloat($('#fundoDesfoque').value) || 0;
-  const v = parseFloat($('#fundoVinheta').value) || 0;
+/* ===== CONFIG POR CÂMERA (tela final) ============================= */
+const _camPresetValues = {
+  claro_vivido:{b:125,s:145,c:112,d:0,v:0},
+  super_claro: {b:145,s:135,c:115,d:0,v:0},
+  fifa:        {b:118,s:165,c:120,d:0,v:0},
+  tv:          {b:110,s:130,c:108,d:0,v:5},
+  cinema:      {b:105,s:90, c:125,d:0,v:15},
+  original:    {b:100,s:100,c:100,d:0,v:0},
+};
+const _camPresetNomes = {claro_vivido:'🌟 Claro & Vívido',super_claro:'☀️ Super Iluminado',fifa:'🎮 FIFA/Game',tv:'📺 Transmissão TV',cinema:'🎥 Cinema',original:'🔄 Original'};
+const _camPresetCores = {claro_vivido:'var(--accent)',super_claro:'#fde047',fifa:'#38bdf8',tv:'#4ade80',cinema:'#a78bfa',original:'var(--dim)'};
+const _camCorLabel    = ['var(--accent)','#00f0ff','#a78bfa'];
 
-  $('#lblFundoBrilho').textContent = `${b}%`;
-  $('#lblFundoSaturacao').textContent = `${s}%`;
-  $('#lblFundoContraste').textContent = `${c}%`;
-  $('#lblFundoDesfoque').textContent = d === 0 ? '0 px (nítido)' : `${d} px`;
-  $('#lblFundoVinheta').textContent = v === 0 ? '0% (desativada)' : `${v}%`;
+function _cfgCamDef(){ return {brilho:125,saturacao:145,contraste:112,desfoque:0,vinheta:0,tempo_s:150,aplicar_clipes:true,_preset:null}; }
+function _cfgCam(i){
+  if(!Array.isArray(ESTADO.configCameras)) ESTADO.configCameras = [null,null,null];
+  if(!ESTADO.configCameras[i] || typeof ESTADO.configCameras[i]!=='object') ESTADO.configCameras[i] = _cfgCamDef();
+  return ESTADO.configCameras[i];
+}
 
-  const img = $('#imgFundoPreview');
-  if(img){
-    img.style.filter = `brightness(${b / 100}) saturate(${s / 100}) contrast(${c / 100}) blur(${d}px)`;
-  }
-  const ov = $('#overlayFundoPreview');
-  if(ov){
-    ov.style.background = v > 0 ? `rgba(11, 15, 23, ${v / 100})` : 'transparent';
+function _atualizarFiltroPreviewCam(ci){
+  const cfg=_cfgCam(ci), img=$(`#fundoPreviewCam${ci}`); if(!img) return;
+  img.style.filter=`brightness(${(cfg.brilho||100)/100}) saturate(${(cfg.saturacao||100)/100}) contrast(${(cfg.contraste||100)/100}) blur(${cfg.desfoque||0}px)`;
+}
+
+function _sincHidden(ci){
+  const cfg=_cfgCam(ci), m=(id,v)=>{const e=$('#'+id);if(e)e.value=String(v);};
+  m('fundoBrilho',cfg.brilho??125); m('fundoSaturacao',cfg.saturacao??145);
+  m('fundoContraste',cfg.contraste??112); m('fundoDesfoque',cfg.desfoque??0);
+  m('fundoVinheta',cfg.vinheta??0);
+}
+
+function aplicarPresetCam(ci, pid){
+  const vals=_camPresetValues[pid]; if(!vals) return;
+  const cfg=_cfgCam(ci);
+  cfg._preset=pid; cfg.brilho=vals.b; cfg.saturacao=vals.s; cfg.contraste=vals.c; cfg.desfoque=vals.d; cfg.vinheta=vals.v;
+  const pfxs={camBrilho:'brilho',camSat:'saturacao',camContraste:'contraste',camDesfoque:'desfoque',camVinheta:'vinheta'};
+  Object.entries(pfxs).forEach(([pfx,key])=>{
+    const v=cfg[key], el=$(`#${pfx}${ci}`); if(el) el.value=v;
+    const lb=$(`#lbl_${pfx}${ci}`); if(lb) lb.textContent=key==='desfoque'?(v===0?'0 px':`${v} px`):`${v}%`;
+  });
+  const pg=$(`#presetsGridCam${ci}`);
+  if(pg) pg.querySelectorAll('button').forEach(b=>{
+    const ok=b.dataset.preset===pid, cp=_camPresetCores[pid]||'var(--accent)';
+    b.style.borderColor=ok?cp:'var(--line)'; b.style.background=ok?`${cp}22`:'';
+  });
+  _atualizarFiltroPreviewCam(ci);
+  if(ci===0){ _sincHidden(0); }
+  salvarFundoCartelaCam(ci,true);
+}
+
+async function capturarFrameCam(ci, tempo_s){
+  const ld=$(`#fundoLoadingCam${ci}`), pi=$(`#fundoPreviewCam${ci}`);
+  if(ld) ld.style.display='flex';
+  try{
+    const cams=camerasSelecionadas(), cam=cams[ci];
+    const video=cam?(cam.caminho||cam.nome):(S.meta?.video||null);
+    const r=await fetch('/api/cartelas/fundo/capturar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({video,tempo_s:parseFloat(tempo_s)||0})});
+    if(!r.ok) return;
+    const d=await r.json();
+    if(d.ok&&(d.raw_url||d.preview)){
+      const url=(d.raw_url||d.preview)+'?t='+Date.now();
+      if(pi) pi.src=url;
+      _cfgCam(ci).tempo_s=d.tempo_s;
+      const ti=$(`#tempoFundoCam${ci}`); if(ti) ti.value=fmtTempo(Math.round(d.tempo_s));
+      if(ci===0){
+        tempoFundoSegundos=d.tempo_s;
+        const gi=$('#imgFundoPreview'); if(gi) gi.src=url;
+        const fi=$('#frameTimestampInfo'); if(fi) fi.textContent=`Instante: ${fmtTempo(Math.round(d.tempo_s))}`;
+        _sincHidden(0);
+        if(abaPreviewAtual!=='frame') await salvarFundoCartela(true);
+      }
+    }
+  }catch(e){console.error(e);}finally{if(ld) ld.style.display='none';}
+}
+
+async function salvarFundoCartelaCam(ci, silencioso=false){
+  ESTADO.configCameras[ci]={..._cfgCam(ci)};
+  if(ci===0){ _sincHidden(0); await salvarFundoCartela(silencioso); }
+  else{
+    agendarSalvar();
+    if(!silencioso){
+      const st=$('#statusSalvoFundo');
+      if(st){st.textContent=`✓ Câmera ${ci+1} salva!`;st.style.display='inline-block';setTimeout(()=>{st.style.display='none';st.textContent='✓ Aplicado!';},2500);}
+    }
   }
 }
 
-async function capturarFrameFundo(tempo_s){
-  const loadEl = $('#loadingFundoPreview');
-  if(loadEl) loadEl.style.display = 'flex';
-  try {
-    const video = S.meta && S.meta.video ? S.meta.video : null;
-    const r = await fetch('/api/cartelas/fundo/capturar', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({video, tempo_s: parseFloat(tempo_s) || 0})
+function renderGridCamerasFundo(){
+  const grid=$('#gridCamerasFundo'); if(!grid) return;
+  grid.querySelectorAll('video').forEach(v=>{v.pause();v.removeAttribute('src');v.load();});
+  grid.innerHTML='';
+  const cameras=camerasSelecionadas();
+  const PIDS=['claro_vivido','super_claro','fifa','tv','cinema','original'];
+
+  [0,1,2].forEach(ci=>{
+    const cam=cameras[ci], cfg=_cfgCam(ci), cor=_camCorLabel[ci];
+    const col=document.createElement('div');
+    col.style.cssText=`background:var(--panel2);border:1px solid ${ci===0?'rgba(0,255,135,.35)':'var(--line)'};border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px`;
+
+    /* cabeçalho */
+    const cab=document.createElement('div'); cab.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:4px';
+    cab.innerHTML=`<b style="font-size:13px;color:${cor}">📹 Câmera ${ci+1}${ci===0?' · principal':''}</b>${cam?`<span style="font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px" title="${cam.nome}">${cam.nome}</span>`:'<span class="hint" style="font-size:10px">sem vídeo</span>'}`;
+    col.appendChild(cab);
+
+    if(!cam){
+      const msg=document.createElement('div'); msg.className='hint'; msg.style.cssText='font-size:11px;text-align:center;padding:18px 0';
+      msg.textContent='Adicione um vídeo no Passo 1 para configurar esta câmera.';
+      col.appendChild(msg); grid.appendChild(col); return;
+    }
+
+    /* preview */
+    const pw=document.createElement('div'); pw.style.cssText='position:relative;aspect-ratio:16/9;background:#000;border-radius:7px;overflow:hidden;border:1px solid var(--line)';
+    const pi=document.createElement('img'); pi.id=`fundoPreviewCam${ci}`; pi.style.cssText='width:100%;height:100%;object-fit:cover;display:block'; pi.src='/web/fundo_raw.png'; pi.onerror=()=>{pi.src='/web/fundo_cartela.png';};
+    const pl=document.createElement('div'); pl.id=`fundoLoadingCam${ci}`; pl.style.cssText='position:absolute;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff'; pl.textContent='⏳ Capturando…';
+    pw.appendChild(pi); pw.appendChild(pl); col.appendChild(pw);
+
+    /* tempo + capturar */
+    const tr=document.createElement('div'); tr.style.cssText='display:flex;gap:6px;align-items:center';
+    const ti=document.createElement('input'); ti.type='text'; ti.id=`tempoFundoCam${ci}`; ti.value=fmtTempo(cfg.tempo_s||150); ti.style.cssText='width:70px;font-family:monospace;font-size:12px;font-weight:700;text-align:center;padding:4px';
+    const cb=document.createElement('button'); cb.type='button'; cb.className='ghost'; cb.style.cssText='flex:1;font-size:11px;padding:4px 8px'; cb.textContent='📷 Capturar Frame';
+    cb.onclick=()=>capturarFrameCam(ci,parseTempo(ti.value)||cfg.tempo_s||150);
+    ti.onchange=()=>{const t=parseTempo(ti.value);if(t!=null&&!isNaN(t)){cfg.tempo_s=t;capturarFrameCam(ci,t);}};
+    tr.appendChild(ti); tr.appendChild(cb); col.appendChild(tr);
+
+    const rng=document.createElement('input'); rng.type='range'; rng.min=0; rng.max=Math.max(10,Math.round(cam.duracao_s||3600)); rng.step=1; rng.value=cfg.tempo_s||150; rng.style.width='100%';
+    rng.oninput=()=>ti.value=fmtTempo(Math.round(rng.value));
+    rng.onchange=()=>{cfg.tempo_s=parseFloat(rng.value);capturarFrameCam(ci,cfg.tempo_s);};
+    col.appendChild(rng);
+
+    /* presets */
+    const plbl=document.createElement('div'); plbl.style.cssText='font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:.5px'; plbl.textContent='Preset de cor e iluminação'; col.appendChild(plbl);
+    const pg=document.createElement('div'); pg.id=`presetsGridCam${ci}`; pg.style.cssText='display:grid;grid-template-columns:repeat(2,1fr);gap:4px';
+    PIDS.forEach(pid=>{
+      const isAt=cfg._preset===pid, cp=_camPresetCores[pid]||'var(--dim)';
+      const btn=document.createElement('button'); btn.type='button'; btn.dataset.preset=pid; btn.className='ghost';
+      btn.style.cssText=`text-align:left;padding:5px 8px;font-size:10px;display:flex;flex-direction:column;gap:1px;border-color:${isAt?cp:'var(--line)'};${isAt?`background:${cp}22`:''}`;
+      btn.innerHTML=`<span style="font-weight:700;color:${cp}">${_camPresetNomes[pid]}</span>`;
+      btn.onclick=()=>aplicarPresetCam(ci,pid);
+      pg.appendChild(btn);
     });
-    if(!r.ok){
-      alert('Não foi possível capturar frame neste instante do vídeo.');
-      return;
-    }
-    const data = await r.json();
-    if(data.ok && (data.raw_url || data.preview)){
-      $('#imgFundoPreview').src = data.raw_url || data.preview;
-      tempoFundoSegundos = data.tempo_s;
-      $('#rangeTempoFundo').value = Math.round(data.tempo_s);
-      $('#tempoFundoInput').value = fmtTempo(Math.round(data.tempo_s));
-      $('#frameTimestampInfo').textContent = `Instante do vídeo: ${fmtTempo(Math.round(data.tempo_s))}`;
-      if(abaPreviewAtual !== 'frame'){
-        await salvarFundoCartela(true);
-      }
-    }
-  } catch(e) {
-    console.error('Erro ao capturar frame:', e);
-  } finally {
-    if(loadEl) loadEl.style.display = 'none';
-  }
+    col.appendChild(pg);
+
+    /* sliders */
+    [{pfx:'camBrilho',label:'Brilho',key:'brilho',min:20,max:250,step:5,def:125},
+     {pfx:'camSat',label:'Saturação',key:'saturacao',min:0,max:250,step:5,def:145},
+     {pfx:'camContraste',label:'Contraste',key:'contraste',min:50,max:200,step:2,def:112},
+     {pfx:'camDesfoque',label:'Desfoque',key:'desfoque',min:0,max:25,step:1,def:0},
+     {pfx:'camVinheta',label:'Vinheta',key:'vinheta',min:0,max:90,step:5,def:0},
+    ].forEach(({pfx,label,key,min,max,step,def})=>{
+      const val=cfg[key]!=null?cfg[key]:def;
+      const ww=document.createElement('div');
+      const rr=document.createElement('div'); rr.style.cssText='display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px';
+      const ln=document.createElement('span'); ln.textContent=label;
+      const lv=document.createElement('span'); lv.id=`lbl_${pfx}${ci}`; lv.style.cssText='font-weight:700;color:var(--accent)';
+      lv.textContent=key==='desfoque'?(val===0?'0 px':`${val} px`):`${val}%`;
+      rr.appendChild(ln); rr.appendChild(lv);
+      const sl=document.createElement('input'); sl.type='range'; sl.id=`${pfx}${ci}`; sl.min=min; sl.max=max; sl.step=step; sl.value=val; sl.style.width='100%';
+      sl.oninput=()=>{const v=parseFloat(sl.value);cfg[key]=v;cfg._preset=null;lv.textContent=key==='desfoque'?(v===0?'0 px':`${v} px`):`${v}%`;_atualizarFiltroPreviewCam(ci);};
+      sl.onchange=()=>{if(ci===0)_sincHidden(0);agendarSalvar();};
+      ww.appendChild(rr); ww.appendChild(sl); col.appendChild(ww);
+    });
+
+    /* checkbox + botão */
+    const ck=document.createElement('label'); ck.style.cssText='display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer';
+    const chk=document.createElement('input'); chk.type='checkbox'; chk.id=`camAplicarClipes${ci}`; chk.style.width='auto'; chk.checked=cfg.aplicar_clipes!==false;
+    chk.onchange=()=>{cfg.aplicar_clipes=chk.checked;if(ci===0)_sincHidden(0);agendarSalvar();};
+    const cl=document.createElement('span'); cl.textContent='Aplicar nos clipes desta câmera';
+    ck.appendChild(chk); ck.appendChild(cl); col.appendChild(ck);
+
+    const ab=document.createElement('button'); ab.type='button'; ab.className='act'; ab.style.cssText='width:100%;font-size:12px;padding:6px;margin-top:2px';
+    ab.textContent=ci===0?'✓ Aplicar como Fundo das Cartelas':'✓ Salvar Configuração';
+    ab.onclick=()=>salvarFundoCartelaCam(ci,false);
+    col.appendChild(ab);
+
+    _atualizarFiltroPreviewCam(ci);
+    grid.appendChild(col);
+  });
+}
+/* ================================================================== */
+
+function atualizarFiltrosCssFundo(){
+  // Lê da config da câmera 0 (inputs hidden são backup, mas cfg é a fonte de verdade)
+  const cfg = _cfgCam(0);
+  const b = cfg.brilho    ?? 125;
+  const s = cfg.saturacao ?? 145;
+  const c = cfg.contraste ?? 112;
+  const d = cfg.desfoque  ?? 0;
+  const v = cfg.vinheta   ?? 0;
+
+  const img = $('#imgFundoPreview');
+  if(img) img.style.filter = `brightness(${b/100}) saturate(${s/100}) contrast(${c/100}) blur(${d}px)`;
+  const ov = $('#overlayFundoPreview');
+  if(ov) ov.style.background = v > 0 ? `rgba(11,15,23,${v/100})` : 'transparent';
+  _atualizarFiltroPreviewCam(0);
+}
+
+async function capturarFrameFundo(tempo_s){
+  // legado: delega para a câmera 1 (índice 0)
+  await capturarFrameCam(0, tempo_s);
+}
+
+function carregarFramePredefinido(tempo_s){
+  capturarFrameCam(0, tempo_s);
 }
 
 async function salvarFundoCartela(silencioso = false){
   const loadEl = $('#loadingFundoPreview');
   if(loadEl) loadEl.style.display = 'flex';
   try {
+    // Lê sempre da config da câmera 0 (câmera principal)
+    const cfg = _cfgCam(0);
     const video = S.meta && S.meta.video ? S.meta.video : null;
     const payload = {
       video,
-      tempo_s: tempoFundoSegundos,
-      brilho: (parseFloat($('#fundoBrilho').value) || 125) / 100,
-      saturacao: (parseFloat($('#fundoSaturacao').value) || 145) / 100,
-      contraste: (parseFloat($('#fundoContraste').value) || 112) / 100,
-      desfoque: parseFloat($('#fundoDesfoque').value) || 0,
-      vinheta: parseFloat($('#fundoVinheta').value) || 0,
-      aplicar_video_clipes: $('#chkAplicarClipes').checked
+      tempo_s: cfg.tempo_s || tempoFundoSegundos,
+      brilho:    (cfg.brilho    ?? 125) / 100,
+      saturacao: (cfg.saturacao ?? 145) / 100,
+      contraste: (cfg.contraste ?? 112) / 100,
+      desfoque:   cfg.desfoque  ?? 0,
+      vinheta:    cfg.vinheta   ?? 0,
+      aplicar_video_clipes: cfg.aplicar_clipes !== false,
     };
     const r = await fetch('/api/cartelas/fundo/salvar', {
       method: 'POST',
@@ -6372,36 +6513,10 @@ async function restaurarFundoPadrao(){
 }
 
 function aplicarPresetFundo(tipo){
-  let b = 125, s = 145, c = 112, d = 0, v = 0;
-  if(tipo === 'claro_vivido' || tipo === 'vivido'){
-    b = 125; s = 145; c = 112; d = 0; v = 0;
-  } else if(tipo === 'super_claro' || tipo === 'noturno'){
-    b = 145; s = 135; c = 115; d = 0; v = 0;
-  } else if(tipo === 'fifa'){
-    b = 118; s = 165; c = 120; d = 0; v = 0;
-  } else if(tipo === 'sportv' || tipo === 'tv'){
-    b = 110; s = 130; c = 108; d = 0; v = 5;
-  } else if(tipo === 'cinema'){
-    b = 105; s = 90; c = 125; d = 0; v = 15;
-  } else if(tipo === 'padrao' || tipo === 'original'){
-    b = 100; s = 100; c = 100; d = 0; v = 0;
-  }
-  $('#fundoBrilho').value = b;
-  $('#fundoSaturacao').value = s;
-  $('#fundoContraste').value = c;
-  $('#fundoDesfoque').value = d;
-  $('#fundoVinheta').value = v;
-
-  $$('.btnPresetCard').forEach(btn => {
-    const p = btn.getAttribute('data-preset');
-    const isAct = (p === tipo || (tipo === 'vivido' && p === 'claro_vivido') || (tipo === 'noturno' && p === 'super_claro') || (tipo === 'tv' && p === 'sportv') || (tipo === 'padrao' && p === 'original'));
-    btn.classList.toggle('active', isAct);
-    if(isAct) btn.style.borderColor = 'var(--accent)';
-    else btn.style.borderColor = 'var(--line)';
-  });
-
-  atualizarFiltrosCssFundo();
-  salvarFundoCartela(true);
+  // delega ao sistema por câmera (câmera 0 = câmera 1 = principal)
+  const pid = tipo in _camPresetValues ? tipo
+    : (tipo==='vivido'?'claro_vivido':tipo==='noturno'?'super_claro':tipo==='sportv'?'tv':tipo==='padrao'?'original':'claro_vivido');
+  aplicarPresetCam(0, pid);
 }
 
 function carregarFramePredefinido(tempo_s){
@@ -6585,70 +6700,45 @@ function renderResumo(){
       }
     }).join('') || '<tr><td colspan="5" class="hint">nenhum gol ou lance marcado ainda</td></tr>');
 
-  // Inicialização e event listeners do controle de fundo das cartelas
+  // Inicialização do controle de fundo das cartelas
   if(!window._fundoCartelasInitDone){
     window._fundoCartelasInitDone = true;
 
-    $('#rangeTempoFundo').oninput = function(){
-      tempoFundoSegundos = parseFloat(this.value) || 0;
-      $('#tempoFundoInput').value = fmtTempo(Math.round(tempoFundoSegundos));
-      $('#frameTimestampInfo').textContent = `Instante do vídeo: ${fmtTempo(Math.round(tempoFundoSegundos))}`;
-    };
-    $('#rangeTempoFundo').onchange = function(){
-      capturarFrameFundo(this.value);
-    };
-
-    $('#tempoFundoInput').onchange = function(){
-      const t = parseTempo(this.value);
-      if(t !== null && !isNaN(t)){
-        capturarFrameFundo(t);
-      }
-    };
-
-    $('#btnCapturarFrameFundo').onclick = function(){
-      const t = parseTempo($('#tempoFundoInput').value);
-      capturarFrameFundo(t !== null ? t : tempoFundoSegundos);
-    };
-
-    ['fundoBrilho', 'fundoSaturacao', 'fundoContraste', 'fundoDesfoque', 'fundoVinheta'].forEach(id => {
-      $('#' + id).oninput = atualizarFiltrosCssFundo;
-      $('#' + id).onchange = () => {
-        if(abaPreviewAtual !== 'frame') salvarFundoCartela(true);
-      };
-    });
-
-    $('#btnSalvarFundoCartela').onclick = () => salvarFundoCartela(false);
+    $('#btnSalvarFundoCartela').onclick = () => salvarFundoCartelaCam(0, false);
     $('#btnRestaurarFundoPadrao').onclick = restaurarFundoPadrao;
 
-    // Se houver config salva de fundo em meta
-    if(S.meta && S.meta.fundo_config){
-      const fc = S.meta.fundo_config;
-      if(fc.brilho != null) $('#fundoBrilho').value = Math.round(fc.brilho * 100);
-      if(fc.saturacao != null) $('#fundoSaturacao').value = Math.round(fc.saturacao * 100);
-      if(fc.contraste != null) $('#fundoContraste').value = Math.round(fc.contraste * 100);
-      if(fc.desfoque != null) $('#fundoDesfoque').value = fc.desfoque;
-      if(fc.vinheta != null) $('#fundoVinheta').value = fc.vinheta;
-      if(fc.aplicar_video_clipes != null) $('#chkAplicarClipes').checked = fc.aplicar_video_clipes;
-      if(fc.tempo_s != null){
-        tempoFundoSegundos = fc.tempo_s;
-        $('#tempoFundoInput').value = fmtTempo(Math.round(fc.tempo_s));
-        $('#rangeTempoFundo').value = Math.round(fc.tempo_s);
-      }
+    // Carrega configs salvas por câmera
+    if(!Array.isArray(ESTADO.configCameras)) ESTADO.configCameras = [null,null,null];
+    if(S.meta && S.meta.config_cameras && Array.isArray(S.meta.config_cameras)){
+      S.meta.config_cameras.slice(0,3).forEach((cfg,i)=>{
+        if(cfg && typeof cfg==='object') ESTADO.configCameras[i]={..._cfgCamDef(),...cfg};
+      });
+    } else if(S.meta && S.meta.fundo_config){
+      // migra config legada para câmera 0
+      const fc=S.meta.fundo_config, cfg=_cfgCam(0);
+      if(fc.brilho    !=null) cfg.brilho    =Math.round(fc.brilho*100);
+      if(fc.saturacao !=null) cfg.saturacao =Math.round(fc.saturacao*100);
+      if(fc.contraste !=null) cfg.contraste =Math.round(fc.contraste*100);
+      if(fc.desfoque  !=null) cfg.desfoque  =fc.desfoque;
+      if(fc.vinheta   !=null) cfg.vinheta   =fc.vinheta;
+      if(fc.aplicar_video_clipes!=null) cfg.aplicar_clipes=fc.aplicar_video_clipes;
+      if(fc.tempo_s   !=null){ cfg.tempo_s=fc.tempo_s; tempoFundoSegundos=fc.tempo_s; }
     }
   }
 
-  // Atualiza duração máxima do slider se tivermos vídeo
-  if(S.meta && S.meta.duracao_s){
-    $('#rangeTempoFundo').max = Math.max(10, Math.round(S.meta.duracao_s));
-  }
+  // Renderiza (ou re-renderiza) os 3 painéis de câmera lado a lado
+  renderGridCamerasFundo();
 
   // Atalho para o 1º gol marcado
   const pGol = validos()[0];
   if(pGol){
     const tGol = obterTempoSegundosClipe(pGol);
     if(tGol > 0){
-      $('#btnFrameGolDestaque').textContent = `⚽ Gol 1 (${fmtTempo(tGol)})`;
-      $('#btnFrameGolDestaque').onclick = () => carregarFramePredefinido(tGol);
+      const btnGol = $('#btnFrameGolDestaque');
+      if(btnGol){
+        btnGol.textContent = `⚽ Gol 1 (${fmtTempo(tGol)})`;
+        btnGol.onclick = () => capturarFrameCam(0, tGol);
+      }
     }
   }
 
@@ -7184,11 +7274,16 @@ function inicializarRecorteVertical(){
 
 let _coresJogadorManual = false;   // true depois que o usuário mexe nos controles de cor do jogador
 function sincronizarCoresJogadorComFundo(){
+  const cfg = _cfgCam(0);
   const fc = S.meta?.fundo_config;
-  if(_coresJogadorManual || !fc || !fc.aplicar_video_clipes) return;
-  if(fc.brilho != null) $('#jgBrilho').value = Math.round(fc.brilho * 100);
-  if(fc.contraste != null) $('#jgContraste').value = Math.round(fc.contraste * 100);
-  if(fc.saturacao != null) $('#jgSaturacao').value = Math.round(fc.saturacao * 100);
+  const aplicar = cfg.aplicar_clipes !== false || (fc && fc.aplicar_video_clipes);
+  if(_coresJogadorManual || !aplicar) return;
+  const b = cfg.brilho ?? (fc?.brilho != null ? Math.round(fc.brilho * 100) : null);
+  const c = cfg.contraste ?? (fc?.contraste != null ? Math.round(fc.contraste * 100) : null);
+  const s = cfg.saturacao ?? (fc?.saturacao != null ? Math.round(fc.saturacao * 100) : null);
+  if(b != null){ const el=$('#jgBrilho');    if(el) el.value=b; }
+  if(c != null){ const el=$('#jgContraste'); if(el) el.value=c; }
+  if(s != null){ const el=$('#jgSaturacao'); if(el) el.value=s; }
   ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => { const l = $('#lbl_' + id); if(l) l.textContent = `${$('#' + id).value}%`; });
   if(typeof aplicarFiltroPreviaJogador === 'function') aplicarFiltroPreviaJogador();
 }
@@ -7220,11 +7315,16 @@ function inicializarRenderJogador(){
   if(resSalva) $('#resolucaoJogador').value = resSalva;
   $('#resolucaoJogador').onchange = e => { try { localStorage.setItem('futbin_jogador_res', e.target.value); } catch(err) {} };
   // Parte dos ajustes de cor definidos na tela dos vídeos, se estiverem ativos.
+  const cfg0 = _cfgCam(0);
   const fc = S.meta?.fundo_config;
-  if(fc && fc.aplicar_video_clipes){
-    if(fc.brilho != null) $('#jgBrilho').value = Math.round(fc.brilho * 100);
-    if(fc.contraste != null) $('#jgContraste').value = Math.round(fc.contraste * 100);
-    if(fc.saturacao != null) $('#jgSaturacao').value = Math.round(fc.saturacao * 100);
+  const aplicar = cfg0.aplicar_clipes !== false || (fc && fc.aplicar_video_clipes);
+  if(aplicar){
+    const b = cfg0.brilho ?? (fc?.brilho != null ? Math.round(fc.brilho * 100) : null);
+    const c = cfg0.contraste ?? (fc?.contraste != null ? Math.round(fc.contraste * 100) : null);
+    const s = cfg0.saturacao ?? (fc?.saturacao != null ? Math.round(fc.saturacao * 100) : null);
+    if(b != null){ const el=$('#jgBrilho');    if(el) el.value=b; }
+    if(c != null){ const el=$('#jgContraste'); if(el) el.value=c; }
+    if(s != null){ const el=$('#jgSaturacao'); if(el) el.value=s; }
   }
   const atualizar = () => {
     ['jgBrilho', 'jgContraste', 'jgSaturacao'].forEach(id => { $('#lbl_' + id).textContent = `${$('#' + id).value}%`; });
