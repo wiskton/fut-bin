@@ -1261,7 +1261,7 @@ def concatenar_segmentos(partes, lista, saida):
             "pix_fmt", "sample_aspect_ratio", "sample_rate", "channels", "channel_layout"
         )) for s in dados["streams"]]
         if referencia is not None and assinatura != referencia:
-            print(f"⚠️  Segmento {i+1} incompatível detectado: {os.path.basename(parte)}")
+            print(f"[!] Segmento {i+1} incompativel detectado: {os.path.basename(parte)}")
             incompativeis.append(i)
         elif referencia is None:
             referencia = assinatura
@@ -1269,7 +1269,7 @@ def concatenar_segmentos(partes, lista, saida):
     
     # Se houver incompatibilidade, recodifica TODOS para formato consistente
     if incompativeis:
-        print(f"🔄 Recodificando {len(partes)} segmentos para formato consistente...")
+        print(f"[>] Recodificando {len(partes)} segmentos para formato consistente...")
         partes_recodificadas = []
         for i, parte in enumerate(partes):
             saida_rec = parte.replace(".mp4", "_rec.mp4")
