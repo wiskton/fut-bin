@@ -8145,53 +8145,52 @@ function confirmarSelecaoJogadores(){
   const jogadoresTexto = textarea.value.trim();
   const linhasAtuais = jogadoresTexto ? jogadoresTexto.split('\n').map(l => l.trim()).filter(Boolean) : [];
   
+  // 1. Primeiro coleta tudo que vai ser adicionado
+  const posParaAplicar = {};
+  const fotosParaAplicar = {};
+  
   jogadoresSelecionados.forEach(id => {
     const jogador = jogadoresCadastrados.find(j => j.id === id);
-    // Usa apelido se existir, senão usa o nome
+    if(!jogador) return;
     const nomeExibir = jogador.apelido || jogador.nome;
-    if(jogador && !linhasAtuais.includes(nomeExibir)){
+    if(!linhasAtuais.includes(nomeExibir)){
       linhasAtuais.push(nomeExibir);
-      
-      // Define posição automaticamente se o jogador tem posição cadastrada
-      if(jogador.posicao){
-        const mapaPosicao = {
-          'GOL': 'gol', 'GOLEIRO': 'gol',
-          'ZAG': 'zag', 'ZAGUEIRO': 'zag',
-          'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
-          'ATA': 'ata', 'ATACANTE': 'ata'
-        };
-        const posNormalizada = jogador.posicao.toUpperCase().trim();
-        const posId = mapaPosicao[posNormalizada] || 'meio';
-        
-        // Garante que o jogador está na lista antes de definir posição
-        if(!S.times[timeParaAdicionar].jogadores.includes(nomeExibir)){
-          S.times[timeParaAdicionar].jogadores.push(nomeExibir);
-        }
-        
-        definirPosicaoJogador(timeParaAdicionar, nomeExibir, posId);
-        console.log(`[>] Posição ${posId} definida para ${nomeExibir} no time ${timeParaAdicionar}`);
-      }
-      
-      // Copia a foto do jogador cadastrado
-      if(jogador.foto){
-        if(!S.times[timeParaAdicionar].fotos){
-          S.times[timeParaAdicionar].fotos = {};
-        }
-        S.times[timeParaAdicionar].fotos[nomeExibir] = jogador.foto;
-        console.log(`[>] Foto copiada para ${nomeExibir}`);
-      }
+    }
+    // Coleta posição
+    if(jogador.posicao){
+      const mapaPosicao = {
+        'GOL': 'gol', 'GOLEIRO': 'gol',
+        'ZAG': 'zag', 'ZAGUEIRO': 'zag',
+        'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
+        'ATA': 'ata', 'ATACANTE': 'ata'
+      };
+      const posId = mapaPosicao[jogador.posicao.toUpperCase().trim()] || 'meio';
+      posParaAplicar[nomeExibir] = posId;
+    }
+    // Coleta foto
+    if(jogador.foto){
+      fotosParaAplicar[nomeExibir] = jogador.foto;
     }
   });
   
+  // 2. Atualiza o textarea (sem disparar evento - evita lerSetup prematuro)
   textarea.value = linhasAtuais.join('\n');
-  textarea.dispatchEvent(new Event('input', {bubbles: true}));
   
-  // Força renderização do teatro para aplicar fotos e posições
+  // 3. Garante estrutura do time antes de definir posições/fotos
+  if(!S.times[timeParaAdicionar].posicoes) S.times[timeParaAdicionar].posicoes = {};
+  if(!S.times[timeParaAdicionar].fotos)    S.times[timeParaAdicionar].fotos    = {};
+  
+  // 4. Aplica posições e fotos direto no estado
+  Object.entries(posParaAplicar).forEach(([nome, pos]) => {
+    S.times[timeParaAdicionar].posicoes[nome] = pos;
+  });
+  Object.entries(fotosParaAplicar).forEach(([nome, foto]) => {
+    S.times[timeParaAdicionar].fotos[nome] = foto;
+  });
+  
+  // 5. Agora sim chama lerSetup (vai ler o textarea já atualizado e preservar posições/fotos)
   lerSetup();
   agendarSalvar();
-  setTimeout(() => {
-    renderPosicoesElenco(timeParaAdicionar);
-  }, 100);
   
   fecharSeletorJogadores();
   alert(`${jogadoresSelecionados.length} jogador(es) adicionado(s) ao elenco!`);
