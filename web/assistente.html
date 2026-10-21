@@ -6443,7 +6443,14 @@ async function capturarFrameCam(ci, tempo_s){
     const d=await r.json();
     if(d.ok&&(d.raw_url||d.preview)){
       const url=(d.raw_url||d.preview)+'?t='+Date.now();
-      if(pi) pi.src=url;
+      if(pi){
+        pi.src=url;
+        // Aguarda carregar e aplica filtros
+        pi.onload = () => {
+          _atualizarFiltroPreviewCam(ci);
+          if(ld) ld.style.display='none';
+        };
+      }
       _cfgCam(ci).tempo_s=d.tempo_s;
       const ti=$(`#tempoFundoCam${ci}`); if(ti) ti.value=fmtTempo(Math.round(d.tempo_s));
       if(ci===0){
