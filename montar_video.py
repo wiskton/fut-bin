@@ -910,39 +910,52 @@ def cartela_fim_de_jogo(d_, pagina=0):
     """
     Placar final profissional estilo transmissão esportiva pós-jogo (SporTV / Premiere).
     Mostra o placar oficial e a lista de todos os gols de cada time.
+    Design moderno com gradientes e tipografia refinada.
     """
     img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     meta, times = d_["meta"], d_["times"]
     ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
 
-    d.rectangle([0, 0, L, 6], fill=VERDE)
+    # Barra superior com gradiente sutil
+    for i in range(8):
+        alpha = int(255 * (1 - i / 8))
+        d.rectangle([0, i, L, i + 1], fill=(0, 180, 100, alpha) if i < 4 else VERDE)
 
-    # Logo do campeonato centralizada no topo
-    logo_fim = obter_logo_campeonato(d_, tamanho=(105, 105))
-    y_logo = 16
+    # Logo do campeonato com sombra elegante
+    logo_fim = obter_logo_campeonato(d_, tamanho=(120, 120))
+    y_logo = 20
     if logo_fim:
         lw, lh = logo_fim.size
         lx = (L - lw) // 2
-        d.ellipse([lx - 8, y_logo - 6, lx + lw + 8, y_logo + lh + 6],
-                  fill=(16, 24, 38), outline=DOURADO, width=2)
+        # Sombra suave
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
+                  fill=(0, 0, 0, 60))
+        # Anel dourado com gradiente
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
+                  outline=DOURADO, width=3)
+        d.ellipse([lx - 7, y_logo - 5, lx + lw + 7, y_logo + lh + 5],
+                  fill=(12, 18, 32), outline=(255, 215, 0, 180), width=1)
         if logo_fim.mode != "RGBA":
             logo_fim = logo_fim.convert("RGBA")
         img.paste(logo_fim, (lx, y_logo), logo_fim)
-        y_textos = y_logo + lh + 14
+        y_textos = y_logo + lh + 20
     else:
-        y_textos = 28
+        y_textos = 32
 
     total_pag = paginas_fim_de_jogo(d_)
-    titulo_fim = "FIM DE JOGO · PLACAR FINAL"
+    titulo_fim = "FIM DE JOGO"
     if total_pag > 1:
-        titulo_fim += f" ({pagina + 1}/{total_pag})"
-    centralizado(d, y_textos, titulo_fim, fonte(38), DOURADO)
+        titulo_fim += f" · PÁGINA {pagina + 1}/{total_pag}"
+    
+    # Título com sombra e destaque
+    centralizado_contornado(d, y_textos, titulo_fim, fonte(44, True),
+                           DOURADO, (0, 0, 0), 4)
+    
     sub = " · ".join(x for x in [meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
     if sub:
-        # Dados da partida precisam permanecer legíveis mesmo no fundo da quadra.
-        centralizado_contornado(d, y_textos + 46, sub, fonte(27, True),
-                               BRANCO, (0, 0, 0), 3)
+        centralizado_contornado(d, y_textos + 52, sub, fonte(26, False),
+                               (240, 240, 240), (0, 0, 0), 3)
 
     gols_ordenados = sorted(d_.get("gols", []), key=_tempo_em_segundos)
     gols_a = [g for g in gols_ordenados if g.get("time") == 0]
@@ -958,74 +971,151 @@ def cartela_fim_de_jogo(d_, pagina=0):
         if meta["placar_jogo"][1] is not None:
             total_b = meta["placar_jogo"][1]
 
-    # Placar Central Estilo Estádio
-    y_p = y_textos + 80
-    pw = 960
+    # Placar Central - Design Moderno e Elegante
+    y_p = y_textos + 95
+    pw = 1040
+    ph = 155
     px0 = (L - pw) // 2
-    d.rounded_rectangle([px0, y_p, px0 + pw, y_p + 130], radius=16, fill=PAINEL, outline=PAINEL_BORDA, width=2)
-    d.rectangle([px0 + 20, y_p + 124, px0 + pw // 2 - 10, y_p + 128], fill=ca)
-    d.rectangle([px0 + pw // 2 + 10, y_p + 124, px0 + pw - 20, y_p + 128], fill=cb)
+    
+    # Sombra do painel
+    d.rounded_rectangle([px0 + 6, y_p + 6, px0 + pw + 6, y_p + ph + 6], 
+                        radius=20, fill=(0, 0, 0, 80))
+    
+    # Painel principal com gradiente simulado
+    d.rounded_rectangle([px0, y_p, px0 + pw, y_p + ph], 
+                        radius=20, fill=(18, 24, 36))
+    d.rounded_rectangle([px0 + 2, y_p + 2, px0 + pw - 2, y_p + ph - 2], 
+                        radius=18, outline=(45, 55, 75), width=2)
+    
+    # Barras de cor dos times - mais elegantes
+    barra_h = 8
+    d.rounded_rectangle([px0 + 30, y_p + ph - 18, px0 + pw // 2 - 20, y_p + ph - 18 + barra_h],
+                        radius=4, fill=ca)
+    d.rounded_rectangle([px0 + pw // 2 + 20, y_p + ph - 18, px0 + pw - 30, y_p + ph - 18 + barra_h],
+                        radius=4, fill=cb)
+    
+    # Divisor central com estilo
+    cx = L // 2
+    d.line([cx, y_p + 25, cx, y_p + ph - 30], fill=(60, 70, 90), width=2)
+    
+    # Nomes dos times com sombra
+    nome_a = times[0]["nome"].upper()
+    nome_b = times[1]["nome"].upper()
+    f_nome = fonte(36, True)
+    
+    # Time A
+    centralizado_contornado(d, y_p + 35, nome_a, f_nome, ca, (0, 0, 0), 3)
+    # Time B  
+    d.text((px0 + pw // 2 + pw // 4, y_p + 35), nome_b, font=f_nome, 
+           fill=cb, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
+    
+    # Placar - números grandes e elegantes
+    f_placar = fonte(96, True)
+    f_vs = fonte(42, False)
+    
+    # Destaque no placar com sombra
+    d.text((cx - 90, y_p + 95), str(total_a), font=f_placar, 
+           fill=(255, 255, 255), anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
+    d.text((cx, y_p + 95), "×", font=f_vs, 
+           fill=(160, 170, 190), anchor="mm")
+    d.text((cx + 90, y_p + 95), str(total_b), font=f_placar, 
+           fill=(255, 255, 255), anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
 
-    d.text((px0 + 40, y_p + 65), times[0]["nome"], font=fonte(38), fill=ca, anchor="lm")
-    d.text((px0 + pw - 40, y_p + 65), times[1]["nome"], font=fonte(38), fill=cb, anchor="rm")
+    # Colunas com Lista de Gols - Design Refinado
+    col_w = 730
+    gap_central = 100
+    topo_col = y_p + ph + 30
 
-    f_big = fonte(88, True)
-    d.text((L // 2 - 75, y_p + 60), str(total_a), font=f_big, fill=(255, 255, 255), anchor="mm")
-    d.text((L // 2, y_p + 60), "×", font=fonte(48), fill=FRACO, anchor="mm")
-    d.text((L // 2 + 75, y_p + 60), str(total_b), font=f_big, fill=(255, 255, 255), anchor="mm")
-
-    # Colunas com Lista de Gols (incluindo avatar/foto do autor!)
-    col_w = 700
-    topo_col = y_p + 155
-
-    def desenhar_coluna_gols(x0, time_obj, lista_gols, cor):
-        # Usa toda a parte inferior da tela: assim uma partida com muitos gols
-        # continua mostrando a lista completa, sem cortar os últimos nomes.
-        fim_col = A - 48
+    def desenhar_coluna_gols(x0, time_obj, lista_gols, cor, lado="esquerda"):
+        fim_col = A - 50
         altura_col = fim_col - topo_col
-        espaco_itens = max(1, altura_col - 76)
-        passo_item = max(27, min(38, espaco_itens // max(len(lista_gols), 1)))
+        espaco_itens = max(1, altura_col - 90)
+        passo_item = max(30, min(42, espaco_itens // max(len(lista_gols), 1)))
         total_time = len(gols_a) if time_obj is times[0] else len(gols_b)
-        tam_autor = max(17, min(19, passo_item - 12))
-        tam_assist = max(12, min(14, passo_item - 17))
-        tam_tempo = max(11, min(13, passo_item - 18))
-        tam_avatar = max(20, min(26, passo_item - 8))
+        tam_autor = max(18, min(21, passo_item - 12))
+        tam_assist = max(13, min(15, passo_item - 17))
+        tam_tempo = max(12, min(14, passo_item - 18))
+        tam_avatar = max(24, min(30, passo_item - 8))
 
-        d.rounded_rectangle([x0, topo_col, x0 + col_w, fim_col], radius=12,
-                            fill=PAINEL, outline=PAINEL_BORDA, width=1)
-        d.rectangle([x0, topo_col, x0 + col_w, topo_col + 6], fill=cor)
-        d.text((x0 + 24, topo_col + 22), f"GOLS · {time_obj['nome'].upper()}", font=fonte(22), fill=cor)
-        d.text((x0 + col_w - 24, topo_col + 24), f"{total_time} gol(s)", font=fonte(16, False), fill=FRACO, anchor="ra")
+        # Sombra da coluna
+        d.rounded_rectangle([x0 + 4, topo_col + 4, x0 + col_w + 4, fim_col + 4], 
+                           radius=16, fill=(0, 0, 0, 60))
+        
+        # Painel da coluna com gradiente
+        d.rounded_rectangle([x0, topo_col, x0 + col_w, fim_col], 
+                           radius=16, fill=(20, 26, 38))
+        d.rounded_rectangle([x0 + 2, topo_col + 2, x0 + col_w - 2, fim_col - 2], 
+                           radius=14, outline=(50, 60, 80), width=2)
+        
+        # Header da coluna com cor do time
+        header_h = 55
+        d.rounded_rectangle([x0, topo_col, x0 + col_w, topo_col + header_h], 
+                           radius=16, fill=(30, 36, 48))
+        d.rectangle([x0 + 8, topo_col + header_h - 4, x0 + col_w - 8, topo_col + header_h], 
+                   fill=cor)
+        
+        # Título da coluna
+        titulo_col = f"⚽ {time_obj['nome'].upper()}"
+        d.text((x0 + 28, topo_col + 22), titulo_col, 
+               font=fonte(24, True), fill=cor)
+        d.text((x0 + col_w - 28, topo_col + 28), f"{total_time} gol{'s' if total_time != 1 else ''}", 
+               font=fonte(17, False), fill=(180, 190, 210), anchor="ra")
 
-        y_item = topo_col + 64
+        y_item = topo_col + header_h + 24
         if not lista_gols:
-            d.text((x0 + 24, y_item + 10), "Nenhum gol marcado", font=fonte(18, False), fill=FRACO)
+            d.text((x0 + 28, y_item + 15), "Nenhum gol marcado", 
+                   font=fonte(19, False), fill=(120, 130, 150))
             return
 
-        for g in lista_gols:
-            if y_item + passo_item > fim_col - 8:
+        for idx, g in enumerate(lista_gols):
+            if y_item + passo_item > fim_col - 12:
                 break
+            
+            # Linha separadora sutil
+            if idx > 0:
+                d.line([x0 + 24, y_item - 12, x0 + col_w - 24, y_item - 12], 
+                       fill=(40, 50, 70), width=1)
+            
             t_str = g.get("tempo", "")
-            # Badge com tempo
-            badge_h = min(26, passo_item - 3)
-            d.rounded_rectangle([x0 + 20, y_item - 2, x0 + 82, y_item - 2 + badge_h], radius=4,
-                                fill=(24, 32, 48), outline=(60, 75, 100), width=1)
-            d.text((x0 + 51, y_item - 2 + badge_h // 2), t_str, font=fonte(tam_tempo, True), fill=TEXTO, anchor="mm")
+            # Badge do tempo - mais moderno
+            badge_w = 68
+            badge_h = min(30, passo_item - 2)
+            badge_x = x0 + 24
+            badge_y = y_item
+            
+            d.rounded_rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + badge_h], 
+                               radius=6, fill=(35, 45, 65))
+            d.rounded_rectangle([badge_x + 1, badge_y + 1, badge_x + badge_w - 1, badge_y + badge_h - 1], 
+                               radius=5, outline=cor, width=2)
+            d.text((badge_x + badge_w // 2, badge_y + badge_h // 2), t_str, 
+                   font=fonte(tam_tempo, True), fill=(255, 255, 255), anchor="mm")
 
+            # Avatar e nome do autor
             autor = g.get("autor", "Gol")
+            avatar_x = x0 + 108
             av = obter_avatar_jogador(autor, time_obj, tamanho=(tam_avatar, tam_avatar), cor_time=cor)
             if av:
-                img.paste(av, (x0 + 96, y_item - 2), av)
-                d.text((x0 + 96 + tam_avatar + 10, y_item), autor, font=fonte(tam_autor, True), fill=TEXTO)
+                img.paste(av, (avatar_x, badge_y + 3), av)
+                d.text((avatar_x + tam_avatar + 12, badge_y + 4), autor, 
+                       font=fonte(tam_autor, True), fill=(240, 245, 255))
             else:
-                d.text((x0 + 96, y_item), autor, font=fonte(tam_autor, True), fill=TEXTO)
+                d.text((avatar_x, badge_y + 4), autor, 
+                       font=fonte(tam_autor, True), fill=(240, 245, 255))
 
+            # Assistência
             if g.get("assist"):
-                d.text((x0 + col_w - 24, y_item + 2), f"assist. {g['assist']}", font=fonte(tam_assist, False), fill=FRACO, anchor="ra")
+                assist_txt = f"⇨ {g['assist']}"
+                d.text((x0 + col_w - 28, badge_y + 6), assist_txt, 
+                       font=fonte(tam_assist, False), fill=(160, 170, 190), anchor="ra")
+            
             y_item += passo_item
 
-    desenhar_coluna_gols(170, times[0], gols_a_pag, ca)
-    desenhar_coluna_gols(L // 2 + 60, times[1], gols_b_pag, cb)
+    # Desenhar as duas colunas
+    col_x_esq = (L - col_w * 2 - gap_central) // 2
+    col_x_dir = col_x_esq + col_w + gap_central
+    
+    desenhar_coluna_gols(col_x_esq, times[0], gols_a_pag, ca, "esquerda")
+    desenhar_coluna_gols(col_x_dir, times[1], gols_b_pag, cb, "direita")
 
     return img
 
