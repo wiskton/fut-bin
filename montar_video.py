@@ -643,17 +643,21 @@ def _logo_topo_tema(img, d, d_, logo_tam=(110, 110), y_logo=16):
     lw, lh = logo.size
     lx = (L - lw) // 2
     if TEMA == "iss":
-        d.rectangle([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], fill=(0, 0, 0))
-        d.rectangle([lx - 12, y_logo - 10, lx + lw + 12, y_logo + lh + 10], outline=pborda, width=3)
-    else:
-        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], fill=(0, 0, 0, 80))
-        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
-                  outline=ptitulo if TEMA == "fifa" else DOURADO, width=3)
-        d.ellipse([lx - 7, y_logo - 5, lx + lw + 7, y_logo + lh + 5], fill=(12, 18, 32))
+        d.rectangle([lx - 12, y_logo - 10, lx + lw + 12, y_logo + lh + 10], fill=(0, 0, 0))
+        d.rectangle([lx - 14, y_logo - 12, lx + lw + 14, y_logo + lh + 12], outline=pborda, width=3)
+    elif TEMA == "fifa":
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], fill=(0, 0, 0, 120))
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], outline=(255, 255, 255), width=2)
+    elif TEMA == "pes":
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], fill=(20, 25, 38))
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], outline=(80, 90, 115), width=2)
+    else:  # tv
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], fill=(0, 0, 0, 140))
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], outline=(0, 220, 120), width=2)
     if logo.mode != "RGBA":
         logo = logo.convert("RGBA")
     img.paste(logo, (lx, y_logo), logo)
-    return y_logo + lh + 16
+    return y_logo + lh + 18
 
 
 def _cartela_abertura_tema(d_, visiveis_a=None, visiveis_b=None):
@@ -910,22 +914,25 @@ def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", code
     nomes_a = [nm for nm, _ in j_a_todos]
     nomes_b = [nm for nm, _ in j_b_todos]
 
-    # Monta a sequência de revelação: alterna A e B
-    max_jgs = max(len(nomes_a), len(nomes_b))
-    sequencia = []   # lista de (set_visiveis_a, set_visiveis_b, dur_frame_s)
-    va, vb = set(), set()
+    # Sequência: campo vazio → revela Time A completo → revela Time B completo
+    sequencia = []  # (set_visiveis_a, set_visiveis_b, dur_frame_s)
 
-    # Frame inicial — campo vazio (0.6s)
-    sequencia.append((set(), set(), 0.6))
+    # 1. Campo vazio
+    sequencia.append((frozenset(), frozenset(), 1.0))
 
-    for i in range(max_jgs):
-        if i < len(nomes_a):
-            va = va | {nomes_a[i]}
-        if i < len(nomes_b):
-            vb = vb | {nomes_b[i]}
-        # Cada revelação fica 0.8s; o último fica mais tempo
-        dur_frame = 2.5 if i == max_jgs - 1 else 0.8
-        sequencia.append((frozenset(va), frozenset(vb), dur_frame))
+    # 2. Revela Time A um por um (Time B ainda vazio)
+    va = set()
+    for i, nm in enumerate(nomes_a):
+        va = va | {nm}
+        dur = 1.2 if i < len(nomes_a) - 1 else 1.5
+        sequencia.append((frozenset(va), frozenset(), dur))
+
+    # 3. Revela Time B um por um (Time A já completo)
+    vb = set()
+    for i, nm in enumerate(nomes_b):
+        vb = vb | {nm}
+        dur = 1.2 if i < len(nomes_b) - 1 else 3.0
+        sequencia.append((frozenset(va), frozenset(vb), dur))
 
     # Gera cada frame PNG e concatena com ffmpeg
     c_v = codec if codec in ("libx264", "libx265") else "libx264"
@@ -938,8 +945,8 @@ def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", code
         frame_img = cartela_abertura(d_, visiveis_a=va_frame, visiveis_b=vb_frame)
         frame_img.save(png_path)
 
-        fade_in  = 0.18 if idx == 0 else 0.0
-        fade_out = 0.18 if idx == len(sequencia) - 1 else 0.0
+        fade_in  = 0.25 if idx == 0 else 0.0
+        fade_out = 0.25 if idx == len(sequencia) - 1 else 0.0
         fade_filter = ""
         if fade_in:
             fade_filter += f"fade=t=in:st=0:d={fade_in},"
@@ -1383,14 +1390,13 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
 def _paleta_tema():
     """Retorna cores base para o tema atual: (fundo_painel, borda, titulo, sub_titulo, accent)"""
     if TEMA == "fifa":
-        return (8, 8, 12), (40, 40, 60), (255, 255, 255), (180, 180, 200), (255, 215, 0)
+        return (6, 8, 14), (255, 255, 255), (255, 255, 255), (190, 195, 210), (255, 215, 0)
     if TEMA == "iss":
-        return (0, 0, 20), (255, 255, 0), (255, 255, 0), (200, 200, 60), (255, 0, 0)
+        return (0, 0, 30), (255, 255, 0), (255, 255, 0), (200, 200, 50), (255, 40, 40)
     if TEMA == "pes":
-        return (20, 22, 28), (50, 55, 70), (220, 225, 235), (150, 155, 170), (255, 255, 255)
+        return (16, 20, 28), (80, 90, 115), (255, 255, 255), (160, 168, 188), (255, 255, 255)
     if TEMA == "tv":
-        return (5, 8, 14), (30, 35, 50), (255, 255, 255), (160, 165, 175), (0, 200, 100)
-    # atual (padrão)
+        return (8, 10, 16), (40, 50, 70), (255, 255, 255), (170, 178, 195), (0, 220, 120)
     return PAINEL, PAINEL_BORDA, DOURADO, FRACO, VERDE
 
 
@@ -1429,14 +1435,15 @@ def _barra_topo_tema(d):
     """Desenha barra superior de acordo com o tema."""
     _, pborda, _, _, paccent = _paleta_tema()
     if TEMA == "iss":
-        d.rectangle([0, 0, L, 10], fill=pborda)     # amarelo ISS
-        d.rectangle([0, 10, L, 14], fill=(255, 0, 0))
+        d.rectangle([0, 0, L, 14], fill=pborda)
+        d.rectangle([0, 14, L, 22], fill=(255, 40, 40))
     elif TEMA == "fifa":
         d.rectangle([0, 0, L, 6], fill=(255, 255, 255))
+        d.rectangle([0, 6, L, 10], fill=(0, 80, 200))
     elif TEMA == "pes":
-        d.rectangle([0, 0, L, 4], fill=(80, 90, 110))
+        d.rectangle([0, 0, L, 5], fill=(70, 80, 105))
     elif TEMA == "tv":
-        d.rectangle([0, 0, L, 5], fill=paccent)
+        d.rectangle([0, 0, L, 6], fill=paccent)
     else:
         d.rectangle([0, 0, L, 6], fill=VERDE)
 
@@ -2061,16 +2068,39 @@ def _cartela_assista_outros_videos_tema(d_):
 
     _barra_topo_tema(d)
 
-    if TEMA == "iss":
-        d.rectangle([148, 98, L - 148, A - 68], fill=pborda)
-        d.rectangle([150, 100, L - 150, A - 70], fill=pfundo)
-    else:
-        d.rounded_rectangle([154, 104, L - 154, A - 74], radius=28, fill=(0, 0, 0, 80))
-        d.rounded_rectangle([150, 100, L - 150, A - 70], radius=28,
-                            fill=(10, 17, 29, 235), outline=paccent, width=3)
+    y_textos = _logo_topo_tema(img, d, d_, logo_tam=(100, 100), y_logo=30)
 
-    centralizado_contornado(d, 155, "ASSISTA ESTES OUTROS VIDEOS", fonte(52, True), ptitulo, (0, 0, 0), 3)
-    centralizado(d, A - 125, "Obrigado por assistir", fonte(25, False), psub)
+    margem_x = 140
+    bx0 = margem_x; bx1 = L - margem_x; by0 = y_textos + 30; by1 = A - 60
+
+    if TEMA == "iss":
+        d.rectangle([bx0 - 4, by0 - 4, bx1 + 4, by1 + 4], fill=pborda)
+        d.rectangle([bx0, by0, bx1, by1], fill=(4, 4, 20))
+    else:
+        d.rounded_rectangle([bx0 + 5, by0 + 5, bx1 + 5, by1 + 5], radius=24, fill=(0, 0, 0, 80))
+        d.rounded_rectangle([bx0, by0, bx1, by1], radius=24, fill=(8, 12, 22, 230), outline=paccent, width=3)
+
+    # Linha decorativa
+    lx0 = bx0 + 60; lx1 = bx1 - 60; ly = by0 + 38
+    if TEMA == "iss":
+        d.rectangle([lx0 - 2, ly - 2, lx1 + 2, ly + 14], fill=pborda)
+        d.rectangle([lx0, ly, lx1, ly + 12], fill=(0, 0, 60))
+    else:
+        d.rounded_rectangle([lx0, ly, lx1, ly + 12], radius=6, fill=pfundo, outline=pborda, width=1)
+    d.rectangle([lx0 + 20, ly + 3, lx0 + 20 + int((lx1 - lx0 - 40) * 0.7), ly + 9], fill=paccent)
+
+    cen_y = (by0 + by1) // 2 - 60
+    centralizado_contornado(d, cen_y, "ASSISTA OUTROS VIDEOS", fonte(56, True), ptitulo, (0, 0, 0), 3)
+    centralizado(d, cen_y + 70, "clique nos videos sugeridos abaixo", fonte(24, False), psub)
+
+    # Cantos decorativos
+    for cx_c, cy_c in [(bx0 + 30, by0 + 20), (bx1 - 30, by0 + 20), (bx0 + 30, by1 - 20), (bx1 - 30, by1 - 20)]:
+        if TEMA == "iss":
+            d.rectangle([cx_c - 8, cy_c - 8, cx_c + 8, cy_c + 8], fill=pborda)
+        else:
+            d.ellipse([cx_c - 8, cy_c - 8, cx_c + 8, cy_c + 8], fill=paccent)
+
+    centralizado(d, by1 + 10, "Obrigado por assistir!", fonte(22, False), psub)
     return img
 
 
