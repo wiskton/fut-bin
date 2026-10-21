@@ -3383,11 +3383,45 @@ function lerSetup(){
   const posB = filtrarPorElenco(S.times[1]?.posicoes, jB);
   const fotosA = filtrarPorElenco(S.times[0]?.fotos, jA);
   const fotosB = filtrarPorElenco(S.times[1]?.fotos, jB);
+  
+  // Sincroniza fotos e posições de jogadores cadastrados
+  sincronizarJogadoresCadastrados(0, jA, posA, fotosA);
+  sincronizarJogadoresCadastrados(1, jB, posB, fotosB);
+  
   S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA, fotos:fotosA, camera_ataque:parseInt($('#camAtaqueA').value,10)||0};
   S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB, fotos:fotosB, camera_ataque:parseInt($('#camAtaqueB').value,10)||0};
   atualizarEstilosTimes();
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
+}
+
+function sincronizarJogadoresCadastrados(timeIdx, jogadores, posicoes, fotos){
+  // Para cada jogador no elenco, verifica se há correspondente no cadastro
+  jogadores.forEach(nomeElenco => {
+    const jogadorCadastrado = jogadoresCadastrados.find(j => 
+      (j.apelido && j.apelido === nomeElenco) || j.nome === nomeElenco
+    );
+    
+    if(jogadorCadastrado){
+      // Aplica posição se ainda não definida
+      if(!posicoes[nomeElenco] && jogadorCadastrado.posicao){
+        const mapaPosicao = {
+          'GOL': 'gol', 'GOLEIRO': 'gol',
+          'ZAG': 'zag', 'ZAGUEIRO': 'zag',
+          'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
+          'ATA': 'ata', 'ATACANTE': 'ata'
+        };
+        const posNormalizada = jogadorCadastrado.posicao.toUpperCase().trim();
+        const posId = mapaPosicao[posNormalizada] || 'meio';
+        posicoes[nomeElenco] = posId;
+      }
+      
+      // Aplica foto se ainda não definida
+      if(!fotos[nomeElenco] && jogadorCadastrado.foto){
+        fotos[nomeElenco] = jogadorCadastrado.foto;
+      }
+    }
+  });
 }
 function atualizarEstilosTimes(){
   const corA = S.times[0]?.cor || '#eab308';
@@ -8128,14 +8162,36 @@ function confirmarSelecaoJogadores(){
         };
         const posNormalizada = jogador.posicao.toUpperCase().trim();
         const posId = mapaPosicao[posNormalizada] || 'meio';
+        
+        // Garante que o jogador está na lista antes de definir posição
+        if(!S.times[timeParaAdicionar].jogadores.includes(nomeExibir)){
+          S.times[timeParaAdicionar].jogadores.push(nomeExibir);
+        }
+        
         definirPosicaoJogador(timeParaAdicionar, nomeExibir, posId);
         console.log(`[>] Posição ${posId} definida para ${nomeExibir} no time ${timeParaAdicionar}`);
+      }
+      
+      // Copia a foto do jogador cadastrado
+      if(jogador.foto){
+        if(!S.times[timeParaAdicionar].fotos){
+          S.times[timeParaAdicionar].fotos = {};
+        }
+        S.times[timeParaAdicionar].fotos[nomeExibir] = jogador.foto;
+        console.log(`[>] Foto copiada para ${nomeExibir}`);
       }
     }
   });
   
   textarea.value = linhasAtuais.join('\n');
   textarea.dispatchEvent(new Event('input', {bubbles: true}));
+  
+  // Força renderização do teatro para aplicar fotos e posições
+  lerSetup();
+  agendarSalvar();
+  setTimeout(() => {
+    renderPosicoesElenco(timeParaAdicionar);
+  }, 100);
   
   fecharSeletorJogadores();
   alert(`${jogadoresSelecionados.length} jogador(es) adicionado(s) ao elenco!`);
