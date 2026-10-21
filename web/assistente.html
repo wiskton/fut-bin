@@ -7973,19 +7973,58 @@ function mostrarSugestoesJogador(input, tipo){
   listaSug.style.display = 'block';
 }
 
-function selecionarJogador(tipo, nome){
+function selecionarJogador(tipo, nomeUsado){
+  // Busca o jogador cadastrado para puxar informações
+  const jogadorCadastrado = jogadoresCadastrados.find(j => 
+    (j.apelido && j.apelido === nomeUsado) || j.nome === nomeUsado
+  );
+  
   if(tipo === 'autor'){
-    rascunho.autor = nome;
+    rascunho.autor = nomeUsado;
     const inp = $('#inAutor');
-    if(inp) inp.value = nome;
+    if(inp) inp.value = nomeUsado;
     const lista = $('#sugestoesAutor');
     if(lista) lista.style.display = 'none';
+    
+    // Se encontrou jogador cadastrado, define posição automaticamente
+    if(jogadorCadastrado && jogadorCadastrado.posicao && rascunho.time !== null){
+      // Mapeia posição do cadastro (GOL/ZAG/MEI/ATA) para o sistema
+      const mapaPosicao = {
+        'GOL': 'gol',
+        'GOLEIRO': 'gol',
+        'ZAG': 'zag',
+        'ZAGUEIRO': 'zag',
+        'MEI': 'meio',
+        'MEIO': 'meio',
+        'MEIA': 'meio',
+        'ATA': 'ata',
+        'ATACANTE': 'ata'
+      };
+      const posNormalizada = jogadorCadastrado.posicao.toUpperCase().trim();
+      const posId = mapaPosicao[posNormalizada] || 'meio';
+      definirPosicaoJogador(rascunho.time, nomeUsado, posId);
+      console.log(`[>] Posição ${posId} definida automaticamente para ${nomeUsado}`);
+    }
   } else {
-    rascunho.assist = nome;
+    rascunho.assist = nomeUsado;
     const inp = $('#inAssist');
-    if(inp) inp.value = nome;
+    if(inp) inp.value = nomeUsado;
     const lista = $('#sugestoesAssist');
     if(lista) lista.style.display = 'none';
+    
+    // Também define posição para assistência se aplicável
+    if(jogadorCadastrado && jogadorCadastrado.posicao && rascunho.time !== null){
+      const mapaPosicao = {
+        'GOL': 'gol', 'GOLEIRO': 'gol',
+        'ZAG': 'zag', 'ZAGUEIRO': 'zag',
+        'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
+        'ATA': 'ata', 'ATACANTE': 'ata'
+      };
+      const posNormalizada = jogadorCadastrado.posicao.toUpperCase().trim();
+      const posId = mapaPosicao[posNormalizada] || 'meio';
+      definirPosicaoJogador(rascunho.time, nomeUsado, posId);
+      console.log(`[>] Posição ${posId} definida automaticamente para ${nomeUsado} (assistência)`);
+    }
   }
 }
 
@@ -8078,6 +8117,20 @@ function confirmarSelecaoJogadores(){
     const nomeExibir = jogador.apelido || jogador.nome;
     if(jogador && !linhasAtuais.includes(nomeExibir)){
       linhasAtuais.push(nomeExibir);
+      
+      // Define posição automaticamente se o jogador tem posição cadastrada
+      if(jogador.posicao){
+        const mapaPosicao = {
+          'GOL': 'gol', 'GOLEIRO': 'gol',
+          'ZAG': 'zag', 'ZAGUEIRO': 'zag',
+          'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
+          'ATA': 'ata', 'ATACANTE': 'ata'
+        };
+        const posNormalizada = jogador.posicao.toUpperCase().trim();
+        const posId = mapaPosicao[posNormalizada] || 'meio';
+        definirPosicaoJogador(timeParaAdicionar, nomeExibir, posId);
+        console.log(`[>] Posição ${posId} definida para ${nomeExibir} no time ${timeParaAdicionar}`);
+      }
     }
   });
   
