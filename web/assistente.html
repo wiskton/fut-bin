@@ -1638,7 +1638,6 @@
       <button type="button" class="ghost" id="btnGerarTextosYoutube">📝 Listar textos do YouTube</button>
       <button type="button" class="warnb" id="btnCancelarMontar" style="display:none">✕ Cancelar montagem</button>
     </div>
-    <div id="containerVideosGerados" style="margin-top:12px"></div>
     <div id="montarLog" class="log" style="display:none;margin-top:10px"></div>
     <div id="resultadoFinal" style="margin-top:10px"></div>
     <div class="row" style="margin-top:16px; justify-content:space-between; flex-wrap:wrap; gap:8px">
@@ -2801,7 +2800,7 @@ function irPara(id){
   if(id==='s-gols') renderOpcoesCamerasCorte();
   if(id==='s-revisar') renderCameraVer();
   if(id==='s-resumo') renderResumo();
-  if(id==='s-final'){ renderResumo(); carregarContainerVideosGerados(); }   // renderResumo inicia o card de fundo e a previsão de duração
+  if(id==='s-final'){ renderResumo(); }   // renderResumo inicia o card de fundo e a previsão de duração
   if(id==='s-jogador'){ sincronizarCoresJogadorComFundo(); renderTelaJogador(); setTimeout(desenharRecorteVertical, 0); }
   if(typeof aplicarFiltroBrilho === 'function') aplicarFiltroBrilho();
 }
@@ -7278,19 +7277,6 @@ async function carregarVideosJogadoresSalvos(){
   } catch(e) { el.innerHTML = ''; }
 }
 
-async function carregarContainerVideosGerados(){
-  const el = $('#containerVideosGerados');
-  if(!el) return;
-  try {
-    const r = await fetch('/api/videos/finais');
-    const dados = await r.json();
-    // Esta área é exclusivamente dos dois vídeos finais da partida.
-    const videos = (dados.videos || []).filter(v => ['melhores_momentos.mp4', 'apenas_gols.mp4'].includes(v.nome));
-    if(!videos.length){ el.innerHTML = ''; return; }
-    el.innerHTML = `<div class="card" style="margin:0"><h3 style="margin:0 0 10px; font-size:14px; color:var(--accent)">🎞️ Vídeos já gerados</h3><div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px">${videos.map(v => `<div style="border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--panel2)"><b style="font-size:12px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:6px">${v.nome}</b><video controls preload="metadata" poster="/video/final/capa/${encodeURIComponent(v.nome)}?t=${Date.now()}" src="${v.url}" style="width:100%; max-height:160px; background:#000; border-radius:6px"></video><a class="ghost" href="${v.url}" download style="display:block; text-align:center; margin-top:7px; padding:5px; text-decoration:none; font-size:12px">⬇ Baixar</a></div>`).join('')}</div></div>`;
-  } catch(e) { el.innerHTML = ''; }
-}
-
 function mostrarAlertaVideoJogadorGerado(jogador, url){
   let container = document.getElementById('hudToastContainer');
   if(!container){
@@ -7578,7 +7564,6 @@ $('#btnMontarJogador').onclick = async ()=>{
       if(!arquivoPronto.ok) throw new Error('a renderização terminou, mas o arquivo do jogador não foi encontrado');
       mostrarResultadoVideoJogador(jogador, data.video_url);
       carregarVideosJogadoresSalvos();
-      carregarContainerVideosGerados();
       mostrarAlertaVideoJogadorGerado(jogador, data.video_url);
     } else resultado.textContent = 'A geração foi interrompida.';
   } catch(e) { resultado.textContent = `Não consegui gerar o vídeo do jogador: ${e.message || 'erro desconhecido'}.`; }
@@ -7659,7 +7644,6 @@ $('#btnMontar').onclick = async ()=>{
   $('#btnMontar').disabled = false;
   if(ok){
     renderResultadosVideosFinais();
-    carregarContainerVideosGerados();
     mostrarAlertaRenderizacaoConcluida();
   }
 };
@@ -7738,7 +7722,7 @@ $('#btnMontar').onclick = async ()=>{
       renderResultadosVideosFinais();
     }
   } catch(e) { console.warn('boot: clipes/finais', e); }
-  try { carregarVideosJogadoresSalvos(); carregarContainerVideosGerados(); inicializarSeletorQualidade(); } catch(e) { console.warn('boot: listas', e); }
+  try { carregarVideosJogadoresSalvos(); inicializarSeletorQualidade(); } catch(e) { console.warn('boot: listas', e); }
   try { await carregarSessoes(); } catch(e) { console.warn('boot: sessoes', e); }
   try { await carregarJogadoresCadastrados(); } catch(e) { console.warn('boot: jogadores', e); }
   // Agora cada etapa (em especial Resumo e Jogador) recebe os dados salvos.
