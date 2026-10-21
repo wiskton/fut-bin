@@ -1250,18 +1250,42 @@ def filtro_audio_normalizado(clipe):
 def concatenar_segmentos(partes, lista, saida):
     # O concat com stream copy exige bases de tempo e formatos iguais.
     # Em especial, AAC 44,1 kHz nao pode ser interpretado como AAC 48 kHz.
+    # Se houver incompatibilidade, recodifica TODOS os segmentos para o formato padrão
     referencia = None
     duracao_total = 0.0
-    for parte in partes:
+    incompativeis = []
+    for i, parte in enumerate(partes):
         dados = dados_midia(parte)
         assinatura = [tuple(s.get(k) for k in (
             "codec_type", "codec_name", "time_base", "width", "height",
             "pix_fmt", "sample_aspect_ratio", "sample_rate", "channels", "channel_layout"
         )) for s in dados["streams"]]
         if referencia is not None and assinatura != referencia:
-            raise RuntimeError(f"Segmento incompativel para montagem em 1x: {parte}")
-        referencia = assinatura
+            print(f"⚠️  Segmento {i+1} incompatível detectado: {os.path.basename(parte)}")
+            incompativeis.append(i)
+        elif referencia is None:
+            referencia = assinatura
         duracao_total += float(dados["format"]["duration"])
+    
+    # Se houver incompatibilidade, recodifica TODOS para formato consistente
+    if incompativeis:
+        print(f"🔄 Recodificando {len(partes)} segmentos para formato consistente...")
+        partes_recodificadas = []
+        for i, parte in enumerate(partes):
+            saida_rec = parte.replace(".mp4", "_rec.mp4")
+            print(f"   [{i+1}/{len(partes)}] {os.path.basename(parte)}")
+            roda(["ffmpeg", "-y", "-loglevel", "error", "-i", parte,
+                  "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+                  "-pix_fmt", "yuv420p",
+                  "-vf", f"scale={LV if VERTICAL else L}:{AV if VERTICAL else A}:force_original_aspect_ratio=decrease:flags=lanczos,pad={LV if VERTICAL else L}:{AV if VERTICAL else A}:-1:-1:color=black",
+                  "-r", str(FPS),
+                  "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2",
+                  "-movflags", "+faststart",
+                  "-video_track_timescale", str(VIDEO_TIMESCALE),
+                  saida_rec])
+            partes_recodificadas.append(saida_rec)
+        partes = partes_recodificadas
+    
     with open(lista, "w", encoding="utf-8") as f:
         for parte in partes:
             caminho = parte.replace("\\", "/").replace("'", "'\\''")
