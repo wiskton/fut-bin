@@ -794,6 +794,10 @@
   .card-sessao-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .card-sessao-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--txt)}
   .card-sessao-badge.destaque{background:rgba(0,255,135,0.15);border-color:rgba(0,255,135,0.3);color:#00ff87}
+  .jogador-card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;transition:all .2s}.jogador-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .jogador-foto{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:linear-gradient(135deg,#1e2430,#0b0f17)}
+  .jogador-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+  @media(max-width:600px){.jogador-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}}
 </style>
 
 <header>
@@ -815,6 +819,70 @@
 </header>
 
 <main>
+
+<!-- ================= JOGADORES ================= -->
+<section id="s-jogadores">
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <h2 style="display:flex;align-items:center;gap:10px">⚽ Gerenciar Jogadores
+        <span id="badgeTotalJogadores" style="background:rgba(0,255,135,0.15);color:#00ff87;border:1px solid rgba(0,255,135,0.3);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700">0 jogadores</span>
+      </h2>
+      <button type="button" class="act" onclick="abrirFormJogador()">+ Adicionar Jogador</button>
+    </div>
+    <p class="hint">Cadastre os jogadores uma vez com foto e use em todas as partidas. Na hora de marcar gols, você pode escolher um jogador cadastrado ou digitar nome livre.</p>
+    <div id="gridJogadores" class="jogador-grid"></div>
+    <div id="msgSemJogadores" class="hint" style="text-align:center;padding:30px 0;display:none">Nenhum jogador cadastrado ainda. Clique em "+ Adicionar Jogador" para começar.</div>
+  </div>
+  <div id="formJogadorCard" class="card" style="display:none;border-color:var(--accent)">
+    <h3 id="formJogadorTitulo">Adicionar Novo Jogador</h3>
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <div style="flex:0 0 auto">
+        <div style="position:relative;width:150px;height:150px">
+          <img id="previewFotoJogador" class="jogador-foto" src="/web/icon.png" alt="Prévia">
+          <input type="file" id="inputFotoJogador" accept="image/*" style="display:none" onchange="carregarPreviewFoto(this)">
+          <button type="button" class="ghost" onclick="$('#inputFotoJogador').click()" style="position:absolute;bottom:0;left:0;right:0;font-size:11px;padding:4px">📷 Escolher foto</button>
+        </div>
+      </div>
+      <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:10px">
+        <div class="row" style="gap:10px">
+          <div style="flex:1">
+            <label for="inputNomeJogador" style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">Nome Completo *</label>
+            <input type="text" id="inputNomeJogador" placeholder="Ex: João Silva" required>
+          </div>
+          <div style="flex:1">
+            <label for="inputApelidoJogador" style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">Apelido</label>
+            <input type="text" id="inputApelidoJogador" placeholder="Ex: Joãozinho">
+          </div>
+        </div>
+        <div class="row" style="gap:10px">
+          <div style="flex:1">
+            <label for="inputPosicaoJogador" style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">Posição</label>
+            <select id="inputPosicaoJogador">
+              <option value="">Selecione...</option>
+              <option value="GOL">Goleiro</option>
+              <option value="ZAG">Zagueiro</option>
+              <option value="LAT">Lateral</option>
+              <option value="VOL">Volante</option>
+              <option value="MEI">Meia</option>
+              <option value="ATA">Atacante</option>
+            </select>
+          </div>
+          <div style="width:100px">
+            <label for="inputNumeroJogador" style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">Número</label>
+            <input type="number" id="inputNumeroJogador" placeholder="0" min="0" max="999">
+          </div>
+        </div>
+        <div class="row" style="gap:8px;margin-top:8px">
+          <button type="button" class="act" onclick="salvarJogador()">Salvar Jogador</button>
+          <button type="button" class="ghost" onclick="cancelarFormJogador()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <button class="act" onclick="irPara('s-video')">Continuar → Carregar Vídeo</button>
+  </div>
+</section>
 
 <!-- ================= 0. INICIO ================= -->
 <section id="s-inicio">
@@ -1899,7 +1967,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 const PASSOS = [
-  ['s-inicio','Início'], ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
+  ['s-inicio','Início'], ['s-jogadores','⚽ Jogadores'], ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
   ['s-revisar','4 · Revisar cortes'], ['s-dados','5 · Dados da partida'], ['s-marcar','6 · Marcação'],
   ['s-resumo','7 · Resumo'], ['s-final','8 · Vídeo final'], ['s-jogador','9 · Jogador'],
 ];
@@ -5768,13 +5836,36 @@ function pickJogadores(){
     ea.appendChild(b);
   });
   const outroAutorSel = rascunho.autor!=null && !jogadores.includes(rascunho.autor);
-  const inA = document.createElement('input');
-  inA.type='text'; inA.id='inAutor'; inA.style.flex='1 1 100%';
-  if(!semElenco) inA.style.marginTop='6px';
-  inA.placeholder = semElenco ? 'Nome de quem fez o gol' : 'outro nome (fora do elenco)';
-  inA.value = outroAutorSel ? rascunho.autor : '';
-  inA.oninput = e=>{ rascunho.autor = e.target.value.trim() || null; };
-  ea.appendChild(inA);
+  
+  // Autocomplete com jogadores cadastrados
+  if(jogadoresCadastrados.length > 0){
+    const divAuto = document.createElement('div');
+    divAuto.style.cssText = 'position:relative;flex:1 1 100%;margin-top:6px';
+    const inA = document.createElement('input');
+    inA.type='text'; inA.id='inAutor'; inA.style.width='100%';
+    inA.placeholder = semElenco ? 'Digite ou escolha jogador cadastrado' : 'outro nome ou jogador cadastrado';
+    inA.value = outroAutorSel ? rascunho.autor : '';
+    inA.oninput = e=>{ 
+      rascunho.autor = e.target.value.trim() || null;
+      mostrarSugestoesJogador(inA, 'autor');
+    };
+    inA.onfocus = () => mostrarSugestoesJogador(inA, 'autor');
+    divAuto.appendChild(inA);
+    
+    const listaSug = document.createElement('div');
+    listaSug.id = 'sugestoesAutor';
+    listaSug.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--accent);border-radius:6px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:2px';
+    divAuto.appendChild(listaSug);
+    ea.appendChild(divAuto);
+  } else {
+    const inA = document.createElement('input');
+    inA.type='text'; inA.id='inAutor'; inA.style.flex='1 1 100%';
+    if(!semElenco) inA.style.marginTop='6px';
+    inA.placeholder = semElenco ? 'Nome de quem fez o gol' : 'outro nome (fora do elenco)';
+    inA.value = outroAutorSel ? rascunho.autor : '';
+    inA.oninput = e=>{ rascunho.autor = e.target.value.trim() || null; };
+    ea.appendChild(inA);
+  }
 
   es.innerHTML='';
   const semAssist = rascunho.assist === '—';
@@ -5788,14 +5879,38 @@ function pickJogadores(){
     es.appendChild(b);
   });
   const outroAssistSel = !semAssist && rascunho.assist!=null && !jogadores.includes(rascunho.assist);
-  const inS = document.createElement('input');
-  inS.type='text'; inS.id='inAssist'; inS.style.flex='1 1 100%';
-  if(!semElenco) inS.style.marginTop='6px';
-  inS.placeholder = semElenco ? 'Nome de quem deu a assistência' : 'outro nome (fora do elenco)';
-  inS.disabled = semAssist;
-  inS.value = outroAssistSel ? rascunho.assist : '';
-  inS.oninput = e=>{ rascunho.assist = e.target.value.trim() || null; };
-  es.appendChild(inS);
+  
+  // Autocomplete com jogadores cadastrados
+  if(jogadoresCadastrados.length > 0){
+    const divAuto = document.createElement('div');
+    divAuto.style.cssText = 'position:relative;flex:1 1 100%;margin-top:6px';
+    const inS = document.createElement('input');
+    inS.type='text'; inS.id='inAssist'; inS.style.width='100%';
+    inS.placeholder = semElenco ? 'Digite ou escolha jogador cadastrado' : 'outro nome ou jogador cadastrado';
+    inS.disabled = semAssist;
+    inS.value = outroAssistSel ? rascunho.assist : '';
+    inS.oninput = e=>{ 
+      rascunho.assist = e.target.value.trim() || null;
+      mostrarSugestoesJogador(inS, 'assist');
+    };
+    inS.onfocus = () => mostrarSugestoesJogador(inS, 'assist');
+    divAuto.appendChild(inS);
+    
+    const listaSug = document.createElement('div');
+    listaSug.id = 'sugestoesAssist';
+    listaSug.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--accent);border-radius:6px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:2px';
+    divAuto.appendChild(listaSug);
+    es.appendChild(divAuto);
+  } else {
+    const inS = document.createElement('input');
+    inS.type='text'; inS.id='inAssist'; inS.style.flex='1 1 100%';
+    if(!semElenco) inS.style.marginTop='6px';
+    inS.placeholder = semElenco ? 'Nome de quem deu a assistência' : 'outro nome (fora do elenco)';
+    inS.disabled = semAssist;
+    inS.value = outroAssistSel ? rascunho.assist : '';
+    inS.oninput = e=>{ rascunho.assist = e.target.value.trim() || null; };
+    es.appendChild(inS);
+  }
 
   const lbl = document.createElement('label'); lbl.className='row'; lbl.style.marginTop='6px'; lbl.style.flex='1 1 100%';
   const chk = document.createElement('input'); chk.type='checkbox'; chk.id='chkSemAssist'; chk.style.width='auto';
@@ -7604,7 +7719,240 @@ $('#btnMontar').onclick = async ()=>{
   } catch(e) { console.warn('boot: clipes/finais', e); }
   try { carregarVideosJogadoresSalvos(); carregarContainerVideosGerados(); inicializarSeletorQualidade(); } catch(e) { console.warn('boot: listas', e); }
   try { await carregarSessoes(); } catch(e) { console.warn('boot: sessoes', e); }
+  try { await carregarJogadoresCadastrados(); } catch(e) { console.warn('boot: jogadores', e); }
   // Agora cada etapa (em especial Resumo e Jogador) recebe os dados salvos.
   irPara(passoInicial);
 })();
+
+/* ============================================================
+   GERENCIAMENTO DE JOGADORES
+   ============================================================ */
+
+let jogadoresCadastrados = [];
+let jogadorEmEdicao = null;
+
+async function carregarJogadoresCadastrados(){
+  try{
+    const r = await fetch('/api/jogadores');
+    if(!r.ok) return;
+    const data = await r.json();
+    jogadoresCadastrados = data.jogadores || [];
+    renderGridJogadores();
+  }catch(e){
+    console.error('Erro ao carregar jogadores:', e);
+  }
+}
+
+function renderGridJogadores(){
+  const grid = $('#gridJogadores');
+  const msg = $('#msgSemJogadores');
+  const badge = $('#badgeTotalJogadores');
+  
+  if(badge) badge.textContent = `${jogadoresCadastrados.length} jogador${jogadoresCadastrados.length !== 1 ? 'es' : ''}`;
+  
+  if(!jogadoresCadastrados.length){
+    if(grid) grid.innerHTML = '';
+    if(msg) msg.style.display = 'block';
+    return;
+  }
+  
+  if(msg) msg.style.display = 'none';
+  if(!grid) return;
+  
+  grid.innerHTML = jogadoresCadastrados.map(j => {
+    const foto = j.foto || '/web/icon.png';
+    const apelido = j.apelido ? `<span style="font-size:11px;color:var(--dim)">\"${j.apelido}\"</span>` : '';
+    const numero = j.numero ? `<span style="position:absolute;top:6px;right:6px;background:var(--accent);color:#000;font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px">#${j.numero}</span>` : '';
+    const posicao = j.posicao ? `<span style="font-size:10px;color:var(--dim);font-weight:700">${j.posicao}</span>` : '';
+    
+    return `<div class="jogador-card" style="position:relative">
+      ${numero}
+      <img src="${foto}" class="jogador-foto" alt="${j.nome}" onerror="this.src='/web/icon.png'">
+      <div style="text-align:center">
+        <div style="font-weight:700;font-size:13px;margin-bottom:2px">${j.nome}</div>
+        ${apelido}
+        ${posicao}
+      </div>
+      <div class="row" style="gap:4px;margin-top:4px">
+        <button type="button" class="ghost btnPequeno" style="flex:1" onclick="editarJogador('${j.id}')">✏️ Editar</button>
+        <button type="button" class="ghost btnPequeno" style="flex:1" onclick="removerJogador('${j.id}')">🗑️ Remover</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirFormJogador(jogadorId = null){
+  jogadorEmEdicao = jogadorId;
+  const form = $('#formJogadorCard');
+  const titulo = $('#formJogadorTitulo');
+  
+  if(jogadorId){
+    const j = jogadoresCadastrados.find(jog => jog.id === jogadorId);
+    if(!j) return;
+    
+    if(titulo) titulo.textContent = 'Editar Jogador';
+    $('#inputNomeJogador').value = j.nome || '';
+    $('#inputApelidoJogador').value = j.apelido || '';
+    $('#inputPosicaoJogador').value = j.posicao || '';
+    $('#inputNumeroJogador').value = j.numero || '';
+    $('#previewFotoJogador').src = j.foto || '/web/icon.png';
+  }else{
+    if(titulo) titulo.textContent = 'Adicionar Novo Jogador';
+    $('#inputNomeJogador').value = '';
+    $('#inputApelidoJogador').value = '';
+    $('#inputPosicaoJogador').value = '';
+    $('#inputNumeroJogador').value = '';
+    $('#previewFotoJogador').src = '/web/icon.png';
+  }
+  
+  if(form){
+    form.style.display = 'block';
+    form.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+}
+
+function cancelarFormJogador(){
+  const form = $('#formJogadorCard');
+  if(form) form.style.display = 'none';
+  jogadorEmEdicao = null;
+}
+
+function carregarPreviewFoto(input){
+  if(!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    $('#previewFotoJogador').src = e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+async function salvarJogador(){
+  const nome = $('#inputNomeJogador').value.trim();
+  if(!nome){ alert('Digite o nome do jogador.'); return; }
+  
+  const dados = {
+    nome,
+    apelido: $('#inputApelidoJogador').value.trim() || null,
+    posicao: $('#inputPosicaoJogador').value || null,
+    numero: parseInt($('#inputNumeroJogador').value) || null,
+  };
+  
+  try{
+    let jogadorId = jogadorEmEdicao;
+    
+    if(jogadorId){
+      // Editar
+      const r = await fetch(`/api/jogadores/${jogadorId}`, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(dados)
+      });
+      if(!r.ok) throw new Error('Erro ao atualizar');
+    }else{
+      // Adicionar
+      const r = await fetch('/api/jogadores', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(dados)
+      });
+      if(!r.ok) throw new Error('Erro ao adicionar');
+      const resultado = await r.json();
+      jogadorId = resultado.jogador.id;
+    }
+    
+    // Upload de foto se houver
+    const inputFoto = $('#inputFotoJogador');
+    if(inputFoto.files && inputFoto.files[0]){
+      const formData = new FormData();
+      formData.append('foto', inputFoto.files[0]);
+      
+      const r2 = await fetch(`/api/jogadores/${jogadorId}/foto`, {
+        method:'POST',
+        body: await inputFoto.files[0].arrayBuffer()
+      });
+      if(!r2.ok) console.warn('Erro ao fazer upload da foto');
+    }
+    
+    await carregarJogadoresCadastrados();
+    cancelarFormJogador();
+    alert(jogadorEmEdicao ? 'Jogador atualizado!' : 'Jogador adicionado!');
+  }catch(e){
+    alert('Erro ao salvar jogador: ' + e.message);
+  }
+}
+
+function editarJogador(id){
+  abrirFormJogador(id);
+}
+
+async function removerJogador(id){
+  const j = jogadoresCadastrados.find(jog => jog.id === id);
+  if(!j) return;
+  
+  if(!confirm(`Remover ${j.nome}?`)) return;
+  
+  try{
+    const r = await fetch(`/api/jogadores/${id}`, {method:'DELETE'});
+    if(!r.ok) throw new Error('Erro ao remover');
+    
+    await carregarJogadoresCadastrados();
+    alert('Jogador removido!');
+  }catch(e){
+    alert('Erro ao remover jogador: ' + e.message);
+  }
+}
+
+function mostrarSugestoesJogador(input, tipo){
+  const termo = input.value.trim().toLowerCase();
+  const listaSug = $(`#sugestoes${tipo === 'autor' ? 'Autor' : 'Assist'}`);
+  if(!listaSug) return;
+  
+  if(!termo){
+    listaSug.style.display = 'none';
+    return;
+  }
+  
+  const filtrados = jogadoresCadastrados.filter(j => 
+    j.nome.toLowerCase().includes(termo) || 
+    (j.apelido && j.apelido.toLowerCase().includes(termo))
+  );
+  
+  if(!filtrados.length){
+    listaSug.style.display = 'none';
+    return;
+  }
+  
+  listaSug.innerHTML = filtrados.map(j => {
+    const foto = j.foto || '/web/icon.png';
+    const apelido = j.apelido ? ` "${j.apelido}"` : '';
+    return `<div onclick="selecionarJogador('${tipo}', '${j.nome.replace(/'/g, "\\'")}')" style="padding:8px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);transition:all .15s" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background='transparent'">
+      <img src="${foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover" onerror="this.src='/web/icon.png'">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:12px">${j.nome}${apelido}</div>
+        ${j.posicao ? `<div style="font-size:10px;color:var(--dim)">${j.posicao}${j.numero ? ` · #${j.numero}` : ''}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  listaSug.style.display = 'block';
+}
+
+function selecionarJogador(tipo, nome){
+  if(tipo === 'autor'){
+    rascunho.autor = nome;
+    const inp = $('#inAutor');
+    if(inp) inp.value = nome;
+    const lista = $('#sugestoesAutor');
+    if(lista) lista.style.display = 'none';
+  } else {
+    rascunho.assist = nome;
+    const inp = $('#inAssist');
+    if(inp) inp.value = nome;
+    const lista = $('#sugestoesAssist');
+    if(lista) lista.style.display = 'none';
+  }
+}
+
+/* ============================================================
+   FIM GERENCIAMENTO DE JOGADORES
+   ============================================================ */
 </script>
