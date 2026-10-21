@@ -6397,7 +6397,12 @@ function _cfgCam(i){
 
 function _atualizarFiltroPreviewCam(ci){
   const cfg=_cfgCam(ci), img=$(`#fundoPreviewCam${ci}`), vin=$(`#fundoVinhetaCam${ci}`);
-  if(img) img.style.filter=`brightness(${(cfg.brilho||100)/100}) saturate(${(cfg.saturacao||100)/100}) contrast(${(cfg.contraste||100)/100}) blur(${cfg.desfoque||0}px)`;
+  if(img){
+    const filtro = `brightness(${(cfg.brilho||100)/100}) saturate(${(cfg.saturacao||100)/100}) contrast(${(cfg.contraste||100)/100}) blur(${cfg.desfoque||0}px)`;
+    img.style.filter = filtro;
+    // Força reflow para garantir que o filtro seja aplicado
+    void img.offsetHeight;
+  }
   if(vin) vin.style.background=(cfg.vinheta&&cfg.vinheta>0)?`radial-gradient(circle, transparent 20%, rgba(11,15,23,${cfg.vinheta/100}) 80%)`:'transparent';
 }
 
@@ -6490,6 +6495,7 @@ function renderGridCamerasFundo(){
     /* preview */
     const pw=document.createElement('div'); pw.style.cssText='position:relative;aspect-ratio:16/9;background:#000;border-radius:7px;overflow:hidden;border:1px solid var(--line)';
     const pi=document.createElement('img'); pi.id=`fundoPreviewCam${ci}`; pi.style.cssText='width:100%;height:100%;object-fit:cover;display:block'; pi.src='/web/fundo_raw.png'; pi.onerror=()=>{pi.src='/web/fundo_cartela.png';};
+    pi.onload = () => _atualizarFiltroPreviewCam(ci);
     const pv=document.createElement('div'); pv.id=`fundoVinhetaCam${ci}`; pv.style.cssText='position:absolute;inset:0;background:transparent;pointer-events:none';
     const pl=document.createElement('div'); pl.id=`fundoLoadingCam${ci}`; pl.style.cssText='position:absolute;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff'; pl.textContent='⏳ Capturando…';
     pw.appendChild(pi); pw.appendChild(pv); pw.appendChild(pl); col.appendChild(pw);
