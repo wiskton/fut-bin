@@ -1322,6 +1322,7 @@
         <div class="hint" style="font-size:11px; margin-top:2px">Nos gols e lances deste time, a marcação já escolhe essa câmera para o vídeo final.</div>
         <label style="margin-top:10px">Elenco (um por linha)</label>
         <textarea id="pA" placeholder="Douglas&#10;Nill&#10;Lucas&#10;Will&#10;Wesley&#10;Jhow"></textarea>
+        <button type="button" class="ghost" onclick="abrirSeletorJogadores(0)" style="width:100%;margin-top:6px;font-size:12px">⚽ Adicionar jogadores cadastrados</button>
         <div id="posElencoA" style="margin-top:10px"></div>
       </div>
       <div>
@@ -1340,6 +1341,7 @@
         <div class="hint" style="font-size:11px; margin-top:2px">Nos gols e lances deste time, a marcação já escolhe essa câmera para o vídeo final.</div>
         <label style="margin-top:10px">Elenco (um por linha)</label>
         <textarea id="pB" placeholder="Arthur&#10;Marcão&#10;Igor&#10;Nandrey&#10;Zé&#10;Luiz"></textarea>
+        <button type="button" class="ghost" onclick="abrirSeletorJogadores(1)" style="width:100%;margin-top:6px;font-size:12px">⚽ Adicionar jogadores cadastrados</button>
         <div id="posElencoB" style="margin-top:10px"></div>
       </div>
     </div>
@@ -1745,6 +1747,25 @@
 </section>
 
 </main>
+
+<!-- Modal Seletor de Jogadores -->
+<div class="modal-overlay" id="modalSeletorJogadores" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)fecharSeletorJogadores()">
+  <div class="modal-content" style="background:var(--panel);border:2px solid var(--accent);border-radius:12px;padding:24px;max-width:700px;width:100%;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 id="tituloSeletorJogadores" style="margin:0">Adicionar Jogadores ao Time</h3>
+      <button type="button" class="ghost" onclick="fecharSeletorJogadores()" style="padding:4px 12px">✕</button>
+    </div>
+    <p class="hint">Selecione os jogadores cadastrados que deseja adicionar ao elenco deste time.</p>
+    <div id="gridSeletorJogadores" class="jogador-grid" style="margin:16px 0"></div>
+    <div id="msgSemJogadoresModal" class="hint" style="text-align:center;padding:30px 0;display:none">
+      Nenhum jogador cadastrado. <a href="javascript:void(0)" onclick="fecharSeletorJogadores();irPara('s-jogadores')" style="color:var(--accent);font-weight:600">Ir para Gerenciar Jogadores</a>
+    </div>
+    <div class="row" style="gap:8px;margin-top:16px;justify-content:flex-end">
+      <button type="button" class="ghost" onclick="fecharSeletorJogadores()">Fechar</button>
+      <button type="button" class="act" onclick="confirmarSelecaoJogadores()">Adicionar Selecionados</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="modalClipe" hidden>
   <div class="modal-box" style="position:relative">
@@ -7950,6 +7971,110 @@ function selecionarJogador(tipo, nome){
     const lista = $('#sugestoesAssist');
     if(lista) lista.style.display = 'none';
   }
+}
+
+/* ============================================================
+   SELETOR DE JOGADORES PARA ELENCO (DADOS DA PARTIDA)
+   ============================================================ */
+
+let timeParaAdicionar = null;
+let jogadoresSelecionados = [];
+
+function abrirSeletorJogadores(timeIdx){
+  timeParaAdicionar = timeIdx;
+  jogadoresSelecionados = [];
+  
+  const modal = $('#modalSeletorJogadores');
+  const titulo = $('#tituloSeletorJogadores');
+  const grid = $('#gridSeletorJogadores');
+  const msg = $('#msgSemJogadoresModal');
+  
+  if(titulo){
+    const nomeTime = timeIdx === 0 ? ($('#tA').value || 'Time 1') : ($('#tB').value || 'Time 2');
+    titulo.textContent = `Adicionar Jogadores ao ${nomeTime}`;
+  }
+  
+  if(!jogadoresCadastrados.length){
+    if(grid) grid.innerHTML = '';
+    if(msg) msg.style.display = 'block';
+  }else{
+    if(msg) msg.style.display = 'none';
+    if(grid){
+      grid.innerHTML = jogadoresCadastrados.map(j => {
+        const foto = j.foto || '/web/icon.png';
+        const apelido = j.apelido ? `<span style="font-size:11px;color:var(--dim)">"${j.apelido}"</span>` : '';
+        const numero = j.numero ? `<span style="position:absolute;top:6px;right:6px;background:var(--accent);color:#000;font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px">#${j.numero}</span>` : '';
+        const posicao = j.posicao ? `<span style="font-size:10px;color:var(--dim);font-weight:700">${j.posicao}</span>` : '';
+        
+        return `<div class="jogador-card" style="position:relative;cursor:pointer" onclick="toggleSelecionarJogadorElenco('${j.id}')" data-jogador-id="${j.id}">
+          ${numero}
+          <img src="${foto}" class="jogador-foto" alt="${j.nome}" onerror="this.src='/web/icon.png'">
+          <div style="text-align:center">
+            <div style="font-weight:700;font-size:13px;margin-bottom:2px">${j.nome}</div>
+            ${apelido}
+            ${posicao}
+          </div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center" class="check-overlay">
+            <span style="font-size:20px;color:var(--accent)">✓</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+  
+  if(modal) modal.style.display = 'flex';
+}
+
+function toggleSelecionarJogadorElenco(jogadorId){
+  const card = document.querySelector(`[data-jogador-id="${jogadorId}"]`);
+  if(!card) return;
+  
+  const overlay = card.querySelector('.check-overlay');
+  
+  if(jogadoresSelecionados.includes(jogadorId)){
+    jogadoresSelecionados = jogadoresSelecionados.filter(id => id !== jogadorId);
+    card.style.borderColor = 'var(--line)';
+    card.style.background = 'var(--panel2)';
+    if(overlay) overlay.style.display = 'none';
+  }else{
+    jogadoresSelecionados.push(jogadorId);
+    card.style.borderColor = 'var(--accent)';
+    card.style.background = 'rgba(0,255,135,0.1)';
+    if(overlay) overlay.style.display = 'flex';
+  }
+}
+
+function confirmarSelecaoJogadores(){
+  if(!jogadoresSelecionados.length){
+    alert('Selecione pelo menos um jogador.');
+    return;
+  }
+  
+  const textarea = timeParaAdicionar === 0 ? $('#pA') : $('#pB');
+  if(!textarea) return;
+  
+  const jogadoresTexto = textarea.value.trim();
+  const linhasAtuais = jogadoresTexto ? jogadoresTexto.split('\n').map(l => l.trim()).filter(Boolean) : [];
+  
+  jogadoresSelecionados.forEach(id => {
+    const jogador = jogadoresCadastrados.find(j => j.id === id);
+    if(jogador && !linhasAtuais.includes(jogador.nome)){
+      linhasAtuais.push(jogador.nome);
+    }
+  });
+  
+  textarea.value = linhasAtuais.join('\n');
+  textarea.dispatchEvent(new Event('input', {bubbles: true}));
+  
+  fecharSeletorJogadores();
+  alert(`${jogadoresSelecionados.length} jogador(es) adicionado(s) ao elenco!`);
+}
+
+function fecharSeletorJogadores(){
+  const modal = $('#modalSeletorJogadores');
+  if(modal) modal.style.display = 'none';
+  timeParaAdicionar = null;
+  jogadoresSelecionados = [];
 }
 
 /* ============================================================
