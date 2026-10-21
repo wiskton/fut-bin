@@ -634,6 +634,146 @@ def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb, img_base=N
             draw.text((cx - nw // 2, ny0 + 2), nome_limpo, font=f_nome, fill=(255, 255, 255))
 
 
+def _logo_topo_tema(img, d, d_, logo_tam=(110, 110), y_logo=16):
+    """Renderiza logo centralizada com estilo do tema. Retorna y após a logo."""
+    _, pborda, ptitulo, _, _ = _paleta_tema()
+    logo = obter_logo_campeonato(d_, tamanho=logo_tam)
+    if not logo:
+        return y_logo + 12
+    lw, lh = logo.size
+    lx = (L - lw) // 2
+    if TEMA == "iss":
+        d.rectangle([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], fill=(0, 0, 0))
+        d.rectangle([lx - 12, y_logo - 10, lx + lw + 12, y_logo + lh + 10], outline=pborda, width=3)
+    else:
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8], fill=(0, 0, 0, 80))
+        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
+                  outline=ptitulo if TEMA == "fifa" else DOURADO, width=3)
+        d.ellipse([lx - 7, y_logo - 5, lx + lw + 7, y_logo + lh + 5], fill=(12, 18, 32))
+    if logo.mode != "RGBA":
+        logo = logo.convert("RGBA")
+    img.paste(logo, (lx, y_logo), logo)
+    return y_logo + lh + 16
+
+
+def _cartela_abertura_tema(d_, visiveis_a=None, visiveis_b=None):
+    """Abertura com tema visual alternativo (fifa/iss/pes/tv)."""
+    img = criar_fundo_base(d_)
+    d = ImageDraw.Draw(img)
+    meta, times = d_["meta"], d_["times"]
+    ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
+    pfundo, pborda, ptitulo, psub, paccent = _paleta_tema()
+
+    _barra_topo_tema(d)
+    y_textos = _logo_topo_tema(img, d, d_, logo_tam=(110, 110), y_logo=18)
+
+    nome_torneio = (meta.get("pelada") or meta.get("torneio") or "COPA FUT-BIN").upper()
+    if TEMA == "iss":
+        centralizado_contornado(d, y_textos, nome_torneio, fonte(38, True), ptitulo, (0, 0, 0), 3)
+    elif TEMA == "fifa":
+        centralizado_contornado(d, y_textos, nome_torneio, fonte(38, True), (255, 255, 255), (0, 0, 120), 3)
+    else:
+        centralizado_contornado(d, y_textos, nome_torneio, fonte(38, True), ptitulo, (0, 0, 0), 3)
+
+    sub = " · ".join(x for x in [meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
+    if sub:
+        centralizado(d, y_textos + 48, sub, fonte(20, False), psub)
+
+    # VS bar
+    y_vs = y_textos + 82
+    w_pill = 380
+    h_pill = 54
+    x_pill_a = L // 2 - w_pill - 50
+    x_pill_b = L // 2 + 50
+
+    if TEMA == "iss":
+        d.rectangle([x_pill_a - 2, y_vs - 2, x_pill_a + w_pill + 2, y_vs + h_pill + 2], fill=pborda)
+        d.rectangle([x_pill_a, y_vs, x_pill_a + w_pill, y_vs + h_pill], fill=ca)
+        d.text((x_pill_a + w_pill // 2, y_vs + h_pill // 2), times[0]["nome"].upper(),
+               font=fonte(26, True), fill=contraste_cor(ca), anchor="mm")
+        d.rectangle([L // 2 - 30, y_vs + h_pill // 2 - 30, L // 2 + 30, y_vs + h_pill // 2 + 30], fill=(0, 0, 0))
+        d.rectangle([L // 2 - 32, y_vs + h_pill // 2 - 32, L // 2 + 32, y_vs + h_pill // 2 + 32], outline=pborda, width=3)
+        d.text((L // 2, y_vs + h_pill // 2), "VS", font=fonte(22, True), fill=pborda, anchor="mm")
+        d.rectangle([x_pill_b - 2, y_vs - 2, x_pill_b + w_pill + 2, y_vs + h_pill + 2], fill=pborda)
+        d.rectangle([x_pill_b, y_vs, x_pill_b + w_pill, y_vs + h_pill], fill=cb)
+        d.text((x_pill_b + w_pill // 2, y_vs + h_pill // 2), times[1]["nome"].upper(),
+               font=fonte(26, True), fill=contraste_cor(cb), anchor="mm")
+    else:
+        d.rounded_rectangle([x_pill_a, y_vs, x_pill_a + w_pill, y_vs + h_pill], radius=10,
+                            fill=ca, outline=ptitulo if TEMA == "fifa" else (255, 255, 255), width=2)
+        d.text((x_pill_a + w_pill // 2, y_vs + h_pill // 2), times[0]["nome"].upper(),
+               font=fonte(26, True), fill=contraste_cor(ca), anchor="mm")
+        d.ellipse([L // 2 - 28, y_vs + h_pill // 2 - 28, L // 2 + 28, y_vs + h_pill // 2 + 28],
+                  fill=(16, 22, 34), outline=ptitulo, width=2)
+        d.text((L // 2, y_vs + h_pill // 2), "VS", font=fonte(22, True), fill=ptitulo, anchor="mm")
+        d.rounded_rectangle([x_pill_b, y_vs, x_pill_b + w_pill, y_vs + h_pill], radius=10,
+                            fill=cb, outline=ptitulo if TEMA == "fifa" else (255, 255, 255), width=2)
+        d.text((x_pill_b + w_pill // 2, y_vs + h_pill // 2), times[1]["nome"].upper(),
+               font=fonte(26, True), fill=contraste_cor(cb), anchor="mm")
+
+    centralizado(d, y_vs + h_pill + 14, "ESCALACAO & DISPOSICAO TATICA", fonte(16, True), psub)
+
+    j_a_todos = completar_escalacao(normalizar_jogadores(times[0]))
+    j_b_todos = completar_escalacao(normalizar_jogadores(times[1]))
+    j_a = [(nm, pos) for nm, pos in j_a_todos if visiveis_a is None or nm in visiveis_a]
+    j_b = [(nm, pos) for nm, pos in j_b_todos if visiveis_b is None or nm in visiveis_b]
+
+    campo_w = 1240
+    campo_h = 710
+    campo_x0 = (L - campo_w) // 2
+    campo_y0 = y_vs + h_pill + 40
+    desenhar_campo_tatico(d, campo_x0, campo_y0, campo_w, campo_h, j_a, j_b, ca, cb, img_base=img, times=times)
+
+    def desenhar_painel_elenco_tema(x0, time_obj, jgs_todos, visiveis_set, cor):
+        w_p = 275
+        if TEMA == "iss":
+            d.rectangle([x0 - 2, campo_y0 - 2, x0 + w_p + 2, campo_y0 + campo_h + 2], fill=pborda)
+            d.rectangle([x0, campo_y0, x0 + w_p, campo_y0 + campo_h], fill=pfundo)
+            d.rectangle([x0, campo_y0, x0 + w_p, campo_y0 + 8], fill=cor)
+        else:
+            d.rounded_rectangle([x0, campo_y0, x0 + w_p, campo_y0 + campo_h], radius=10,
+                                fill=pfundo, outline=pborda, width=1)
+            d.rectangle([x0, campo_y0, x0 + w_p, campo_y0 + 6], fill=cor)
+        d.text((x0 + 16, campo_y0 + 16), time_obj["nome"], font=fonte(22), fill=cor)
+        d.text((x0 + 16, campo_y0 + 44), "ELENCO OFICIAL", font=fonte(13), fill=psub)
+
+        y_item = campo_y0 + 72
+        tags = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA"}
+        for nm, pos in jgs_todos[:12]:
+            tag = tags.get(pos, "MEI")
+            visivel = visiveis_set is None or nm in visiveis_set
+            nm_limpo = _limpar_nome_pillow(nm)
+            if visivel:
+                av = obter_avatar_jogador(nm, time_obj, tamanho=(30, 30), cor_time=cor, pos=pos)
+                if av:
+                    img.paste(av, (x0 + 14, y_item - 2), av)
+                    d.text((x0 + 52, y_item + 3), nm_limpo, font=fonte(18, False), fill=TEXTO)
+                else:
+                    d.text((x0 + 16, y_item + 3), nm_limpo, font=fonte(18, False), fill=TEXTO)
+                if TEMA == "iss":
+                    d.rectangle([x0 + w_p - 58, y_item + 2, x0 + w_p - 14, y_item + 24], fill=cor)
+                    d.text((x0 + w_p - 36, y_item + 13), tag, font=fonte(11, True),
+                           fill=contraste_cor(cor), anchor="mm")
+                else:
+                    d.rounded_rectangle([x0 + w_p - 58, y_item + 2, x0 + w_p - 14, y_item + 24],
+                                       radius=4, fill=cor, outline=cor, width=1)
+                    d.text((x0 + w_p - 36, y_item + 13), tag, font=fonte(11, True),
+                           fill=contraste_cor(cor), anchor="mm")
+            else:
+                if TEMA == "iss":
+                    d.rectangle([x0 + 14, y_item, x0 + w_p - 14, y_item + 26], fill=(20, 20, 40))
+                else:
+                    d.rounded_rectangle([x0 + 14, y_item, x0 + w_p - 14, y_item + 26],
+                                       radius=5, fill=(25, 32, 46), outline=(40, 50, 68), width=1)
+            y_item += 40
+
+    vset_a = set(nm for nm, _ in (j_a if visiveis_a is not None else j_a_todos))
+    vset_b = set(nm for nm, _ in (j_b if visiveis_b is not None else j_b_todos))
+    desenhar_painel_elenco_tema(35, times[0], j_a_todos, vset_a if visiveis_a is not None else None, ca)
+    desenhar_painel_elenco_tema(L - 310, times[1], j_b_todos, vset_b if visiveis_b is not None else None, cb)
+    return img
+
+
 def cartela_abertura(d_, visiveis_a=None, visiveis_b=None):
     """
     Gera um frame da cartela de abertura.
@@ -641,6 +781,8 @@ def cartela_abertura(d_, visiveis_a=None, visiveis_b=None):
     visiveis_a / visiveis_b: conjuntos de nomes dos jogadores já revelados em cada time.
     Se None, todos os jogadores são exibidos (comportamento original / frame final).
     """
+    if TEMA != "atual":
+        return _cartela_abertura_tema(d_, visiveis_a, visiveis_b)
     img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     meta, times = d_["meta"], d_["times"]
@@ -1307,12 +1449,179 @@ def paginas_fim_de_jogo(d_):
     return max(1, -(-n_a // FIM_DE_JOGO_GOLS_POR_TELA), -(-n_b // FIM_DE_JOGO_GOLS_POR_TELA))
 
 
+def _cartela_fim_de_jogo_tema(d_, pagina=0):
+    """Placar final com tema visual alternativo (fifa/iss/pes/tv)."""
+    img = criar_fundo_base(d_)
+    d = ImageDraw.Draw(img)
+    meta, times = d_["meta"], d_["times"]
+    ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
+    pfundo, pborda, ptitulo, psub, paccent = _paleta_tema()
+
+    _barra_topo_tema(d)
+    y_textos = _logo_topo_tema(img, d, d_, logo_tam=(110, 110), y_logo=18)
+
+    total_pag = paginas_fim_de_jogo(d_)
+    titulo_fim = "FIM DE JOGO"
+    if total_pag > 1:
+        titulo_fim += f" - PAGINA {pagina + 1}/{total_pag}"
+    centralizado_contornado(d, y_textos, titulo_fim, fonte(44, True), ptitulo, (0, 0, 0), 4)
+
+    sub = " · ".join(x for x in [meta.get("pelada") or meta.get("torneio"),
+                                   meta.get("comp") or meta.get("rodada"),
+                                   meta.get("data"), meta.get("local")] if x)
+    if sub:
+        centralizado_contornado(d, y_textos + 52, sub, fonte(26, False), psub, (0, 0, 0), 3)
+
+    gols_ordenados = sorted(d_.get("gols", []), key=_tempo_em_segundos)
+    gols_a = [g for g in gols_ordenados if g.get("time") == 0]
+    gols_b = [g for g in gols_ordenados if g.get("time") == 1]
+    n_por = FIM_DE_JOGO_GOLS_POR_TELA
+    gols_a_pag = gols_a[pagina * n_por:(pagina + 1) * n_por]
+    gols_b_pag = gols_b[pagina * n_por:(pagina + 1) * n_por]
+    total_a = len(gols_a)
+    total_b = len(gols_b)
+    if meta.get("placar_jogo"):
+        if meta["placar_jogo"][0] is not None:
+            total_a = meta["placar_jogo"][0]
+        if meta["placar_jogo"][1] is not None:
+            total_b = meta["placar_jogo"][1]
+
+    # Painel do placar
+    y_p = y_textos + 95
+    pw = 1040
+    ph = 155
+    px0 = (L - pw) // 2
+    if TEMA == "iss":
+        d.rectangle([px0 - 3, y_p - 3, px0 + pw + 3, y_p + ph + 3], fill=pborda)
+        d.rectangle([px0, y_p, px0 + pw, y_p + ph], fill=(5, 5, 20))
+    else:
+        d.rounded_rectangle([px0 + 4, y_p + 4, px0 + pw + 4, y_p + ph + 4], radius=20, fill=(0, 0, 0, 80))
+        d.rounded_rectangle([px0, y_p, px0 + pw, y_p + ph], radius=20, fill=pfundo)
+        d.rounded_rectangle([px0 + 2, y_p + 2, px0 + pw - 2, y_p + ph - 2], radius=18, outline=pborda, width=2)
+
+    cx = L // 2
+    barra_h = 6
+    if TEMA == "iss":
+        d.rectangle([px0 + 20, y_p + ph - 16, cx - 20, y_p + ph - 16 + barra_h], fill=ca)
+        d.rectangle([cx + 20, y_p + ph - 16, px0 + pw - 20, y_p + ph - 16 + barra_h], fill=cb)
+    else:
+        d.rounded_rectangle([px0 + 20, y_p + ph - 16, cx - 20, y_p + ph - 16 + barra_h], radius=3, fill=ca)
+        d.rounded_rectangle([cx + 20, y_p + ph - 16, px0 + pw - 20, y_p + ph - 16 + barra_h], radius=3, fill=cb)
+
+    d.line([cx, y_p + 25, cx, y_p + ph - 30], fill=(60, 70, 90), width=2)
+
+    x_num_a = cx - 130
+    x_num_b = cx + 130
+    nome_a = times[0]["nome"].upper()
+    nome_b = times[1]["nome"].upper()
+    f_nome = fonte(30, True)
+    d.text((x_num_a, y_p + 32), nome_a, font=f_nome, fill=ca, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
+    d.text((x_num_b, y_p + 32), nome_b, font=f_nome, fill=cb, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
+
+    f_placar = fonte(96, True)
+    f_vs = fonte(42, False)
+    d.text((x_num_a, y_p + 100), str(total_a), font=f_placar, fill=(255, 255, 255), anchor="mm",
+           stroke_width=3, stroke_fill=(0, 0, 0))
+    d.text((cx, y_p + 100), "×", font=f_vs, fill=(160, 170, 190), anchor="mm")
+    d.text((x_num_b, y_p + 100), str(total_b), font=f_placar, fill=(255, 255, 255), anchor="mm",
+           stroke_width=3, stroke_fill=(0, 0, 0))
+
+    # Colunas de gols
+    col_w = 730
+    gap_central = 100
+    topo_col = y_p + ph + 30
+
+    def desenhar_coluna_tema(x0, time_obj, lista_gols, cor):
+        fim_col = A - 50
+        altura_col = fim_col - topo_col
+        total_time = len(gols_a) if time_obj is times[0] else len(gols_b)
+        espaco_itens = max(1, altura_col - 90)
+        passo_item = max(30, min(42, espaco_itens // max(len(lista_gols), 1)))
+        tam_autor = max(18, min(21, passo_item - 12))
+        tam_assist = max(13, min(15, passo_item - 17))
+        tam_tempo = max(12, min(14, passo_item - 18))
+        tam_avatar = max(24, min(30, passo_item - 8))
+
+        if TEMA == "iss":
+            d.rectangle([x0 - 2, topo_col - 2, x0 + col_w + 2, fim_col + 2], fill=pborda)
+            d.rectangle([x0, topo_col, x0 + col_w, fim_col], fill=pfundo)
+        else:
+            d.rounded_rectangle([x0 + 4, topo_col + 4, x0 + col_w + 4, fim_col + 4], radius=16, fill=(0, 0, 0, 60))
+            d.rounded_rectangle([x0, topo_col, x0 + col_w, fim_col], radius=16, fill=pfundo)
+            d.rounded_rectangle([x0 + 2, topo_col + 2, x0 + col_w - 2, fim_col - 2], radius=14, outline=pborda, width=2)
+
+        header_h = 55
+        if TEMA == "iss":
+            d.rectangle([x0, topo_col, x0 + col_w, topo_col + header_h], fill=(10, 10, 30))
+            d.rectangle([x0 + 8, topo_col + header_h - 4, x0 + col_w - 8, topo_col + header_h], fill=cor)
+        else:
+            d.rounded_rectangle([x0, topo_col, x0 + col_w, topo_col + header_h], radius=16, fill=(30, 36, 48))
+            d.rectangle([x0 + 8, topo_col + header_h - 4, x0 + col_w - 8, topo_col + header_h], fill=cor)
+
+        titulo_col = f"GOLS - {time_obj['nome'].upper()}"
+        d.text((x0 + 28, topo_col + 22), titulo_col, font=fonte(24, True), fill=cor)
+        d.text((x0 + col_w - 28, topo_col + 28), f"{total_time} gol{'s' if total_time != 1 else ''}",
+               font=fonte(17, False), fill=psub, anchor="ra")
+
+        y_item = topo_col + header_h + 24
+        if not lista_gols:
+            d.text((x0 + 28, y_item + 15), "Nenhum gol marcado", font=fonte(19, False), fill=psub)
+            return
+
+        for idx, g in enumerate(lista_gols):
+            if y_item + passo_item > fim_col - 12:
+                break
+            if idx > 0:
+                if TEMA == "iss":
+                    d.rectangle([x0 + 24, y_item - 12, x0 + col_w - 24, y_item - 11], fill=pborda)
+                else:
+                    d.line([x0 + 24, y_item - 12, x0 + col_w - 24, y_item - 12], fill=(40, 50, 70), width=1)
+
+            t_str = g.get("tempo", "")
+            badge_w = 68
+            badge_h = min(30, passo_item - 2)
+            badge_x = x0 + 24
+            badge_y = y_item
+            if TEMA == "iss":
+                d.rectangle([badge_x - 2, badge_y - 2, badge_x + badge_w + 2, badge_y + badge_h + 2], fill=pborda)
+                d.rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + badge_h], fill=(10, 10, 30))
+            else:
+                d.rounded_rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + badge_h], radius=6, fill=(35, 45, 65))
+                d.rounded_rectangle([badge_x + 1, badge_y + 1, badge_x + badge_w - 1, badge_y + badge_h - 1],
+                                    radius=5, outline=cor, width=2)
+            d.text((badge_x + badge_w // 2, badge_y + badge_h // 2), t_str,
+                   font=fonte(tam_tempo, True), fill=(255, 255, 255), anchor="mm")
+
+            autor = _limpar_nome_pillow(g.get("autor", "Gol"))
+            avatar_x = x0 + 108
+            av = obter_avatar_jogador(autor, time_obj, tamanho=(tam_avatar, tam_avatar), cor_time=cor)
+            if av:
+                img.paste(av, (avatar_x, badge_y + 3), av)
+                d.text((avatar_x + tam_avatar + 12, badge_y + 4), autor, font=fonte(tam_autor, True), fill=(240, 245, 255))
+            else:
+                d.text((avatar_x, badge_y + 4), autor, font=fonte(tam_autor, True), fill=(240, 245, 255))
+
+            if g.get("assist"):
+                assist_txt = _limpar_nome_pillow(g["assist"])
+                d.text((x0 + col_w - 28, badge_y + 6), assist_txt, font=fonte(tam_assist, False),
+                       fill=psub, anchor="ra")
+            y_item += passo_item
+
+    col_x_esq = (L - col_w * 2 - gap_central) // 2
+    col_x_dir = col_x_esq + col_w + gap_central
+    desenhar_coluna_tema(col_x_esq, times[0], gols_a_pag, ca)
+    desenhar_coluna_tema(col_x_dir, times[1], gols_b_pag, cb)
+    return img
+
+
 def cartela_fim_de_jogo(d_, pagina=0):
     """
     Placar final profissional estilo transmissão esportiva pós-jogo (SporTV / Premiere).
     Mostra o placar oficial e a lista de todos os gols de cada time.
     Design moderno com gradientes e tipografia refinada.
     """
+    if TEMA != "atual":
+        return _cartela_fim_de_jogo_tema(d_, pagina)
     img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     meta, times = d_["meta"], d_["times"]
@@ -1608,7 +1917,78 @@ def cartela_cronologia(d_, pagina=0):
     return img
 
 
+def _cartela_destaques_tema(d_):
+    """Destaques da partida com tema visual alternativo (fifa/iss/pes/tv)."""
+    img = criar_fundo_base(d_)
+    d = ImageDraw.Draw(img)
+    pfundo, pborda, ptitulo, psub, paccent = _paleta_tema()
+
+    _barra_topo_tema(d)
+    y_textos = _logo_topo_tema(img, d, d_, logo_tam=(105, 105), y_logo=16)
+
+    centralizado_contornado(d, y_textos, "DESTAQUES DA PARTIDA", fonte(40, True), ptitulo, (0, 0, 0), 3)
+
+    medalha = [(255, 215, 0), (200, 210, 225), (205, 140, 90)]
+    topo_cards = y_textos + 75
+    h_card = 630
+    w_card = 680
+
+    for col, (titulo, chave, campo) in enumerate([
+        ("ARTILHEIROS", "artilheiros", "gols"),
+        ("LIDERES EM ASSISTENCIAS", "garcons", "assistencias")
+    ]):
+        x0 = 170 if col == 0 else L // 2 + 60
+        if TEMA == "iss":
+            d.rectangle([x0 - 2, topo_cards - 2, x0 + w_card + 2, topo_cards + h_card + 2], fill=pborda)
+            d.rectangle([x0, topo_cards, x0 + w_card, topo_cards + h_card], fill=pfundo)
+            d.rectangle([x0, topo_cards, x0 + w_card, topo_cards + 8], fill=paccent)
+        else:
+            d.rounded_rectangle([x0, topo_cards, x0 + w_card, topo_cards + h_card], radius=14,
+                                fill=pfundo, outline=pborda, width=1)
+        # Header
+        header_h = 56
+        if TEMA == "iss":
+            d.rectangle([x0, topo_cards, x0 + w_card, topo_cards + header_h], fill=(10, 10, 30))
+        else:
+            d.rounded_rectangle([x0, topo_cards, x0 + w_card, topo_cards + header_h], radius=14, fill=(24, 34, 52))
+            d.rectangle([x0, topo_cards + header_h - 6, x0 + w_card, topo_cards + header_h], fill=(24, 34, 52))
+        d.text((x0 + 24, topo_cards + 18), titulo, font=fonte(22, True), fill=ptitulo)
+
+        itens = (d_.get(chave) or [])[:5]
+        for k, item in enumerate(itens):
+            y = topo_cards + 84 + k * 102
+            cor_med = medalha[k] if k < 3 else (70, 85, 110)
+
+            if TEMA == "iss":
+                d.rectangle([x0 + 24, y + 4, x0 + 72, y + 52], fill=cor_med)
+            else:
+                d.ellipse([x0 + 24, y + 4, x0 + 72, y + 52], fill=cor_med)
+            d.text((x0 + 48, y + 28), str(k + 1), font=fonte(24, True), fill=(10, 14, 22), anchor="mm")
+
+            nm_limpo = _limpar_nome_pillow(item["jogador"])
+            av = obter_avatar_jogador(item["jogador"], d_.get("times"), tamanho=(52, 52), cor_time=cor_med)
+            if av:
+                img.paste(av, (x0 + 90, y + 2), av)
+                d.text((x0 + 158, y + 14), nm_limpo, font=fonte(32, True), fill=TEXTO)
+            else:
+                d.text((x0 + 90, y + 14), nm_limpo, font=fonte(32, True), fill=TEXTO)
+
+            qtd_str = str(item[campo])
+            if TEMA == "iss":
+                d.rectangle([x0 + w_card - 100, y + 8, x0 + w_card - 24, y + 48], fill=cor_med)
+            else:
+                d.rounded_rectangle([x0 + w_card - 100, y + 8, x0 + w_card - 24, y + 48], radius=8,
+                                    fill=(24, 36, 56), outline=cor_med, width=2)
+            d.text((x0 + w_card - 62, y + 28), qtd_str, font=fonte(26, True), fill=cor_med, anchor="mm")
+
+    centralizado(d, topo_cards + h_card + 35,
+                 d_["meta"].get("pelada") or d_["meta"].get("torneio") or "", fonte(26), paccent)
+    return img
+
+
 def cartela_destaques(d_):
+    if TEMA != "atual":
+        return _cartela_destaques_tema(d_)
     img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, L, 6], fill=VERDE)
@@ -1673,8 +2053,31 @@ def cartela_destaques(d_):
     return img
 
 
+def _cartela_assista_outros_videos_tema(d_):
+    """Tela final 'Assista outros videos' com tema visual alternativo."""
+    img = criar_fundo_base(d_)
+    d = ImageDraw.Draw(img)
+    pfundo, pborda, ptitulo, psub, paccent = _paleta_tema()
+
+    _barra_topo_tema(d)
+
+    if TEMA == "iss":
+        d.rectangle([148, 98, L - 148, A - 68], fill=pborda)
+        d.rectangle([150, 100, L - 150, A - 70], fill=pfundo)
+    else:
+        d.rounded_rectangle([154, 104, L - 154, A - 74], radius=28, fill=(0, 0, 0, 80))
+        d.rounded_rectangle([150, 100, L - 150, A - 70], radius=28,
+                            fill=(10, 17, 29, 235), outline=paccent, width=3)
+
+    centralizado_contornado(d, 155, "ASSISTA ESTES OUTROS VIDEOS", fonte(52, True), ptitulo, (0, 0, 0), 3)
+    centralizado(d, A - 125, "Obrigado por assistir", fonte(25, False), psub)
+    return img
+
+
 def cartela_assista_outros_videos(d_):
     """Tela final limpa, com espaço livre para os quadros recomendados do YouTube."""
+    if TEMA != "atual":
+        return _cartela_assista_outros_videos_tema(d_)
     img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, L, 7], fill=VERDE)
