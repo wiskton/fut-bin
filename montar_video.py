@@ -987,42 +987,40 @@ def cartela_fim_de_jogo(d_, pagina=0):
     d.rounded_rectangle([px0 + 2, y_p + 2, px0 + pw - 2, y_p + ph - 2], 
                         radius=18, outline=(45, 55, 75), width=2)
     
-    # Barras de cor dos times - mais elegantes
-    barra_h = 8
-    d.rounded_rectangle([px0 + 30, y_p + ph - 18, px0 + pw // 2 - 20, y_p + ph - 18 + barra_h],
-                        radius=4, fill=ca)
-    d.rounded_rectangle([px0 + pw // 2 + 20, y_p + ph - 18, px0 + pw - 30, y_p + ph - 18 + barra_h],
-                        radius=4, fill=cb)
+    # Barras de cor dos times — alinhadas com os números
+    barra_h = 6
+    d.rounded_rectangle([px0 + 20, y_p + ph - 16, cx - 20, y_p + ph - 16 + barra_h],
+                        radius=3, fill=ca)
+    d.rounded_rectangle([cx + 20, y_p + ph - 16, px0 + pw - 20, y_p + ph - 16 + barra_h],
+                        radius=3, fill=cb)
     
     # Divisor central com estilo
     cx = L // 2
     d.line([cx, y_p + 25, cx, y_p + ph - 30], fill=(60, 70, 90), width=2)
     
-    # Nomes dos times com sombra — cada nome centrado no seu quadrante
+    # Posições fixas dos números — simétricos ao centro, espaçados o suficiente
+    x_num_a = cx - 130    # número do Time A
+    x_num_b = cx + 130    # número do Time B
+    
+    # Nomes alinhados acima dos respectivos números
     nome_a = times[0]["nome"].upper()
     nome_b = times[1]["nome"].upper()
-    f_nome = fonte(36, True)
+    f_nome = fonte(30, True)
     
-    cx_a = px0 + pw // 4          # centro do quadrante esquerdo
-    cx_b = px0 + pw * 3 // 4      # centro do quadrante direito
-    
-    # Time A - centralizado no quadrante esquerdo
-    d.text((cx_a, y_p + 35), nome_a, font=f_nome,
+    d.text((x_num_a, y_p + 32), nome_a, font=f_nome,
            fill=ca, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
-    # Time B - centralizado no quadrante direito
-    d.text((cx_b, y_p + 35), nome_b, font=f_nome,
+    d.text((x_num_b, y_p + 32), nome_b, font=f_nome,
            fill=cb, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
     
     # Placar - números grandes e elegantes
     f_placar = fonte(96, True)
     f_vs = fonte(42, False)
     
-    # Destaque no placar com sombra
-    d.text((cx - 90, y_p + 95), str(total_a), font=f_placar, 
+    d.text((x_num_a, y_p + 100), str(total_a), font=f_placar,
            fill=(255, 255, 255), anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
-    d.text((cx, y_p + 95), "×", font=f_vs, 
+    d.text((cx, y_p + 100), "×", font=f_vs,
            fill=(160, 170, 190), anchor="mm")
-    d.text((cx + 90, y_p + 95), str(total_b), font=f_placar, 
+    d.text((x_num_b, y_p + 100), str(total_b), font=f_placar,
            fill=(255, 255, 255), anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
 
     # Colunas com Lista de Gols - Design Refinado
