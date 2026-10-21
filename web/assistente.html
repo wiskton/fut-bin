@@ -3406,10 +3406,10 @@ function sincronizarJogadoresCadastrados(timeIdx, jogadores, posicoes, fotos){
       // Aplica posição se ainda não definida
       if(!posicoes[nomeElenco] && jogadorCadastrado.posicao){
         const mapaPosicao = {
-          'GOL': 'gol', 'GOLEIRO': 'gol',
-          'ZAG': 'zag', 'ZAGUEIRO': 'zag',
+          'GOL': 'goleiro', 'GOLEIRO': 'goleiro',
+          'ZAG': 'zagueiro', 'ZAGUEIRO': 'zagueiro',
           'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
-          'ATA': 'ata', 'ATACANTE': 'ata'
+          'ATA': 'atacante', 'ATACANTE': 'atacante'
         };
         const posNormalizada = jogadorCadastrado.posicao.toUpperCase().trim();
         const posId = mapaPosicao[posNormalizada] || 'meio';
@@ -8024,15 +8024,10 @@ function selecionarJogador(tipo, nomeUsado){
     if(jogadorCadastrado && jogadorCadastrado.posicao && rascunho.time !== null){
       // Mapeia posição do cadastro (GOL/ZAG/MEI/ATA) para o sistema
       const mapaPosicao = {
-        'GOL': 'gol',
-        'GOLEIRO': 'gol',
-        'ZAG': 'zag',
-        'ZAGUEIRO': 'zag',
-        'MEI': 'meio',
-        'MEIO': 'meio',
-        'MEIA': 'meio',
-        'ATA': 'ata',
-        'ATACANTE': 'ata'
+        'GOL': 'goleiro', 'GOLEIRO': 'goleiro',
+        'ZAG': 'zagueiro', 'ZAGUEIRO': 'zagueiro',
+        'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
+        'ATA': 'atacante', 'ATACANTE': 'atacante'
       };
       const posNormalizada = jogadorCadastrado.posicao.toUpperCase().trim();
       const posId = mapaPosicao[posNormalizada] || 'meio';
@@ -8049,10 +8044,10 @@ function selecionarJogador(tipo, nomeUsado){
     // Também define posição para assistência se aplicável
     if(jogadorCadastrado && jogadorCadastrado.posicao && rascunho.time !== null){
       const mapaPosicao = {
-        'GOL': 'gol', 'GOLEIRO': 'gol',
-        'ZAG': 'zag', 'ZAGUEIRO': 'zag',
+        'GOL': 'goleiro', 'GOLEIRO': 'goleiro',
+        'ZAG': 'zagueiro', 'ZAGUEIRO': 'zagueiro',
         'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
-        'ATA': 'ata', 'ATACANTE': 'ata'
+        'ATA': 'atacante', 'ATACANTE': 'atacante'
       };
       const posNormalizada = jogadorCadastrado.posicao.toUpperCase().trim();
       const posId = mapaPosicao[posNormalizada] || 'meio';
@@ -8159,10 +8154,10 @@ function confirmarSelecaoJogadores(){
     // Coleta posição
     if(jogador.posicao){
       const mapaPosicao = {
-        'GOL': 'gol', 'GOLEIRO': 'gol',
-        'ZAG': 'zag', 'ZAGUEIRO': 'zag',
+        'GOL': 'goleiro', 'GOLEIRO': 'goleiro',
+        'ZAG': 'zagueiro', 'ZAGUEIRO': 'zagueiro',
         'MEI': 'meio', 'MEIO': 'meio', 'MEIA': 'meio',
-        'ATA': 'ata', 'ATACANTE': 'ata'
+        'ATA': 'atacante', 'ATACANTE': 'atacante'
       };
       const posId = mapaPosicao[jogador.posicao.toUpperCase().trim()] || 'meio';
       posParaAplicar[nomeExibir] = posId;

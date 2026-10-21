@@ -998,15 +998,19 @@ def cartela_fim_de_jogo(d_, pagina=0):
     cx = L // 2
     d.line([cx, y_p + 25, cx, y_p + ph - 30], fill=(60, 70, 90), width=2)
     
-    # Nomes dos times com sombra
+    # Nomes dos times com sombra — cada nome centrado no seu quadrante
     nome_a = times[0]["nome"].upper()
     nome_b = times[1]["nome"].upper()
     f_nome = fonte(36, True)
     
-    # Time A
-    centralizado_contornado(d, y_p + 35, nome_a, f_nome, ca, (0, 0, 0), 3)
-    # Time B  
-    d.text((px0 + pw // 2 + pw // 4, y_p + 35), nome_b, font=f_nome, 
+    cx_a = px0 + pw // 4          # centro do quadrante esquerdo
+    cx_b = px0 + pw * 3 // 4      # centro do quadrante direito
+    
+    # Time A - centralizado no quadrante esquerdo
+    d.text((cx_a, y_p + 35), nome_a, font=f_nome,
+           fill=ca, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
+    # Time B - centralizado no quadrante direito
+    d.text((cx_b, y_p + 35), nome_b, font=f_nome,
            fill=cb, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
     
     # Placar - números grandes e elegantes
@@ -1054,8 +1058,8 @@ def cartela_fim_de_jogo(d_, pagina=0):
         d.rectangle([x0 + 8, topo_col + header_h - 4, x0 + col_w - 8, topo_col + header_h], 
                    fill=cor)
         
-        # Título da coluna
-        titulo_col = f"⚽ {time_obj['nome'].upper()}"
+        # Título da coluna (sem emoji - Pillow não renderiza ⚽ corretamente)
+        titulo_col = f"GOLS · {time_obj['nome'].upper()}"
         d.text((x0 + 28, topo_col + 22), titulo_col, 
                font=fonte(24, True), fill=cor)
         d.text((x0 + col_w - 28, topo_col + 28), f"{total_time} gol{'s' if total_time != 1 else ''}", 
