@@ -7959,11 +7959,13 @@ function mostrarSugestoesJogador(input, tipo){
   
   listaSug.innerHTML = filtrados.map(j => {
     const foto = j.foto || '/web/icon.png';
-    const apelido = j.apelido ? ` "${j.apelido}"` : '';
-    return `<div onclick="selecionarJogador('${tipo}', '${j.nome.replace(/'/g, "\\'")}')" style="padding:8px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);transition:all .15s" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background='transparent'">
+    const apelidoExibir = j.apelido ? ` "${j.apelido}"` : '';
+    // Usa apelido se existir, senão usa nome
+    const nomeUsar = j.apelido || j.nome;
+    return `<div onclick="selecionarJogador('${tipo}', '${nomeUsar.replace(/'/g, "\\'")}')" style="padding:8px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);transition:all .15s" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background='transparent'">
       <img src="${foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover" onerror="this.src='/web/icon.png'">
       <div style="flex:1">
-        <div style="font-weight:700;font-size:12px">${j.nome}${apelido}</div>
+        <div style="font-weight:700;font-size:12px">${j.nome}${apelidoExibir}</div>
         ${j.posicao ? `<div style="font-size:10px;color:var(--dim)">${j.posicao}${j.numero ? ` · #${j.numero}` : ''}</div>` : ''}
       </div>
     </div>`;
@@ -8072,8 +8074,10 @@ function confirmarSelecaoJogadores(){
   
   jogadoresSelecionados.forEach(id => {
     const jogador = jogadoresCadastrados.find(j => j.id === id);
-    if(jogador && !linhasAtuais.includes(jogador.nome)){
-      linhasAtuais.push(jogador.nome);
+    // Usa apelido se existir, senão usa o nome
+    const nomeExibir = jogador.apelido || jogador.nome;
+    if(jogador && !linhasAtuais.includes(nomeExibir)){
+      linhasAtuais.push(nomeExibir);
     }
   });
   
