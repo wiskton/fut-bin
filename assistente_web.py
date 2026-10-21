@@ -2020,7 +2020,8 @@ def api_restaurar_fundo_cartela():
 
 
 @app.get("/api/cartelas/preview/{tipo}")
-def api_preview_cartela(tipo: str):
+@app.get("/api/cartelas/preview/{tipo}")
+def api_preview_cartela(tipo: str, tema: str = "atual"):
     import io
     from PIL import Image
     import montar_video
@@ -2029,6 +2030,10 @@ def api_preview_cartela(tipo: str):
     with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
         d = json.load(f)
     
+    # Aplica o tema solicitado antes de gerar a cartela
+    if tema in ("atual", "fifa", "iss", "pes", "tv"):
+        montar_video.TEMA = tema
+
     if tipo == "abertura":
         img = montar_video.cartela_abertura(d)
     elif tipo == "fim_de_jogo":

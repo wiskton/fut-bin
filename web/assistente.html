@@ -6756,8 +6756,10 @@ async function renderizarPreviewCartela(tipo){
   const loadEl = $('#loadingFundoPreview');
   if(loadEl) loadEl.style.display = 'flex';
   try {
+    const temaSel = document.querySelector('.tema-card.sel');
+    const tema = temaSel ? (temaSel.dataset.tema || 'atual') : 'atual';
     const prevImg = $('#imgCartelaRenderPreview');
-    prevImg.src = `/api/cartelas/preview/${tipo}?t=${Date.now()}`;
+    prevImg.src = `/api/cartelas/preview/${tipo}?tema=${tema}&t=${Date.now()}`;
     prevImg.onload = () => {
       prevImg.style.display = 'block';
       $('#imgFundoPreview').style.display = 'none';
@@ -7265,6 +7267,10 @@ function inicializarSeletorQualidade(){
       tc.style.borderColor = cor;
       tc.style.background = `${cor}18`;
       localStorage.setItem('futbin_tema', tc.dataset.tema);
+      // Atualiza o preview se estiver numa aba de cartela aberta
+      if(abaPreviewAtual && abaPreviewAtual !== 'frame'){
+        renderizarPreviewCartela(abaPreviewAtual);
+      }
     };
   });
 }
