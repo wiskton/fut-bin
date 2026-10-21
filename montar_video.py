@@ -853,7 +853,12 @@ def _cartela_lance_fifa(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fal
     d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=contraste_cor(cb)+(255,), anchor="mm")
     tempo_str = str(ev.get("tempo") or "")
     if tempo_str:
-        d.text((px0+total_w+18, py0+ph//2), tempo_str, font=fonte(16, False), fill=(200,200,200,200), anchor="lm")
+        # FIFA: quadrado preto com borda dourada ao lado do placar
+        tw_box = 88
+        tx0 = px0 + total_w + 8
+        d.rounded_rectangle([tx0, py0, tx0 + tw_box, py0 + ph], radius=4, fill=(0, 0, 0, 240))
+        d.rounded_rectangle([tx0, py0, tx0 + tw_box, py0 + ph], radius=4, outline=(255, 215, 0, 200), width=2)
+        d.text((tx0 + tw_box // 2, py0 + ph // 2), tempo_str, font=fonte(18, True), fill=(255, 215, 0, 255), anchor="mm")
     if gol_neste_clipe and time_gol in (0,1):
         d.rounded_rectangle([px0+total_w+10, py0+ph+4, px0+total_w+80, py0+ph+28], radius=3, fill=(255,220,0,255))
         d.text((px0+total_w+45, py0+ph+16), "GOAL!", font=fonte(12, True), fill=(0,0,0,255), anchor="mm")
@@ -898,6 +903,15 @@ def _cartela_lance_iss(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fals
     d.text((px0+wta+pw_s-14, py0+ph//2), str(placar_b), font=f_score, fill=COL_TXT, anchor="rm")
     d.rectangle([px0+wta+pw_s, py0, px0+total_w, py0+ph], fill=cb+(220,))
     d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=contraste_cor(cb)+(255,), anchor="mm")
+    # Tempo — quadrado retrô amarelo com borda (ISS style)
+    tempo_str_iss = str(ev.get("tempo") or "")
+    if tempo_str_iss:
+        tx0_iss = px0 + total_w + 4
+        tw_iss = 96
+        d.rectangle([tx0_iss - 2, py0 - 2, tx0_iss + tw_iss + 2, py0 + ph + 2], fill=COL_BRD)
+        d.rectangle([tx0_iss, py0, tx0_iss + tw_iss, py0 + ph], fill=(0, 0, 50, 240))
+        d.text((tx0_iss + tw_iss // 2, py0 + ph // 2), tempo_str_iss, font=fonte(18, True),
+               fill=(255, 255, 0, 255), anchor="mm")
     if gol_neste_clipe:
         gx = px0+total_w+10
         d.rectangle([gx-2, py0-2, gx+90, py0+ph+2], fill=COL_BRD)
@@ -942,7 +956,13 @@ def _cartela_lance_pes(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fals
     d.text((sep_x+16, py0+ph//2), str(placar_b), font=f_score, fill=(255,255,255,255), anchor="lm")
     tempo_str = str(ev.get("tempo") or "")
     if tempo_str:
-        d.text((px0+total_w+10, py0+ph//2), tempo_str, font=fonte(14, False), fill=(200,200,200,180), anchor="lm")
+        # PES: quadrado arredondado cinza-azul escuro com borda branca sutil
+        tw_pes = 84
+        tx0_pes = px0 + total_w + 8
+        d.rounded_rectangle([tx0_pes, py0, tx0_pes + tw_pes, py0 + ph], radius=3, fill=(25, 30, 45, 210))
+        d.rounded_rectangle([tx0_pes, py0, tx0_pes + tw_pes, py0 + ph], radius=3, outline=(220, 220, 240, 160), width=1)
+        d.text((tx0_pes + tw_pes // 2, py0 + ph // 2), tempo_str, font=fonte(16, True),
+               fill=(220, 220, 255, 230), anchor="mm")
     if gol_neste_clipe and time_gol in (0,1):
         cor_gol = ca if time_gol == 0 else cb
         d.rounded_rectangle([px0, py0+ph+5, px0+total_w, py0+ph+27], radius=3, fill=cor_gol+(200,))
@@ -982,7 +1002,13 @@ def _cartela_lance_tv(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False
     d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=cb+(230,), anchor="mm")
     tempo_str = str(ev.get("tempo") or "")
     if tempo_str:
-        d.text((px0+total_w+8, py0+ph//2), tempo_str, font=fonte(13, False), fill=(180,180,180,180), anchor="lm")
+        # TV: quadrado verde escuro com texto branco — destaca como cronômetro ao vivo
+        tw_tv = 72
+        tx0_tv = px0 + total_w + 6
+        d.rounded_rectangle([tx0_tv, py0, tx0_tv + tw_tv, py0 + ph], radius=3, fill=(0, 60, 20, 220))
+        d.rounded_rectangle([tx0_tv, py0, tx0_tv + tw_tv, py0 + ph], radius=3, outline=(0, 200, 80, 200), width=1)
+        d.text((tx0_tv + tw_tv // 2, py0 + ph // 2), tempo_str, font=fonte(14, True),
+               fill=(0, 240, 100, 240), anchor="mm")
     if tipo == "gol":
         t_idx = ev.get("time", 0); cor_l = hex_rgb(times[t_idx]["cor"])
         jogador = ev.get("autor", ""); assist = ev.get("assist")
@@ -1074,15 +1100,17 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
     d.rectangle([xb0, pb_y0, xb0 + 8, pb_y0 + pb_h], fill=cb + (250,))
     d.text(((xb0 + xb1) // 2, pb_y0 + pb_h // 2), nome_b, font=f_team, fill=txt_cb + (255,), anchor="mm")
 
-    # Cronômetro / Tempo de jogo
+    # Cronômetro / Tempo de jogo — quadrado destacado com cor própria
     xt0 = xb1 + 6
     xt1 = xt0 + w_timer
     tempo_str = str(ev.get("tempo") or "00:00")
+    # Fundo amarelo-esverdeado para diferenciar do placar (preto) e dos times (cor deles)
     d.rounded_rectangle([xt0, pb_y0, xt1, pb_y0 + pb_h], radius=8,
-                        fill=(20, 26, 40, 250), outline=(55, 68, 92, 255), width=2)
-    # Ponto indicador no cronômetro
-    d.ellipse([xt0 + 12, pb_y0 + pb_h // 2 - 4, xt0 + 20, pb_y0 + pb_h // 2 + 4], fill=VERDE + (255,))
-    d.text((xt0 + (w_timer + 16) // 2, pb_y0 + pb_h // 2), tempo_str, font=f_timer, fill=(255, 255, 255, 255), anchor="mm")
+                        fill=(30, 40, 20, 250), outline=AMARELO_GOL + (220,), width=2)
+    # Ponto indicador ao vivo
+    d.ellipse([xt0 + 10, pb_y0 + pb_h // 2 - 4, xt0 + 18, pb_y0 + pb_h // 2 + 4], fill=VERDE + (255,))
+    d.text((xt0 + (w_timer + 16) // 2, pb_y0 + pb_h // 2), tempo_str, font=f_timer,
+           fill=AMARELO_GOL + (255,), anchor="mm")
 
     # Destaque dinâmico de GOL!
     if gol_neste_clipe and time_gol in (0, 1):
@@ -1209,7 +1237,66 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
     return img
 
 
-# --------------------------------------------------------------- CARTELAS FINAIS
+# ---------------------------------------------------------------- PALETA DE CORES POR TEMA
+def _paleta_tema():
+    """Retorna cores base para o tema atual: (fundo_painel, borda, titulo, sub_titulo, accent)"""
+    if TEMA == "fifa":
+        return (8, 8, 12), (40, 40, 60), (255, 255, 255), (180, 180, 200), (255, 215, 0)
+    if TEMA == "iss":
+        return (0, 0, 20), (255, 255, 0), (255, 255, 0), (200, 200, 60), (255, 0, 0)
+    if TEMA == "pes":
+        return (20, 22, 28), (50, 55, 70), (220, 225, 235), (150, 155, 170), (255, 255, 255)
+    if TEMA == "tv":
+        return (5, 8, 14), (30, 35, 50), (255, 255, 255), (160, 165, 175), (0, 200, 100)
+    # atual (padrão)
+    return PAINEL, PAINEL_BORDA, DOURADO, FRACO, VERDE
+
+
+def _desenhar_topo_tema(img, d, d_, y_logo_base=16, logo_tam=(110, 110)):
+    """Renderiza logo + título do torneio de acordo com o tema. Retorna y_textos."""
+    meta = d_["meta"]
+    pfundo, pborda, ptitulo, psub, paccent = _paleta_tema()
+
+    logo = obter_logo_campeonato(d_, tamanho=logo_tam)
+    y_logo = y_logo_base
+    if logo:
+        lw, lh = logo.size
+        lx = (L - lw) // 2
+        if TEMA == "iss":
+            # Bordas quadradas retrô
+            d.rectangle([lx - 8, y_logo - 6, lx + lw + 8, y_logo + lh + 6], fill=(0, 0, 0))
+            d.rectangle([lx - 9, y_logo - 7, lx + lw + 9, y_logo + lh + 7], outline=pborda, width=3)
+        else:
+            d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
+                      fill=(0, 0, 0, 80))
+            d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
+                      outline=ptitulo if TEMA == "fifa" else DOURADO, width=3)
+            d.ellipse([lx - 7, y_logo - 5, lx + lw + 7, y_logo + lh + 5],
+                      fill=(12, 18, 32))
+        if logo.mode != "RGBA":
+            logo = logo.convert("RGBA")
+        img.paste(logo, (lx, y_logo), logo)
+        y_textos = y_logo + lh + 16
+    else:
+        y_textos = y_logo_base + 10
+
+    return y_textos
+
+
+def _barra_topo_tema(d):
+    """Desenha barra superior de acordo com o tema."""
+    _, pborda, _, _, paccent = _paleta_tema()
+    if TEMA == "iss":
+        d.rectangle([0, 0, L, 10], fill=pborda)     # amarelo ISS
+        d.rectangle([0, 10, L, 14], fill=(255, 0, 0))
+    elif TEMA == "fifa":
+        d.rectangle([0, 0, L, 6], fill=(255, 255, 255))
+    elif TEMA == "pes":
+        d.rectangle([0, 0, L, 4], fill=(80, 90, 110))
+    elif TEMA == "tv":
+        d.rectangle([0, 0, L, 5], fill=paccent)
+    else:
+        d.rectangle([0, 0, L, 6], fill=VERDE)
 
 FIM_DE_JOGO_GOLS_POR_TELA = 15
 
