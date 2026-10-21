@@ -6397,12 +6397,16 @@ function _cfgCam(i){
 
 function _atualizarFiltroPreviewCam(ci){
   const cfg=_cfgCam(ci), img=$(`#fundoPreviewCam${ci}`), vin=$(`#fundoVinhetaCam${ci}`);
-  if(img){
-    const filtro = `brightness(${(cfg.brilho||100)/100}) saturate(${(cfg.saturacao||100)/100}) contrast(${(cfg.contraste||100)/100}) blur(${cfg.desfoque||0}px)`;
-    img.style.filter = filtro;
-    // Força reflow para garantir que o filtro seja aplicado
-    void img.offsetHeight;
+  if(!img){
+    console.warn(`[!] Elemento fundoPreviewCam${ci} não encontrado para aplicar filtros`);
+    return;
   }
+  const filtro = `brightness(${(cfg.brilho||100)/100}) saturate(${(cfg.saturacao||100)/100}) contrast(${(cfg.contraste||100)/100}) blur(${cfg.desfoque||0}px)`;
+  img.style.filter = filtro;
+  // Força reflow para garantir que o filtro seja aplicado
+  void img.offsetHeight;
+  // Log para debug
+  console.log(`[>] Filtros aplicados cam${ci}:`, filtro);
   if(vin) vin.style.background=(cfg.vinheta&&cfg.vinheta>0)?`radial-gradient(circle, transparent 20%, rgba(11,15,23,${cfg.vinheta/100}) 80%)`:'transparent';
 }
 
@@ -6413,7 +6417,8 @@ function _sincHidden(ci){
   m('fundoVinheta',cfg.vinheta??0);
 }
 
-function aplicarPresetCam(ci, pid){
+async function aplicarPresetCam(ci, pid){
+  console.log(`[>] Aplicando preset ${pid} na câmera ${ci}`);
   const vals=_camPresetValues[pid]; if(!vals) return;
   const cfg=_cfgCam(ci);
   cfg._preset=pid; cfg.brilho=vals.b; cfg.saturacao=vals.s; cfg.contraste=vals.c; cfg.desfoque=vals.d; cfg.vinheta=vals.v;
@@ -6429,7 +6434,12 @@ function aplicarPresetCam(ci, pid){
   });
   _atualizarFiltroPreviewCam(ci);
   if(ci===0){ _sincHidden(0); }
-  salvarFundoCartelaCam(ci,true);
+  await salvarFundoCartelaCam(ci,true);
+  // Reaplica os filtros após salvar (garante que não foram perdidos)
+  setTimeout(() => {
+    console.log(`[>] Reaplicando filtros após preset na câmera ${ci}`);
+    _atualizarFiltroPreviewCam(ci);
+  }, 100);
 }
 
 async function capturarFrameCam(ci, tempo_s){
@@ -6548,7 +6558,14 @@ function renderGridCamerasFundo(){
       lv.textContent=key==='desfoque'?(val===0?'0 px':`${val} px`):`${val}%`;
       rr.appendChild(ln); rr.appendChild(lv);
       const sl=document.createElement('input'); sl.type='range'; sl.id=`${pfx}${ci}`; sl.min=min; sl.max=max; sl.step=step; sl.value=val; sl.style.width='100%';
-      sl.oninput=()=>{const v=parseFloat(sl.value);cfg[key]=v;cfg._preset=null;lv.textContent=key==='desfoque'?(v===0?'0 px':`${v} px`):`${v}%`;_atualizarFiltroPreviewCam(ci);};
+      sl.oninput=()=>{
+        const v=parseFloat(sl.value);
+        console.log(`[>] Slider ${pfx}${ci} alterado para ${v}`);
+        cfg[key]=v;
+        cfg._preset=null;
+        lv.textContent=key==='desfoque'?(v===0?'0 px':`${v} px`):`${v}%`;
+        _atualizarFiltroPreviewCam(ci);
+      };
       sl.onchange=()=>{if(ci===0)_sincHidden(0);agendarSalvar();};
       ww.appendChild(rr); ww.appendChild(sl); col.appendChild(ww);
     });
@@ -6662,11 +6679,11 @@ async function restaurarFundoPadrao(){
   }
 }
 
-function aplicarPresetFundo(tipo){
+async function aplicarPresetFundo(tipo){
   // delega ao sistema por câmera (câmera 0 = câmera 1 = principal)
   const pid = tipo in _camPresetValues ? tipo
     : (tipo==='vivido'?'claro_vivido':tipo==='noturno'?'super_claro':tipo==='sportv'?'tv':tipo==='padrao'?'original':'claro_vivido');
-  aplicarPresetCam(0, pid);
+  await aplicarPresetCam(0, pid);
 }
 
 function carregarFramePredefinido(tempo_s){
