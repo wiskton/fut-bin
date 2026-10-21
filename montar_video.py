@@ -968,7 +968,7 @@ def _cartela_lance_tv(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False
     img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     ca = hex_rgb(times[0]["cor"]); cb = hex_rgb(times[1]["cor"])
-    nome_a = times[0]["nome"][:8].upper(); nome_b = times[1]["nome"][:8].upper()
+    nome_a = times[0]["nome"].upper(); nome_b = times[1]["nome"].upper()
     ph = 34; py0 = 18; px0 = 16
     f_team = fonte(15, True); f_score = fonte(22, True)
     bb_a = d.textbbox((0,0), nome_a, font=f_team); wta = bb_a[2]-bb_a[0]+14
