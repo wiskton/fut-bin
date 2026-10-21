@@ -475,6 +475,12 @@ def normalizar_jogadores(time_obj):
     return resultado
 
 
+def _limpar_nome_pillow(nome):
+    """Remove emojis e caracteres fora do BMP que Pillow não renderiza (virariam □)."""
+    import re
+    return re.sub(r'[^\u0000-\uFFFF]', '', str(nome or '')).strip()
+
+
 def posicao_padrao_por_indice(i):
     if i == 0:
         return "goleiro"
@@ -608,18 +614,25 @@ def desenhar_campo_tatico(draw, x0, y0, w, h, time_a, time_b, ca, cb, img_base=N
                 img_base.paste(av, (cx - r, cy - r), av)
 
             # Plaqueta de identificação translúcida estilo FIFA
+            nome_limpo = _limpar_nome_pillow(nome)
             f_nome = fonte(15, True)
-            bb = draw.textbbox((0, 0), nome, font=f_nome)
+            bb = draw.textbbox((0, 0), nome_limpo, font=f_nome)
             nw = bb[2] - bb[0]
             nh = bb[3] - bb[1]
             nx0 = cx - nw // 2 - 8
             ny0 = cy + r + 5
             draw.rounded_rectangle([nx0, ny0, nx0 + nw + 16, ny0 + nh + 6], radius=5,
                                    fill=(12, 16, 26, 230), outline=(65, 80, 105), width=1)
-            draw.text((cx - nw // 2, ny0 + 2), nome, font=f_nome, fill=(255, 255, 255))
+            draw.text((cx - nw // 2, ny0 + 2), nome_limpo, font=f_nome, fill=(255, 255, 255))
 
 
-def cartela_abertura(d_):
+def cartela_abertura(d_, visiveis_a=None, visiveis_b=None):
+    """
+    Gera um frame da cartela de abertura.
+
+    visiveis_a / visiveis_b: conjuntos de nomes dos jogadores já revelados em cada time.
+    Se None, todos os jogadores são exibidos (comportamento original / frame final).
+    """
     img = criar_fundo_base(d_)
     d = ImageDraw.Draw(img)
     meta, times = d_["meta"], d_["times"]
@@ -676,9 +689,12 @@ def cartela_abertura(d_):
     # Tag de Escalação
     centralizado(d, y_vs + h_pill + 14, "ESCALAÇÃO & DISPOSIÇÃO TÁTICA", fonte(16, True), (180, 200, 225))
 
-    # 3. CAMPO TÁTICO
-    j_a = completar_escalacao(normalizar_jogadores(times[0]))
-    j_b = completar_escalacao(normalizar_jogadores(times[1]))
+    # 3. CAMPO TÁTICO — filtra jogadores visíveis se animação estiver ativa
+    j_a_todos = completar_escalacao(normalizar_jogadores(times[0]))
+    j_b_todos = completar_escalacao(normalizar_jogadores(times[1]))
+
+    j_a = [(nm, pos) for nm, pos in j_a_todos if visiveis_a is None or nm in visiveis_a]
+    j_b = [(nm, pos) for nm, pos in j_b_todos if visiveis_b is None or nm in visiveis_b]
 
     campo_w = 1240
     campo_h = 710
@@ -687,7 +703,7 @@ def cartela_abertura(d_):
     desenhar_campo_tatico(d, campo_x0, campo_y0, campo_w, campo_h, j_a, j_b, ca, cb, img_base=img, times=times)
 
     # 4. PAINÉIS LATERAIS DE ELENCO
-    def desenhar_painel_elenco(x0, time_obj, jgs, cor):
+    def desenhar_painel_elenco(x0, time_obj, jgs_todos, jgs_visiveis_set, cor):
         w_p = 275
         d.rounded_rectangle([x0, campo_y0, x0 + w_p, campo_y0 + campo_h], radius=10,
                             fill=PAINEL, outline=PAINEL_BORDA, width=1)
@@ -697,26 +713,113 @@ def cartela_abertura(d_):
 
         y_item = campo_y0 + 72
         tags = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA"}
-        for nm, pos in jgs[:12]:
+        for nm, pos in jgs_todos[:12]:
             tag = tags.get(pos, "MEI")
-            # Avatar ou foto do jogador (30x30)
-            av = obter_avatar_jogador(nm, time_obj, tamanho=(30, 30), cor_time=cor, pos=pos)
-            if av:
-                img.paste(av, (x0 + 14, y_item - 2), av)
-                d.text((x0 + 52, y_item + 3), nm, font=fonte(18, False), fill=TEXTO)
-            else:
-                d.text((x0 + 16, y_item + 3), nm, font=fonte(18, False), fill=TEXTO)
+            visivel = jgs_visiveis_set is None or nm in jgs_visiveis_set
+            nm_limpo = _limpar_nome_pillow(nm)
 
-            # Badge de posição estilizado
-            d.rounded_rectangle([x0 + w_p - 58, y_item + 2, x0 + w_p - 14, y_item + 24], radius=4,
-                                fill=(24, 32, 48), outline=(60, 75, 100), width=1)
-            d.text((x0 + w_p - 36, y_item + 13), tag, font=fonte(11, True), fill=FRACO, anchor="mm")
+            if visivel:
+                # Linha destaque ao ser revelado
+                av = obter_avatar_jogador(nm, time_obj, tamanho=(30, 30), cor_time=cor, pos=pos)
+                if av:
+                    img.paste(av, (x0 + 14, y_item - 2), av)
+                    d.text((x0 + 52, y_item + 3), nm_limpo, font=fonte(18, False), fill=TEXTO)
+                else:
+                    d.text((x0 + 16, y_item + 3), nm_limpo, font=fonte(18, False), fill=TEXTO)
+                # Badge de posição estilizado
+                d.rounded_rectangle([x0 + w_p - 58, y_item + 2, x0 + w_p - 14, y_item + 24], radius=4,
+                                    fill=cor, outline=cor, width=1)
+                d.text((x0 + w_p - 36, y_item + 13), tag, font=fonte(11, True),
+                       fill=contraste_cor(cor), anchor="mm")
+            else:
+                # Jogador ainda não revelado: placeholder sutil
+                d.rounded_rectangle([x0 + 14, y_item, x0 + w_p - 14, y_item + 26], radius=5,
+                                    fill=(25, 32, 46), outline=(40, 50, 68), width=1)
+
             y_item += 40
 
-    desenhar_painel_elenco(35, times[0], j_a, ca)
-    desenhar_painel_elenco(L - 310, times[1], j_b, cb)
+    vset_a = set(nm for nm, _ in (j_a if visiveis_a is not None else j_a_todos))
+    vset_b = set(nm for nm, _ in (j_b if visiveis_b is not None else j_b_todos))
+
+    desenhar_painel_elenco(35, times[0], j_a_todos, vset_a if visiveis_a is not None else None, ca)
+    desenhar_painel_elenco(L - 310, times[1], j_b_todos, vset_b if visiveis_b is not None else None, cb)
 
     return img
+
+
+def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", codec="libx264"):
+    """
+    Gera a abertura animada: revela um jogador de cada time por vez (alternando),
+    no estilo broadcast. Retorna o caminho do .mp4 gerado.
+
+    Cada jogador fica visível por ~0.9s antes do próximo aparecer.
+    O frame final (todos visíveis) fica por 2s.
+    """
+    j_a_todos = completar_escalacao(normalizar_jogadores(d_["times"][0]))
+    j_b_todos = completar_escalacao(normalizar_jogadores(d_["times"][1]))
+    nomes_a = [nm for nm, _ in j_a_todos]
+    nomes_b = [nm for nm, _ in j_b_todos]
+
+    # Monta a sequência de revelação: alterna A e B
+    max_jgs = max(len(nomes_a), len(nomes_b))
+    sequencia = []   # lista de (set_visiveis_a, set_visiveis_b, dur_frame_s)
+    va, vb = set(), set()
+
+    # Frame inicial — campo vazio (0.6s)
+    sequencia.append((set(), set(), 0.6))
+
+    for i in range(max_jgs):
+        if i < len(nomes_a):
+            va = va | {nomes_a[i]}
+        if i < len(nomes_b):
+            vb = vb | {nomes_b[i]}
+        # Cada revelação fica 0.8s; o último fica mais tempo
+        dur_frame = 2.5 if i == max_jgs - 1 else 0.8
+        sequencia.append((frozenset(va), frozenset(vb), dur_frame))
+
+    # Gera cada frame PNG e concatena com ffmpeg
+    c_v = codec if codec in ("libx264", "libx265") else "libx264"
+    segmentos = []
+
+    for idx, (va_frame, vb_frame, dur_frame) in enumerate(sequencia):
+        png_path = os.path.join(tmp_dir, f"aber_{idx:03d}.png")
+        seg_path = os.path.join(tmp_dir, f"aber_{idx:03d}.mp4")
+
+        frame_img = cartela_abertura(d_, visiveis_a=va_frame, visiveis_b=vb_frame)
+        frame_img.save(png_path)
+
+        fade_in  = 0.18 if idx == 0 else 0.0
+        fade_out = 0.18 if idx == len(sequencia) - 1 else 0.0
+        fade_filter = ""
+        if fade_in:
+            fade_filter += f"fade=t=in:st=0:d={fade_in},"
+        if fade_out:
+            fade_filter += f"fade=t=out:st={max(dur_frame - fade_out, 0.05):.2f}:d={fade_out},"
+
+        roda(["ffmpeg", "-y", "-loglevel", "error",
+              "-loop", "1", "-i", png_path,
+              "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+              "-t", str(dur_frame), "-r", str(FPS),
+              "-vf", f"{fade_filter}format=yuv420p{escala_saida()},setsar=1",
+              "-c:v", c_v, "-preset", preset, "-crf", str(crf),
+              "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+              "-video_track_timescale", str(VIDEO_TIMESCALE),
+              "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2",
+              "-shortest", seg_path])
+        segmentos.append(seg_path)
+
+    # Concatena todos os segmentos
+    lista_concat = os.path.join(tmp_dir, "aber_concat.txt")
+    with open(lista_concat, "w", encoding="utf-8") as f:
+        for seg in segmentos:
+            f.write(f"file '{seg}'\n")
+
+    saida = os.path.join(tmp_dir, "s000.mp4")
+    roda(["ffmpeg", "-y", "-loglevel", "error",
+          "-f", "concat", "-safe", "0", "-i", lista_concat,
+          "-c", "copy", saida])
+
+    return saida
 
 
 # --------------------------------------------------------------- PLACAR ELETRÔNICO E LANCE
@@ -1651,11 +1754,9 @@ def main():
     try:
         print(f"gerando cartelas e clipes (codec={args.codec}, crf={args.crf}, preset={args.preset})...")
         if not args.sem_abertura:
-            print("  gerando cartela de abertura (campo tático e escalação)...")
-            p = os.path.join(tmp, "abertura.png")
-            cartela_abertura(d).save(p)
-            s = os.path.join(tmp, "s000.mp4")
-            seg_de_imagem(p, args.abertura, s, crf=args.crf, preset=args.preset, codec=args.codec)
+            print("  gerando cartela de abertura animada (revelando jogadores um a um)...")
+            s = gerar_abertura_animada(d, tmp, args.abertura,
+                                       crf=args.crf, preset=args.preset, codec=args.codec)
             partes.append(s)
             partes_gols.append(s)
 
