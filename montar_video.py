@@ -1114,10 +1114,15 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
 
     assist_nome = ev.get("assist") if tipo == "gol" else None
 
+    # Quando é gol, cartão maior para caber o GOOOOL + foto + nome
+    if tipo == "gol":
+        card_h = 120
+
     # Tipografia refinada e proporcional (não polui a tela)
     f_nome = fonte(28, True)
     f_pill = fonte(11, True)
     f_ass = fonte(14, False)
+    f_gol  = fonte(22, True)   # "GOOOOL!" em destaque
 
     bb_nm = d.textbbox((0, 0), jogador_principal, font=f_nome)
     w_nome = bb_nm[2] - bb_nm[0]
@@ -1132,7 +1137,10 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
 
     # Largura dinâmica compacta (ocupa apenas o espaço necessário)
     card_w = max(420, max(w_nome, w_ass, pw) + 150)
-    card_w = min(card_w, 640)
+    card_w = min(card_w, 700)
+
+    # Recalcula posição Y para o card maior de gol
+    card_y0 = A - card_h - 30
 
     # Sombra suave
     d.rounded_rectangle([card_x0 + 3, card_y0 + 4, card_x0 + card_w + 3, card_y0 + card_h + 4],
@@ -1146,8 +1154,8 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
     d.rounded_rectangle([card_x0 + 10, card_y0 + 12, card_x0 + 15, card_y0 + card_h - 12],
                         radius=3, fill=cor_lance + (255,))
 
-    # Foto / Avatar compacto (68x68)
-    av_tam = 68
+    # Foto / Avatar — maior quando for gol
+    av_tam = 88 if tipo == "gol" else 68
     av_x = card_x0 + 26
     av_y = card_y0 + (card_h - av_tam) // 2
 
@@ -1158,19 +1166,33 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
 
     x_txt = av_x + av_tam + 16
 
-    # Pill identificadora compacta
-    ph = 20
-    py = card_y0 + 12
-    d.rounded_rectangle([x_txt, py, x_txt + pw, py + ph], radius=4, fill=cor_lance + (255,))
-    d.text((x_txt + pw // 2, py + ph // 2), rotulo_pill, font=f_pill,
-           fill=contraste_cor(cor_lance) + (255,), anchor="mm")
+    if tipo == "gol":
+        # "GOOOOL!" em destaque acima do nome
+        gol_txt = "GOOOOL!"
+        d.text((x_txt, card_y0 + 10), gol_txt, font=f_gol,
+               fill=AMARELO_GOL + (255,), stroke_width=1, stroke_fill=(0, 0, 0, 200))
+        nome_y = card_y0 + 40
+    else:
+        nome_y = card_y0 + 36
 
-    # Nome do autor (28px - limpo, legível e proporcional)
-    d.text((x_txt, card_y0 + 36), jogador_principal, font=f_nome, fill=(255, 255, 255, 255))
+    # Pill identificadora compacta
+    ph_pill = 20
+    py_pill = card_y0 + 12 if tipo != "gol" else card_y0 + 10
+    if tipo != "gol":
+        d.rounded_rectangle([x_txt, py_pill, x_txt + pw, py_pill + ph_pill], radius=4, fill=cor_lance + (255,))
+        d.text((x_txt + pw // 2, py_pill + ph_pill // 2), rotulo_pill, font=f_pill,
+               fill=contraste_cor(cor_lance) + (255,), anchor="mm")
+
+    # Nome do autor
+    d.text((x_txt, nome_y), jogador_principal, font=f_nome, fill=(255, 255, 255, 255))
+
+    # Time name abaixo do nome (só no gol)
+    if tipo == "gol":
+        d.text((x_txt, nome_y + 34), time_nome, font=fonte(15, False), fill=cor_lance + (200,))
 
     # Assistência compacta
     if assist_nome:
-        y_ass = card_y0 + 68
+        y_ass = nome_y + 36 if tipo != "gol" else nome_y + 60
         d.text((x_txt, y_ass), "assistência: ", font=f_ass, fill=FRACO + (255,))
         bb_lbl = d.textbbox((0, 0), "assistência: ", font=f_ass)
         w_lbl = bb_lbl[2] - bb_lbl[0]
