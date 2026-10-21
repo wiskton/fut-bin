@@ -73,6 +73,7 @@ GOLS_DIR = os.path.join(PROJECT_DIR, "gols")
 GOLS_JSON = os.path.join(GOLS_DIR, "gols.json")
 CLIPES_DIR = os.path.join(GOLS_DIR, "clipes")
 PARTIDA_JSON = os.path.join(PROJECT_DIR, "partida.json")
+JOGADORES_JSON = os.path.join(PROJECT_DIR, "jogadores.json")
 FINAL_DIR = os.path.join(PROJECT_DIR, "final")
 FINAL_VIDEO = os.path.join(FINAL_DIR, "melhores_momentos.mp4")
 FINAL_VIDEO_GOLS = os.path.join(FINAL_DIR, "apenas_gols.mp4")
@@ -2417,6 +2418,165 @@ def api_novo_corte():
             apagados.append(os.path.basename(pasta) + "/")
     return {"ok": True, "apagados": apagados,
             "backup": os.path.relpath(backup_dir, PROJECT_DIR) if os.path.isdir(backup_dir) else None}
+
+
+# --------------------------------------------------------------- jogadores
+
+def _carregar_jogadores():
+    """Carrega lista de jogadores cadastrados do jogadores.json"""
+    if not os.path.exists(JOGADORES_JSON):
+        return []
+    try:
+        with open(JOGADORES_JSON, encoding="utf-8-sig") as f:
+            data = json.load(f)
+            return data.get("jogadores", [])
+    except Exception:
+        return []
+
+
+def _salvar_jogadores(jogadores: list):
+    """Salva lista de jogadores no jogadores.json"""
+    with open(JOGADORES_JSON, "w", encoding="utf-8") as f:
+        json.dump({"jogadores": jogadores}, f, indent=2, ensure_ascii=False)
+
+
+@app.get("/api/jogadores")
+def api_listar_jogadores():
+    """Lista todos os jogadores cadastrados"""
+    jogadores = _carregar_jogadores()
+    return {"jogadores": jogadores}
+
+
+class JogadorNovo(BaseModel):
+    nome: str
+    apelido: Optional[str] = None
+    posicao: Optional[str] = None
+    numero: Optional[int] = None
+    foto: Optional[str] = None
+
+
+@app.post("/api/jogadores")
+def api_adicionar_jogador(jogador: JogadorNovo):
+    """Adiciona um novo jogador"""
+    jogadores = _carregar_jogadores()
+    
+    # Gera ID único
+    novo_id = str(uuid.uuid4())[:8]
+    while any(j.get("id") == novo_id for j in jogadores):
+        novo_id = str(uuid.uuid4())[:8]
+    
+    novo_jogador = {
+        "id": novo_id,
+        "nome": jogador.nome.strip(),
+        "apelido": jogador.apelido.strip() if jogador.apelido else None,
+        "posicao": jogador.posicao,
+        "numero": jogador.numero,
+        "foto": jogador.foto,
+    }
+    
+    jogadores.append(novo_jogador)
+    _salvar_jogadores(jogadores)
+    
+    return {"ok": True, "jogador": novo_jogador}
+
+
+@app.put("/api/jogadores/{jogador_id}")
+def api_atualizar_jogador(jogador_id: str, jogador: JogadorNovo):
+    """Atualiza dados de um jogador"""
+    jogadores = _carregar_jogadores()
+    
+    encontrado = False
+    for j in jogadores:
+        if j.get("id") == jogador_id:
+            j["nome"] = jogador.nome.strip()
+            j["apelido"] = jogador.apelido.strip() if jogador.apelido else None
+            j["posicao"] = jogador.posicao
+            j["numero"] = jogador.numero
+            if jogador.foto:
+                j["foto"] = jogador.foto
+            encontrado = True
+            break
+    
+    if not encontrado:
+        raise HTTPException(404, "Jogador não encontrado")
+    
+    _salvar_jogadores(jogadores)
+    return {"ok": True}
+
+
+@app.delete("/api/jogadores/{jogador_id}")
+def api_remover_jogador(jogador_id: str):
+    """Remove um jogador"""
+    jogadores = _carregar_jogadores()
+    jogadores_filtrados = [j for j in jogadores if j.get("id") != jogador_id]
+    
+    if len(jogadores_filtrados) == len(jogadores):
+        raise HTTPException(404, "Jogador não encontrado")
+    
+    _salvar_jogadores(jogadores_filtrados)
+    
+    # Remove foto se existir
+    foto_dir = os.path.join(WEB_DIR, "fotos_jogadores")
+    if os.path.exists(foto_dir):
+        for arquivo in os.listdir(foto_dir):
+            if arquivo.startswith(f"{jogador_id}_"):
+                try:
+                    os.remove(os.path.join(foto_dir, arquivo))
+                except Exception:
+                    pass
+    
+    return {"ok": True}
+
+
+@app.post("/api/jogadores/{jogador_id}/foto")
+async def api_upload_foto_jogador(jogador_id: str, foto: bytes = Body(...)):
+    """Upload de foto para um jogador"""
+    jogadores = _carregar_jogadores()
+    
+    jogador = next((j for j in jogadores if j.get("id") == jogador_id), None)
+    if not jogador:
+        raise HTTPException(404, "Jogador não encontrado")
+    
+    # Cria diretório de fotos se não existir
+    foto_dir = os.path.join(WEB_DIR, "fotos_jogadores")
+    os.makedirs(foto_dir, exist_ok=True)
+    
+    # Remove foto antiga se existir
+    for arquivo in os.listdir(foto_dir):
+        if arquivo.startswith(f"{jogador_id}_"):
+            try:
+                os.remove(os.path.join(foto_dir, arquivo))
+            except Exception:
+                pass
+    
+    # Salva nova foto
+    extensao = "jpg"
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(foto))
+        if img.format and img.format.lower() in ("png", "jpg", "jpeg", "webp"):
+            extensao = img.format.lower()
+            if extensao == "jpeg":
+                extensao = "jpg"
+    except Exception:
+        pass
+    
+    nome_arquivo = f"{jogador_id}_{int(time.time())}.{extensao}"
+    caminho_foto = os.path.join(foto_dir, nome_arquivo)
+    
+    with open(caminho_foto, "wb") as f:
+        f.write(foto)
+    
+    # Atualiza referência no jogador
+    for j in jogadores:
+        if j.get("id") == jogador_id:
+            j["foto"] = f"/web/fotos_jogadores/{nome_arquivo}"
+            break
+    
+    _salvar_jogadores(jogadores)
+    
+    return {"ok": True, "foto": f"/web/fotos_jogadores/{nome_arquivo}"}
 
 
 # --------------------------------------------------------------- estatico / boot
