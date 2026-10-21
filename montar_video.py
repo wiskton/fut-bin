@@ -156,6 +156,14 @@ PAINEL = (18, 24, 38)
 PAINEL_BORDA = (45, 55, 75)
 TEXTO = (240, 244, 248)
 FRACO = (145, 158, 175)
+
+# ---------------------------------------------------------------- TEMA VISUAL
+# "atual"  → estilo SporTV/Premiere dark (padrão)
+# "fifa"   → estilo EA FC: fundo preto, bordas brancas limpas, placar pill centralizado
+# "iss"    → estilo ISS Deluxe/SNES: retrô pixelado, cores vibrantes, bordas quadradas
+# "pes"    → estilo PES/eFootball: minimalista, overlay translúcido cinza, texto branco
+# "tv"     → estilo transmissão simples: sem cartela de fundo, texto sobreposto limpo
+TEMA = "atual"  # alterado via --tema na linha de comando
 VERDE = (34, 197, 94)
 BRANCO = (255, 255, 255)
 AMARELO_GOL = (250, 204, 21)
@@ -824,11 +832,192 @@ def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", code
 
 # --------------------------------------------------------------- PLACAR ELETRÔNICO E LANCE
 
+def _cartela_lance_fifa(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
+    """Estilo EA FC / FIFA: placar centralizado no topo, fundo preto fosco, tipografia limpa."""
+    img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    ca = hex_rgb(times[0]["cor"]); cb = hex_rgb(times[1]["cor"])
+    nome_a = times[0]["nome"].upper(); nome_b = times[1]["nome"].upper()
+    ph = 52; f_team = fonte(18, True); f_score = fonte(30, True)
+    bb_a = d.textbbox((0,0), nome_a, font=f_team); wta = max(bb_a[2]-bb_a[0]+36, 120)
+    bb_b = d.textbbox((0,0), nome_b, font=f_team); wtb = max(bb_b[2]-bb_b[0]+36, 120)
+    pw_s = 110; total_w = wta+pw_s+wtb; px0 = (L-total_w)//2; py0 = 28
+    d.rounded_rectangle([px0+3, py0+3, px0+total_w+3, py0+ph+3], radius=4, fill=(0,0,0,140))
+    d.rounded_rectangle([px0, py0, px0+wta, py0+ph], radius=4, fill=ca+(245,))
+    d.text((px0+wta//2, py0+ph//2), nome_a, font=f_team, fill=contraste_cor(ca)+(255,), anchor="mm")
+    d.rectangle([px0+wta, py0, px0+wta+pw_s, py0+ph], fill=(8,8,8,250))
+    d.text((px0+wta+26, py0+ph//2), str(placar_a), font=f_score, fill=(255,255,255,255), anchor="mm")
+    d.text((px0+wta+pw_s//2, py0+ph//2-2), "-", font=fonte(28), fill=(180,180,180,255), anchor="mm")
+    d.text((px0+wta+pw_s-26, py0+ph//2), str(placar_b), font=f_score, fill=(255,255,255,255), anchor="mm")
+    d.rounded_rectangle([px0+wta+pw_s, py0, px0+total_w, py0+ph], radius=4, fill=cb+(245,))
+    d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=contraste_cor(cb)+(255,), anchor="mm")
+    tempo_str = str(ev.get("tempo") or "")
+    if tempo_str:
+        d.text((px0+total_w+18, py0+ph//2), tempo_str, font=fonte(16, False), fill=(200,200,200,200), anchor="lm")
+    if gol_neste_clipe and time_gol in (0,1):
+        d.rounded_rectangle([px0+total_w+10, py0+ph+4, px0+total_w+80, py0+ph+28], radius=3, fill=(255,220,0,255))
+        d.text((px0+total_w+45, py0+ph+16), "GOAL!", font=fonte(12, True), fill=(0,0,0,255), anchor="mm")
+    if tipo == "gol":
+        t_idx = ev.get("time", 0); cor_l = hex_rgb(times[t_idx]["cor"])
+        jogador = ev.get("autor", ""); assist = ev.get("assist")
+    else:
+        tem = ev.get("time") is not None and 0 <= ev["time"] < len(times)
+        cor_l = hex_rgb(times[ev["time"]]["cor"]) if tem else (200,200,200)
+        jogador = ev.get("destaque") or ev.get("autor") or ""; assist = None
+    barra_y = A - 90
+    d.rectangle([0, barra_y, L, barra_y+3], fill=cor_l+(220,))
+    d.rectangle([0, barra_y+3, L, A], fill=(0,0,0,185))
+    f_nome = fonte(30, True); f_sub = fonte(15, False)
+    d.text((60, barra_y+16), jogador, font=f_nome, fill=(255,255,255,255))
+    if assist:
+        bb = d.textbbox((0,0), jogador, font=f_nome)
+        d.text((60+bb[2]-bb[0]+20, barra_y+22), f"assist: {assist}", font=f_sub, fill=(200,200,200,200))
+    elif tipo == "gol":
+        d.text((60, barra_y+54), times[ev.get("time",0)]["nome"], font=f_sub, fill=cor_l+(200,))
+    return img
+
+
+def _cartela_lance_iss(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
+    """Estilo ISS Deluxe/SNES: retrô, cores vibrantes, bordas quadradas."""
+    img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    ca = hex_rgb(times[0]["cor"]); cb = hex_rgb(times[1]["cor"])
+    nome_a = times[0]["nome"].upper(); nome_b = times[1]["nome"].upper()
+    COL_BRD = (255, 255, 0, 255); COL_TXT = (255, 255, 255, 255); COL_DIM = (180, 180, 60, 255)
+    ph = 48; f_team = fonte(20, True); f_score = fonte(32, True)
+    bb_a = d.textbbox((0,0), nome_a, font=f_team); wta = bb_a[2]-bb_a[0]+24
+    bb_b = d.textbbox((0,0), nome_b, font=f_team); wtb = bb_b[2]-bb_b[0]+24
+    pw_s = 90; total_w = wta+pw_s+wtb; px0 = (L-total_w)//2; py0 = 24
+    d.rectangle([px0-2, py0-2, px0+total_w+2, py0+ph+2], fill=COL_BRD)
+    d.rectangle([px0, py0, px0+total_w, py0+ph], fill=(0,0,0,220))
+    d.rectangle([px0, py0, px0+wta, py0+ph], fill=ca+(220,))
+    d.text((px0+wta//2, py0+ph//2), nome_a, font=f_team, fill=contraste_cor(ca)+(255,), anchor="mm")
+    d.rectangle([px0+wta, py0, px0+wta+pw_s, py0+ph], fill=(20,20,20,255))
+    d.text((px0+wta+14, py0+ph//2), str(placar_a), font=f_score, fill=COL_TXT, anchor="lm")
+    d.text((px0+wta+pw_s//2, py0+ph//2-2), "-", font=fonte(26), fill=COL_DIM, anchor="mm")
+    d.text((px0+wta+pw_s-14, py0+ph//2), str(placar_b), font=f_score, fill=COL_TXT, anchor="rm")
+    d.rectangle([px0+wta+pw_s, py0, px0+total_w, py0+ph], fill=cb+(220,))
+    d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=contraste_cor(cb)+(255,), anchor="mm")
+    if gol_neste_clipe:
+        gx = px0+total_w+10
+        d.rectangle([gx-2, py0-2, gx+90, py0+ph+2], fill=COL_BRD)
+        d.rectangle([gx, py0, gx+88, py0+ph], fill=(200,0,0,240))
+        d.text((gx+44, py0+ph//2), "GOL!!!", font=fonte(18,True), fill=(255,255,0,255), anchor="mm")
+    if tipo == "gol":
+        t_idx = ev.get("time", 0); cor_l = hex_rgb(times[t_idx]["cor"])
+        jogador = ev.get("autor", ""); assist = ev.get("assist")
+    else:
+        tem = ev.get("time") is not None and 0 <= ev["time"] < len(times)
+        cor_l = hex_rgb(times[ev["time"]]["cor"]) if tem else (200,200,0)
+        jogador = ev.get("destaque") or ev.get("autor") or ""; assist = None
+    lt_y = A - 80
+    d.rectangle([40-2, lt_y-2, 680+2, lt_y+68+2], fill=COL_BRD)
+    d.rectangle([40, lt_y, 680, lt_y+68], fill=(10,10,10,240))
+    d.rectangle([40, lt_y, 48, lt_y+68], fill=cor_l+(255,))
+    d.text((60, lt_y+8), jogador, font=fonte(28,True), fill=COL_TXT)
+    if assist:
+        d.text((60, lt_y+42), f"ASSIST: {assist}", font=fonte(16,False), fill=COL_DIM)
+    return img
+
+
+def _cartela_lance_pes(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
+    """Estilo PES/eFootball: overlay minimalista semitransparente."""
+    img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    ca = hex_rgb(times[0]["cor"]); cb = hex_rgb(times[1]["cor"])
+    nome_a = times[0]["nome"].upper(); nome_b = times[1]["nome"].upper()
+    ph = 44; py0 = 20; px0 = 24
+    f_team = fonte(16, True); f_score = fonte(26, True)
+    bb_a = d.textbbox((0,0), nome_a, font=f_team); wta = bb_a[2]-bb_a[0]+20
+    bb_b = d.textbbox((0,0), nome_b, font=f_team); wtb = bb_b[2]-bb_b[0]+20
+    pw_s = 72; total_w = wta+pw_s+wtb
+    d.rounded_rectangle([px0, py0, px0+total_w, py0+ph], radius=3, fill=(30,30,30,200))
+    d.rectangle([px0, py0+ph-3, px0+wta, py0+ph], fill=ca+(200,))
+    d.rectangle([px0+wta+pw_s, py0+ph-3, px0+total_w, py0+ph], fill=cb+(200,))
+    d.text((px0+wta//2, py0+ph//2-1), nome_a, font=f_team, fill=(255,255,255,230), anchor="mm")
+    d.text((px0+wta+pw_s+wtb//2, py0+ph//2-1), nome_b, font=f_team, fill=(255,255,255,230), anchor="mm")
+    sep_x = px0+wta+pw_s//2
+    d.text((sep_x-16, py0+ph//2), str(placar_a), font=f_score, fill=(255,255,255,255), anchor="rm")
+    d.text((sep_x, py0+ph//2-2), ":", font=fonte(20), fill=(160,160,160,200), anchor="mm")
+    d.text((sep_x+16, py0+ph//2), str(placar_b), font=f_score, fill=(255,255,255,255), anchor="lm")
+    tempo_str = str(ev.get("tempo") or "")
+    if tempo_str:
+        d.text((px0+total_w+10, py0+ph//2), tempo_str, font=fonte(14, False), fill=(200,200,200,180), anchor="lm")
+    if gol_neste_clipe and time_gol in (0,1):
+        cor_gol = ca if time_gol == 0 else cb
+        d.rounded_rectangle([px0, py0+ph+5, px0+total_w, py0+ph+27], radius=3, fill=cor_gol+(200,))
+        d.text((px0+total_w//2, py0+ph+16), "GOAL", font=fonte(13,True), fill=contraste_cor(cor_gol)+(255,), anchor="mm")
+    if tipo == "gol":
+        t_idx = ev.get("time", 0); cor_l = hex_rgb(times[t_idx]["cor"])
+        jogador = ev.get("autor", ""); assist = ev.get("assist")
+    else:
+        tem = ev.get("time") is not None and 0 <= ev["time"] < len(times)
+        cor_l = hex_rgb(times[ev["time"]]["cor"]) if tem else (150,150,150)
+        jogador = ev.get("destaque") or ev.get("autor") or ""; assist = None
+    lt_h = 60 if assist else 44; lt_y = A - lt_h - 30
+    d.rounded_rectangle([30, lt_y, 600, lt_y+lt_h], radius=4, fill=(10,10,10,160))
+    d.rectangle([30, lt_y, 34, lt_y+lt_h], fill=cor_l+(220,))
+    d.text((48, lt_y+7), jogador, font=fonte(26, True), fill=(255,255,255,255))
+    if assist:
+        d.text((48, lt_y+36), f"assist.  {assist}", font=fonte(15, False), fill=(200,200,200,200))
+    return img
+
+
+def _cartela_lance_tv(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
+    """Estilo transmissão simples: placar compacto no canto, lower third limpo."""
+    img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    ca = hex_rgb(times[0]["cor"]); cb = hex_rgb(times[1]["cor"])
+    nome_a = times[0]["nome"][:8].upper(); nome_b = times[1]["nome"][:8].upper()
+    ph = 34; py0 = 18; px0 = 16
+    f_team = fonte(15, True); f_score = fonte(22, True)
+    bb_a = d.textbbox((0,0), nome_a, font=f_team); wta = bb_a[2]-bb_a[0]+14
+    bb_b = d.textbbox((0,0), nome_b, font=f_team); wtb = bb_b[2]-bb_b[0]+14
+    pw_s = 56; total_w = wta+pw_s+wtb
+    d.rounded_rectangle([px0, py0, px0+total_w, py0+ph], radius=3, fill=(0,0,0,200))
+    d.text((px0+wta//2, py0+ph//2), nome_a, font=f_team, fill=ca+(230,), anchor="mm")
+    d.text((px0+wta+pw_s//2-12, py0+ph//2), str(placar_a), font=f_score, fill=(255,255,255,255), anchor="mm")
+    d.text((px0+wta+pw_s//2, py0+ph//2-1), "-", font=fonte(16), fill=(150,150,150,200), anchor="mm")
+    d.text((px0+wta+pw_s//2+12, py0+ph//2), str(placar_b), font=f_score, fill=(255,255,255,255), anchor="mm")
+    d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=cb+(230,), anchor="mm")
+    tempo_str = str(ev.get("tempo") or "")
+    if tempo_str:
+        d.text((px0+total_w+8, py0+ph//2), tempo_str, font=fonte(13, False), fill=(180,180,180,180), anchor="lm")
+    if tipo == "gol":
+        t_idx = ev.get("time", 0); cor_l = hex_rgb(times[t_idx]["cor"])
+        jogador = ev.get("autor", ""); assist = ev.get("assist")
+    else:
+        tem = ev.get("time") is not None and 0 <= ev["time"] < len(times)
+        cor_l = hex_rgb(times[ev["time"]]["cor"]) if tem else (200,200,200)
+        jogador = ev.get("destaque") or ev.get("autor") or ""; assist = None
+    lt_y = A - 72
+    d.rectangle([0, lt_y, L, lt_y+2], fill=cor_l+(200,))
+    d.rectangle([0, lt_y+2, L, A], fill=(5,5,5,195))
+    d.text((36, lt_y+12), jogador, font=fonte(28,True), fill=(255,255,255,255))
+    if assist:
+        d.text((36, lt_y+44), f"assistência: {assist}", font=fonte(15,False), fill=(180,180,180,200))
+    elif gol_neste_clipe:
+        d.text((36, lt_y+44), "GOOOOOL!", font=fonte(16,True), fill=cor_l+(220,))
+    return img
+
+
 def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
     """
     Faixa inferior de lance/gol + Placar Eletrônico estilo SporTV no canto superior esquerdo.
     Atualiza dinamicamente conforme os gols são marcados!
+    Redireciona para o tema visual escolhido via --tema.
     """
+    _args = (ev, times, tipo, placar_a, placar_b, gol_neste_clipe, time_gol, d_)
+    if TEMA == "fifa":
+        return _cartela_lance_fifa(*_args)
+    if TEMA == "iss":
+        return _cartela_lance_iss(*_args)
+    if TEMA == "pes":
+        return _cartela_lance_pes(*_args)
+    if TEMA == "tv":
+        return _cartela_lance_tv(*_args)
+    # TEMA == "atual" (padrão) — segue o código original abaixo
+
     img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
@@ -1688,8 +1877,12 @@ def main():
                     help="9:16 gera video vertical; a resolucao passa a ser a LARGURA (720, 1080, ...)")
     ap.add_argument("--recorte", default=None,
                     help="9:16: retangulo escolhido no quadro como x,y,altura (0 a 1), ex.: 0.22,0,1")
+    ap.add_argument("--tema", default="atual",
+                    choices=["atual", "fifa", "iss", "pes", "tv"],
+                    help="Estilo visual das cartelas: atual, fifa, iss, pes, tv")
     args = ap.parse_args()
-    global ALTURA_SAIDA, VERTICAL, RECORTE
+    global ALTURA_SAIDA, VERTICAL, RECORTE, TEMA
+    TEMA = args.tema
     ALTURA_SAIDA = args.resolucao
     if args.formato == "9:16":
         VERTICAL = True

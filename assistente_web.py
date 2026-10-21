@@ -2078,11 +2078,12 @@ class IniciarMontagem(BaseModel):
     nome_saida: str | None = None
     video_jogador: bool = False
     resolucao: int | None = None
-    formato: str | None = None          # "16:9" (padrao) ou "9:16"
-    recorte: list[float] | None = None  # 9:16: [x, y, altura] do retangulo escolhido no quadro (0 a 1)
+    formato: str | None = None
+    recorte: list[float] | None = None
     brilho: float | None = None
     saturacao: float | None = None
     contraste: float | None = None
+    tema: str | None = None  # "atual", "fifa", "iss", "pes", "tv"
 
 
 @app.post("/api/montar/iniciar")
@@ -2119,6 +2120,8 @@ def api_iniciar_montagem(body: IniciarMontagem):
         cmd.extend(["--formato", "9:16"])
         if body.recorte and len(body.recorte) == 3:
             cmd.extend(["--recorte", ",".join(f"{max(0.0, min(1.0, float(v))):.4f}" for v in body.recorte)])
+    if body.tema and body.tema in ("atual", "fifa", "iss", "pes", "tv"):
+        cmd.extend(["--tema", body.tema])
 
     fc = {}
     if os.path.exists(PARTIDA_JSON):
