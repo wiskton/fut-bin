@@ -988,6 +988,7 @@ def cartela_fim_de_jogo(d_, pagina=0):
                         radius=18, outline=(45, 55, 75), width=2)
     
     # Barras de cor dos times — alinhadas com os números
+    cx = L // 2
     barra_h = 6
     d.rounded_rectangle([px0 + 20, y_p + ph - 16, cx - 20, y_p + ph - 16 + barra_h],
                         radius=3, fill=ca)
@@ -995,7 +996,6 @@ def cartela_fim_de_jogo(d_, pagina=0):
                         radius=3, fill=cb)
     
     # Divisor central com estilo
-    cx = L // 2
     d.line([cx, y_p + 25, cx, y_p + ph - 30], fill=(60, 70, 90), width=2)
     
     # Posições fixas dos números — simétricos ao centro, espaçados o suficiente
