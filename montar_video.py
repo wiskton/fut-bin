@@ -168,6 +168,13 @@ VERDE = (34, 197, 94)
 BRANCO = (255, 255, 255)
 AMARELO_GOL = (250, 204, 21)
 DOURADO = (255, 215, 0)
+PREMIUM_BG = (7, 13, 23)
+PREMIUM_PANEL = (12, 21, 35)
+PREMIUM_PANEL_ALT = (17, 29, 46)
+PREMIUM_LINE = (45, 61, 82)
+PREMIUM_TEXT = (242, 246, 251)
+PREMIUM_MUTED = (157, 174, 194)
+PREMIUM_ACCENT = (67, 220, 160)
 
 FONTES = [
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -418,6 +425,66 @@ def criar_fundo_base(d_=None, fundo_custom=None):
         except Exception as e:
             print(f"Aviso ao carregar imagem de fundo ({caminho}): {e}")
     return Image.new("RGB", (L, A), FUNDO)
+
+
+def _fundo_premium(d_=None):
+    """Escurece a imagem de fundo sem apagar o clima da quadra."""
+    base = criar_fundo_base(d_).convert("RGB")
+    tinta = Image.new("RGB", (L, A), PREMIUM_BG)
+    return Image.blend(base, tinta, 0.48)
+
+
+def _texto_ajustado(draw, texto, f, largura_max):
+    """Encurta rótulos longos para preservar alinhamento e não invadir outros cards."""
+    texto = _limpar_nome_pillow(texto)
+    if draw.textbbox((0, 0), texto, font=f)[2] <= largura_max:
+        return texto
+    while texto and draw.textbbox((0, 0), texto + "…", font=f)[2] > largura_max:
+        texto = texto[:-1]
+    return texto.rstrip() + "…"
+
+
+def _cabecalho_premium(img, draw, d_, secao, titulo, subtitulo="", etiqueta=None):
+    """Cabeçalho editorial comum às cartelas da identidade padrão."""
+    draw.rectangle([0, 0, L, 6], fill=PREMIUM_ACCENT)
+    draw.rounded_rectangle([48, 30, L - 48, 154], radius=22,
+                           fill=PREMIUM_PANEL, outline=PREMIUM_LINE, width=2)
+    draw.rounded_rectangle([48, 30, 56, 154], radius=4, fill=PREMIUM_ACCENT)
+
+    logo = obter_logo_campeonato(d_, tamanho=(72, 72))
+    texto_x = 82
+    if logo:
+        draw.ellipse([72, 49, 164, 141], fill=(5, 11, 20), outline=PREMIUM_LINE, width=2)
+        if logo.mode != "RGBA":
+            logo = logo.convert("RGBA")
+        img.paste(logo, (82, 59), logo)
+        texto_x = 184
+
+    draw.text((texto_x, 47), str(secao).upper(), font=fonte(15, True), fill=PREMIUM_ACCENT)
+    f_titulo = fonte(36, True)
+    draw.text((texto_x, 69), _texto_ajustado(draw, titulo, f_titulo, 1080),
+              font=f_titulo, fill=PREMIUM_TEXT)
+    if subtitulo:
+        f_sub = fonte(17, False)
+        draw.text((texto_x, 118), _texto_ajustado(draw, subtitulo, f_sub, 1100),
+                  font=f_sub, fill=PREMIUM_MUTED)
+
+    if etiqueta:
+        f_tag = fonte(14, True)
+        tag = str(etiqueta).upper()
+        bb = draw.textbbox((0, 0), tag, font=f_tag)
+        w = bb[2] - bb[0] + 30
+        x = L - 78 - w
+        draw.rounded_rectangle([x, 75, x + w, 111], radius=18,
+                               fill=PREMIUM_PANEL_ALT, outline=PREMIUM_LINE, width=1)
+        draw.text((x + w // 2, 93), tag, font=f_tag, fill=PREMIUM_MUTED, anchor="mm")
+
+
+def _painel_premium(draw, caixa, *, fill=PREMIUM_PANEL, radius=18, borda=PREMIUM_LINE):
+    x0, y0, x1, y1 = caixa
+    draw.rounded_rectangle([x0 + 4, y0 + 7, x1 + 4, y1 + 7], radius=radius,
+                           fill=(0, 0, 0))
+    draw.rounded_rectangle(caixa, radius=radius, fill=fill, outline=borda, width=2)
 
 
 def _tempo_em_segundos(ev):
@@ -766,128 +833,106 @@ def _cartela_abertura_tema(d_, visiveis_a=None, visiveis_b=None):
     painel(L-300, times[1], j_b_todos, vset_b if visiveis_b is not None else None, cb)
     return img
 
-def cartela_abertura(d_, visiveis_a=None, visiveis_b=None):
-    """
-    Gera um frame da cartela de abertura.
-
-    visiveis_a / visiveis_b: conjuntos de nomes dos jogadores já revelados em cada time.
-    Se None, todos os jogadores são exibidos (comportamento original / frame final).
-    """
-    if TEMA != "atual":
-        return _cartela_abertura_tema(d_, visiveis_a, visiveis_b)
-    img = criar_fundo_base(d_)
-    d = ImageDraw.Draw(img)
+def _cartela_abertura_premium(d_, visiveis_a=None, visiveis_b=None):
     meta, times = d_["meta"], d_["times"]
     ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
+    img = _fundo_premium(d_)
+    draw = ImageDraw.Draw(img)
+    subtitle = " · ".join(str(x) for x in (
+        meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")
+    ) if x)
+    _cabecalho_premium(img, draw, d_, "PRÉ-JOGO", "ESCALAÇÕES", subtitle,
+                       etiqueta="APRESENTAÇÃO")
 
-    # Barra superior de acabamento
-    d.rectangle([0, 0, L, 6], fill=VERDE)
+    # Confronto no centro, com as cores dos times como acentos.
+    mx0, my0, mx1, my1 = 50, 176, L - 50, 300
+    _painel_premium(draw, (mx0, my0, mx1, my1), fill=PREMIUM_PANEL_ALT, radius=20)
+    draw.rounded_rectangle([mx0 + 2, my0 + 18, mx0 + 10, my1 - 18], radius=4, fill=ca)
+    draw.rounded_rectangle([mx1 - 10, my0 + 18, mx1 - 2, my1 - 18], radius=4, fill=cb)
+    f_time = fonte(34, True)
+    f_label = fonte(13, True)
+    f_aux = fonte(15, False)
+    nome_a = _texto_ajustado(draw, times[0]["nome"].upper(), f_time, 600)
+    nome_b = _texto_ajustado(draw, times[1]["nome"].upper(), f_time, 600)
+    draw.text((mx0 + 40, my0 + 43), "TIME 01", font=f_label, fill=ca)
+    draw.text((mx0 + 40, my0 + 65), nome_a, font=f_time, fill=PREMIUM_TEXT)
+    draw.text((mx0 + 40, my0 + 106), f"{len(times[0].get('jogadores', []))} ATLETAS",
+              font=f_aux, fill=PREMIUM_MUTED)
+    draw.text((mx1 - 40, my0 + 43), "TIME 02", font=f_label, fill=cb, anchor="ra")
+    draw.text((mx1 - 40, my0 + 65), nome_b, font=f_time, fill=PREMIUM_TEXT, anchor="ra")
+    draw.text((mx1 - 40, my0 + 106), f"{len(times[1].get('jogadores', []))} ATLETAS",
+              font=f_aux, fill=PREMIUM_MUTED, anchor="ra")
+    draw.ellipse([L // 2 - 34, my0 + 29, L // 2 + 34, my0 + 97],
+                 fill=PREMIUM_BG, outline=PREMIUM_LINE, width=2)
+    draw.text((L // 2, my0 + 63), "VS", font=fonte(20, True),
+              fill=PREMIUM_TEXT, anchor="mm")
 
-    # 1. LOGO DO CAMPEONATO CENTRALIZADA NO TOPO (Estilo transmissão oficial)
-    logo_ab = obter_logo_campeonato(d_, tamanho=(110, 110))
-    y_logo = 16
-    if logo_ab:
-        lw, lh = logo_ab.size
-        lx = (L - lw) // 2
-        # Fundo brilhante para a logo
-        d.ellipse([lx - 10, y_logo - 6, lx + lw + 10, y_logo + lh + 6],
-                  fill=(16, 24, 38), outline=DOURADO, width=2)
-        if logo_ab.mode != "RGBA":
-            logo_ab = logo_ab.convert("RGBA")
-        img.paste(logo_ab, (lx, y_logo), logo_ab)
-        y_textos = y_logo + lh + 14
-    else:
-        y_textos = 28
+    jogadores_a = completar_escalacao(normalizar_jogadores(times[0]))
+    jogadores_b = completar_escalacao(normalizar_jogadores(times[1]))
+    vis_a = set(n for n, _ in jogadores_a) if visiveis_a is None else set(visiveis_a)
+    vis_b = set(n for n, _ in jogadores_b) if visiveis_b is None else set(visiveis_b)
 
-    nome_torneio = (meta.get("pelada") or meta.get("torneio") or "COPA FUT-BIN").upper()
-    centralizado(d, y_textos, nome_torneio, fonte(38), DOURADO)
-    sub = " · ".join(x for x in [meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
-    if sub:
-        centralizado(d, y_textos + 46, sub, fonte(20, False), FRACO)
+    y, h = 324, 706
+    x_left, w_side = 50, 300
+    x_field, w_field = 372, 1176
+    x_right = 1570
 
-    # 2. CONFRONTO INICIAL (Estilo TV pré-jogo)
-    y_vs = y_textos + 80
-    w_pill = 380
-    h_pill = 54
-    # Time A pill
-    x_pill_a = L // 2 - w_pill - 50
-    d.rounded_rectangle([x_pill_a, y_vs, x_pill_a + w_pill, y_vs + h_pill], radius=10,
-                        fill=ca, outline=(255, 255, 255), width=2)
-    d.text((x_pill_a + w_pill // 2, y_vs + h_pill // 2), times[0]["nome"].upper(),
-           font=fonte(26, True), fill=contraste_cor(ca), anchor="mm")
-
-    # VS badge
-    d.ellipse([L // 2 - 28, y_vs + h_pill // 2 - 28, L // 2 + 28, y_vs + h_pill // 2 + 28],
-              fill=(16, 22, 34), outline=DOURADO, width=2)
-    d.text((L // 2, y_vs + h_pill // 2), "VS", font=fonte(22, True), fill=DOURADO, anchor="mm")
-
-    # Time B pill
-    x_pill_b = L // 2 + 50
-    d.rounded_rectangle([x_pill_b, y_vs, x_pill_b + w_pill, y_vs + h_pill], radius=10,
-                        fill=cb, outline=(255, 255, 255), width=2)
-    d.text((x_pill_b + w_pill // 2, y_vs + h_pill // 2), times[1]["nome"].upper(),
-           font=fonte(26, True), fill=contraste_cor(cb), anchor="mm")
-
-    # Tag de Escalação
-    centralizado(d, y_vs + h_pill + 14, "ESCALAÇÃO & DISPOSIÇÃO TÁTICA", fonte(16, True), (180, 200, 225))
-
-    # 3. CAMPO TÁTICO — filtra jogadores visíveis se animação estiver ativa
-    j_a_todos = completar_escalacao(normalizar_jogadores(times[0]))
-    j_b_todos = completar_escalacao(normalizar_jogadores(times[1]))
-
-    j_a = [(nm, pos) for nm, pos in j_a_todos if visiveis_a is None or nm in visiveis_a]
-    j_b = [(nm, pos) for nm, pos in j_b_todos if visiveis_b is None or nm in visiveis_b]
-
-    campo_w = 1240
-    campo_h = 710
-    campo_x0 = (L - campo_w) // 2
-    campo_y0 = y_vs + h_pill + 40
-    desenhar_campo_tatico(d, campo_x0, campo_y0, campo_w, campo_h, j_a, j_b, ca, cb, img_base=img, times=times)
-
-    # 4. PAINÉIS LATERAIS DE ELENCO
-    def desenhar_painel_elenco(x0, time_obj, jgs_todos, jgs_visiveis_set, cor):
-        w_p = 275
-        d.rounded_rectangle([x0, campo_y0, x0 + w_p, campo_y0 + campo_h], radius=10,
-                            fill=PAINEL, outline=PAINEL_BORDA, width=1)
-        d.rectangle([x0, campo_y0, x0 + w_p, campo_y0 + 6], fill=cor)
-        d.text((x0 + 16, campo_y0 + 16), time_obj["nome"], font=fonte(22), fill=cor)
-        d.text((x0 + 16, campo_y0 + 44), "ELENCO OFICIAL", font=fonte(13), fill=FRACO)
-
-        y_item = campo_y0 + 72
+    def desenhar_elenco(x0, time_obj, jogadores, visiveis, cor):
+        _painel_premium(draw, (x0, y, x0 + w_side, y + h), radius=18)
+        draw.rounded_rectangle([x0 + 20, y + 18, x0 + 26, y + 61], radius=3, fill=cor)
+        draw.text((x0 + 40, y + 19), "ELENCO", font=fonte(14, True), fill=PREMIUM_MUTED)
+        draw.text((x0 + w_side - 22, y + 23), f"{len(jogadores):02d}",
+                  font=fonte(17, True), fill=cor, anchor="ra")
+        draw.line([x0 + 20, y + 72, x0 + w_side - 20, y + 72], fill=PREMIUM_LINE, width=1)
         tags = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA"}
-        for nm, pos in jgs_todos[:12]:
-            tag = tags.get(pos, "MEI")
-            visivel = jgs_visiveis_set is None or nm in jgs_visiveis_set
-            nm_limpo = _limpar_nome_pillow(nm)
-
-            if visivel:
-                # Linha destaque ao ser revelado
-                av = obter_avatar_jogador(nm, time_obj, tamanho=(30, 30), cor_time=cor, pos=pos)
-                if av:
-                    img.paste(av, (x0 + 14, y_item - 2), av)
-                    d.text((x0 + 52, y_item + 3), nm_limpo, font=fonte(18, False), fill=TEXTO)
-                else:
-                    d.text((x0 + 16, y_item + 3), nm_limpo, font=fonte(18, False), fill=TEXTO)
-                # Badge de posição estilizado
-                d.rounded_rectangle([x0 + w_p - 58, y_item + 2, x0 + w_p - 14, y_item + 24], radius=4,
-                                    fill=cor, outline=cor, width=1)
-                d.text((x0 + w_p - 36, y_item + 13), tag, font=fonte(11, True),
-                       fill=contraste_cor(cor), anchor="mm")
+        row_y = y + 88
+        row_h = 43
+        for idx, (nome, pos) in enumerate(jogadores[:12]):
+            yy = row_y + idx * row_h
+            if yy + row_h > y + h - 28:
+                break
+            if nome in visiveis:
+                avatar = obter_avatar_jogador(nome, time_obj, tamanho=(32, 32), cor_time=cor, pos=pos)
+                if avatar:
+                    img.paste(avatar, (x0 + 20, yy + 3), avatar)
+                nome_x = x0 + 64
+                f_nome = fonte(16, True)
+                nome_fit = _texto_ajustado(draw, nome, f_nome, 158)
+                draw.text((nome_x, yy + 8), nome_fit, font=f_nome, fill=PREMIUM_TEXT)
+                tag = tags.get(pos, "MEI")
+                draw.rounded_rectangle([x0 + w_side - 57, yy + 7, x0 + w_side - 19, yy + 30],
+                                       radius=10, fill=(24, 38, 57), outline=cor, width=1)
+                draw.text((x0 + w_side - 38, yy + 18), tag, font=fonte(9, True),
+                          fill=PREMIUM_TEXT, anchor="mm")
             else:
-                # Jogador ainda não revelado: placeholder sutil
-                d.rounded_rectangle([x0 + 14, y_item, x0 + w_p - 14, y_item + 26], radius=5,
-                                    fill=(25, 32, 46), outline=(40, 50, 68), width=1)
+                draw.rounded_rectangle([x0 + 20, yy + 9, x0 + w_side - 20, yy + 26],
+                                       radius=7, fill=(22, 33, 49))
+                draw.rounded_rectangle([x0 + 20, yy + 9, x0 + 24, yy + 26],
+                                       radius=2, fill=cor)
+        if len(jogadores) > 12:
+            draw.text((x0 + 20, y + h - 30), f"+ {len(jogadores) - 12} reservas",
+                      font=fonte(12, False), fill=PREMIUM_MUTED)
 
-            y_item += 40
+    desenhar_elenco(x_left, times[0], jogadores_a, vis_a, ca)
+    desenhar_elenco(x_right, times[1], jogadores_b, vis_b, cb)
 
-    vset_a = set(nm for nm, _ in (j_a if visiveis_a is not None else j_a_todos))
-    vset_b = set(nm for nm, _ in (j_b if visiveis_b is not None else j_b_todos))
-
-    desenhar_painel_elenco(35, times[0], j_a_todos, vset_a if visiveis_a is not None else None, ca)
-    desenhar_painel_elenco(L - 310, times[1], j_b_todos, vset_b if visiveis_b is not None else None, cb)
-
+    _painel_premium(draw, (x_field, y, x_field + w_field, y + h), radius=18)
+    draw.rounded_rectangle([x_field + 12, y + 12, x_field + w_field - 12, y + h - 12],
+                           radius=12, fill=(8, 35, 27), outline=(48, 86, 69), width=1)
+    desenhar_campo_tatico(
+        draw, x_field + 18, y + 18, w_field - 36, h - 36,
+        [(n, p) for n, p in jogadores_a if n in vis_a],
+        [(n, p) for n, p in jogadores_b if n in vis_b],
+        ca, cb, img_base=img, times=times,
+    )
     return img
 
+
+def cartela_abertura(d_, visiveis_a=None, visiveis_b=None):
+    """Cartela pré-jogo com confronto, escalações e desenho tático."""
+    if TEMA != "atual":
+        return _cartela_abertura_tema(d_, visiveis_a, visiveis_b)
+    return _cartela_abertura_premium(d_, visiveis_a, visiveis_b)
 
 def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", codec="libx264"):
     """
@@ -1165,212 +1210,132 @@ def _cartela_lance_tv(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False
 
 
 def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
-    """
-    Faixa inferior de lance/gol + Placar Eletrônico estilo SporTV no canto superior esquerdo.
-    Atualiza dinamicamente conforme os gols são marcados!
-    Redireciona para o tema visual escolhido via --tema.
-    """
-    _args = (ev, times, tipo, placar_a, placar_b, gol_neste_clipe, time_gol, d_)
+    """Overlay de placar e identificação de lance em linguagem de transmissão."""
+    args = (ev, times, tipo, placar_a, placar_b, gol_neste_clipe, time_gol, d_)
     if TEMA == "fifa":
-        return _cartela_lance_fifa(*_args)
+        return _cartela_lance_fifa(*args)
     if TEMA == "iss":
-        return _cartela_lance_iss(*_args)
+        return _cartela_lance_iss(*args)
     if TEMA == "pes":
-        return _cartela_lance_pes(*_args)
+        return _cartela_lance_pes(*args)
     if TEMA == "tv":
-        return _cartela_lance_tv(*_args)
-    # TEMA == "atual" (padrão) — segue o código original abaixo
+        return _cartela_lance_tv(*args)
 
     img = Image.new("RGBA", (L, A), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
+    draw = ImageDraw.Draw(img)
+    ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
+    nome_a = _texto_ajustado(draw, times[0]["nome"].upper(), fonte(16, True), 220)
+    nome_b = _texto_ajustado(draw, times[1]["nome"].upper(), fonte(16, True), 220)
+    widths = []
+    for nome in (nome_a, nome_b):
+        bb = draw.textbbox((0, 0), nome, font=fonte(16, True))
+        widths.append(max(150, min(230, bb[2] - bb[0] + 34)))
+    score_w, timer_w, score_h = 148, 110, 64
+    total_w = widths[0] + score_w + widths[1] + timer_w + 12
+    x0, y0 = 50, 42
+    draw.rounded_rectangle([x0 + 3, y0 + 5, x0 + total_w + 3, y0 + score_h + 5],
+                           radius=16, fill=(0, 0, 0, 145))
+    draw.rounded_rectangle([x0, y0, x0 + total_w, y0 + score_h], radius=16,
+                           fill=(8, 15, 26, 238), outline=(255, 255, 255, 42), width=1)
 
-    # 1. MARCA D'ÁGUA OFICIAL DA TRANSMISSÃO NO CANTO SUPERIOR DIREITO
-    desenhar_tv_watermark(img, d_, tamanho=(80, 80))
+    xa = x0 + 1
+    draw.rounded_rectangle([xa, y0 + 1, xa + widths[0], y0 + score_h - 1], radius=14,
+                           fill=(15, 25, 39, 250))
+    draw.rectangle([xa, y0 + score_h - 5, xa + widths[0], y0 + score_h - 1], fill=ca + (255,))
+    draw.text((xa + widths[0] // 2, y0 + 29), nome_a, font=fonte(16, True),
+              fill=PREMIUM_TEXT + (255,), anchor="mm")
 
-    # 2. PLACAR ELETRÔNICO ESTILO SPORTV / PREMIERE NO CANTO SUPERIOR ESQUERDO
-    pb_x0 = 60
-    pb_y0 = 42
-    pb_h = 56
+    xs = xa + widths[0]
+    draw.rectangle([xs, y0 + 1, xs + score_w, y0 + score_h - 1], fill=(5, 10, 18, 255))
+    draw.text((xs + 42, y0 + 30), str(placar_a), font=fonte(31, True),
+              fill=PREMIUM_TEXT + (255,), anchor="mm")
+    draw.text((xs + score_w // 2, y0 + 29), "×", font=fonte(19, False),
+              fill=PREMIUM_MUTED + (255,), anchor="mm")
+    draw.text((xs + score_w - 42, y0 + 30), str(placar_b), font=fonte(31, True),
+              fill=PREMIUM_TEXT + (255,), anchor="mm")
 
-    nome_a = times[0]["nome"].upper()
-    nome_b = times[1]["nome"].upper()
-    ca = hex_rgb(times[0]["cor"])
-    cb = hex_rgb(times[1]["cor"])
-    txt_ca = contraste_cor(ca)
-    txt_cb = contraste_cor(cb)
+    xb = xs + score_w
+    draw.rectangle([xb, y0 + 1, xb + widths[1], y0 + score_h - 1], fill=(15, 25, 39, 250))
+    draw.rectangle([xb, y0 + score_h - 5, xb + widths[1], y0 + score_h - 1], fill=cb + (255,))
+    draw.text((xb + widths[1] // 2, y0 + 29), nome_b, font=fonte(16, True),
+              fill=PREMIUM_TEXT + (255,), anchor="mm")
 
-    f_score = fonte(32, True)
-    f_team = fonte(20, True)
-    f_timer = fonte(22, True)
+    xt = xb + widths[1] + 8
+    draw.rounded_rectangle([xt, y0, xt + timer_w, y0 + score_h], radius=14,
+                           fill=(10, 25, 28, 246), outline=(51, 103, 91, 170), width=1)
+    draw.ellipse([xt + 14, y0 + 27, xt + 23, y0 + 36], fill=PREMIUM_ACCENT + (255,))
+    draw.text((xt + 67, y0 + 31), str(ev.get("tempo") or "00:00"), font=fonte(19, True),
+              fill=PREMIUM_TEXT + (255,), anchor="mm")
 
-    bb_ta = d.textbbox((0, 0), nome_a, font=f_team)
-    bb_tb = d.textbbox((0, 0), nome_b, font=f_team)
-    w_ta = max(bb_ta[2] - bb_ta[0] + 32, 110)
-    w_tb = max(bb_tb[2] - bb_tb[0] + 32, 110)
-    w_score = 120
-    w_timer = 110
-
-    # Sombra do placar
-    total_w = w_ta + w_score + w_tb + w_timer + 6
-    d.rounded_rectangle([pb_x0 + 3, pb_y0 + 3, pb_x0 + total_w + 3, pb_y0 + pb_h + 4],
-                        radius=8, fill=(0, 0, 0, 150))
-
-    # Time A
-    xa0 = pb_x0
-    xa1 = xa0 + w_ta
-    d.rounded_rectangle([xa0, pb_y0, xa1, pb_y0 + pb_h], radius=8, fill=ca + (250,))
-    d.rectangle([xa1 - 8, pb_y0, xa1, pb_y0 + pb_h], fill=ca + (250,))
-    d.text(((xa0 + xa1) // 2, pb_y0 + pb_h // 2), nome_a, font=f_team, fill=txt_ca + (255,), anchor="mm")
-
-    # Placar central
-    xc0 = xa1
-    xc1 = xc0 + w_score
-    d.rectangle([xc0, pb_y0, xc1, pb_y0 + pb_h], fill=(12, 16, 26, 250))
-    d.text((xc0 + 32, pb_y0 + pb_h // 2), str(placar_a), font=f_score, fill=(255, 255, 255, 255), anchor="mm")
-    d.text((xc0 + w_score // 2, pb_y0 + pb_h // 2 - 2), "×", font=fonte(24), fill=(160, 175, 195, 255), anchor="mm")
-    d.text((xc1 - 32, pb_y0 + pb_h // 2), str(placar_b), font=f_score, fill=(255, 255, 255, 255), anchor="mm")
-
-    # Time B
-    xb0 = xc1
-    xb1 = xb0 + w_tb
-    d.rounded_rectangle([xb0, pb_y0, xb1, pb_y0 + pb_h], radius=8, fill=cb + (250,))
-    d.rectangle([xb0, pb_y0, xb0 + 8, pb_y0 + pb_h], fill=cb + (250,))
-    d.text(((xb0 + xb1) // 2, pb_y0 + pb_h // 2), nome_b, font=f_team, fill=txt_cb + (255,), anchor="mm")
-
-    # Cronômetro / Tempo de jogo — quadrado destacado com cor própria
-    xt0 = xb1 + 6
-    xt1 = xt0 + w_timer
-    tempo_str = str(ev.get("tempo") or "00:00")
-    # Fundo amarelo-esverdeado para diferenciar do placar (preto) e dos times (cor deles)
-    d.rounded_rectangle([xt0, pb_y0, xt1, pb_y0 + pb_h], radius=8,
-                        fill=(30, 40, 20, 250), outline=AMARELO_GOL + (220,), width=2)
-    # Ponto indicador ao vivo
-    d.ellipse([xt0 + 10, pb_y0 + pb_h // 2 - 4, xt0 + 18, pb_y0 + pb_h // 2 + 4], fill=VERDE + (255,))
-    d.text((xt0 + (w_timer + 16) // 2, pb_y0 + pb_h // 2), tempo_str, font=f_timer,
-           fill=AMARELO_GOL + (255,), anchor="mm")
-
-    # Destaque dinâmico de GOL!
     if gol_neste_clipe and time_gol in (0, 1):
-        xg = xa0 if time_gol == 0 else xb0
-        wg = w_ta if time_gol == 0 else w_tb
-        yg0 = pb_y0 + pb_h + 6
-        d.rounded_rectangle([xg, yg0, xg + wg, yg0 + 34], radius=8,
-                            fill=AMARELO_GOL + (255,), outline=(255, 255, 255, 255), width=2)
-        d.text((xg + wg // 2, yg0 + 17), "GOL!", font=fonte(20, True), fill=(10, 15, 20, 255), anchor="mm")
+        cor_gol = ca if time_gol == 0 else cb
+        label_gol = "GOL · " + _texto_ajustado(draw, times[time_gol]["nome"].upper(), fonte(12, True), 220)
+        bb = draw.textbbox((0, 0), label_gol, font=fonte(12, True))
+        pill_w = bb[2] - bb[0] + 28
+        gx = x0 + widths[0] + score_w // 2 - pill_w // 2
+        gy = y0 + score_h + 8
+        draw.rounded_rectangle([gx, gy, gx + pill_w, gy + 32], radius=16,
+                               fill=(8, 15, 26, 240), outline=cor_gol + (255,), width=2)
+        draw.text((gx + pill_w // 2, gy + 16), label_gol, font=fonte(12, True),
+                  fill=PREMIUM_TEXT + (255,), anchor="mm")
 
-    # 3. FAIXA INFERIOR COMPACTA (LOWER-THIRD ELEGANTE, NÃO POLUI A TELA)
-    card_x0 = 60
-    card_y0 = A - 150
-    card_h = 92
+    desenhar_tv_watermark(img, d_, tamanho=(74, 74))
 
+    time_idx = ev.get("time")
+    valido = isinstance(time_idx, int) and 0 <= time_idx < len(times)
+    cor_lance = hex_rgb(times[time_idx]["cor"]) if valido else PREMIUM_ACCENT
+    time_nome = times[time_idx]["nome"] if valido else ""
     if tipo == "gol":
-        t_idx = ev.get("time", 0)
-        cor_lance = hex_rgb(times[t_idx]["cor"])
-        time_nome = times[t_idx]["nome"]
-        rotulo_pill = f"GOL · {time_nome.upper()}"
-        jogador_principal = ev.get("autor", "Gol")
+        titulo = ev.get("autor") or "Autor não informado"
+        kicker = "GOL · " + (time_nome.upper() if time_nome else "PARTIDA")
+        assist = ev.get("assist")
+        cor_kicker = AMARELO_GOL
+        altura = 126
     else:
-        tem_time = ev.get("time") is not None and isinstance(ev["time"], int) and 0 <= ev["time"] < len(times)
-        cor_lance = hex_rgb(times[ev["time"]]["cor"]) if tem_time else VERDE
-        time_nome = times[ev["time"]]["nome"] if tem_time else ""
-        nome_lance = (ev.get("lance") or "MELHOR MOMENTO").upper()
-        rotulo_pill = nome_lance
-        jogador_principal = ev.get("destaque") or ev.get("autor") or ev.get("lance") or "Lance"
+        titulo = ev.get("destaque") or ev.get("autor") or ev.get("lance") or "Melhor momento"
+        kicker = (ev.get("lance") or "MELHOR MOMENTO").upper()
+        assist = None
+        cor_kicker = cor_lance
+        altura = 100
 
-    assist_nome = ev.get("assist") if tipo == "gol" else None
+    f_nome = fonte(32, True)
+    nome_fit = _texto_ajustado(draw, titulo, f_nome, 570)
+    f_ass = fonte(16, False)
+    largura_detalhe = draw.textbbox((0, 0), nome_fit, font=f_nome)[2]
+    if assist:
+        largura_detalhe = max(largura_detalhe, draw.textbbox(
+            (0, 0), f"ASSISTÊNCIA  {assist}", font=f_ass)[2])
+    largura = min(860, max(510, 150 + largura_detalhe + 40))
+    card_x, card_y = 58, A - altura - 34
+    draw.rounded_rectangle([card_x + 4, card_y + 6, card_x + largura + 4, card_y + altura + 6],
+                           radius=20, fill=(0, 0, 0, 150))
+    draw.rounded_rectangle([card_x, card_y, card_x + largura, card_y + altura], radius=20,
+                           fill=(8, 15, 26, 235), outline=(255, 255, 255, 55), width=1)
+    draw.rounded_rectangle([card_x, card_y + 14, card_x + 7, card_y + altura - 14],
+                           radius=3, fill=cor_lance + (255,))
 
-    # Quando é gol, cartão maior para caber o GOOOOL + foto + nome
-    if tipo == "gol":
-        card_h = 120
-
-    # Tipografia refinada e proporcional (não polui a tela)
-    f_nome = fonte(28, True)
-    f_pill = fonte(11, True)
-    f_ass = fonte(14, False)
-    f_gol  = fonte(22, True)   # "GOOOOL!" em destaque
-
-    bb_nm = d.textbbox((0, 0), jogador_principal, font=f_nome)
-    w_nome = bb_nm[2] - bb_nm[0]
-
-    w_ass = 0
-    if assist_nome:
-        bb_ass = d.textbbox((0, 0), f"assistência: {assist_nome}", font=f_ass)
-        w_ass = bb_ass[2] - bb_ass[0] + 30
-
-    bb_pill = d.textbbox((0, 0), rotulo_pill, font=f_pill)
-    pw = bb_pill[2] - bb_pill[0] + 16
-
-    # Largura dinâmica compacta (ocupa apenas o espaço necessário)
-    card_w = max(420, max(w_nome, w_ass, pw) + 150)
-    card_w = min(card_w, 700)
-
-    # Recalcula posição Y para o card maior de gol
-    card_y0 = A - card_h - 30
-
-    # Sombra suave
-    d.rounded_rectangle([card_x0 + 3, card_y0 + 4, card_x0 + card_w + 3, card_y0 + card_h + 4],
-                        radius=12, fill=(0, 0, 0, 130))
-
-    # Fundo translúcido com borda no tom do lance
-    d.rounded_rectangle([card_x0, card_y0, card_x0 + card_w, card_y0 + card_h], radius=12,
-                        fill=(12, 16, 26, 235), outline=cor_lance + (170,), width=2)
-
-    # Filete lateral com a cor do time
-    d.rounded_rectangle([card_x0 + 10, card_y0 + 12, card_x0 + 15, card_y0 + card_h - 12],
-                        radius=3, fill=cor_lance + (255,))
-
-    # Foto / Avatar — maior quando for gol
-    av_tam = 88 if tipo == "gol" else 68
-    av_x = card_x0 + 26
-    av_y = card_y0 + (card_h - av_tam) // 2
-
-    time_obj_alvo = times[ev["time"]] if (ev.get("time") is not None and 0 <= ev["time"] < len(times)) else times[0]
-    avatar_jog = obter_avatar_jogador(jogador_principal, time_obj_alvo, tamanho=(av_tam, av_tam), cor_time=cor_lance)
-    if avatar_jog:
-        img.paste(avatar_jog, (av_x, av_y), avatar_jog)
-
-    x_txt = av_x + av_tam + 16
-
-    if tipo == "gol":
-        # "GOOOOL!" em destaque acima do nome
-        gol_txt = "GOOOOL!"
-        d.text((x_txt, card_y0 + 10), gol_txt, font=f_gol,
-               fill=AMARELO_GOL + (255,), stroke_width=1, stroke_fill=(0, 0, 0, 200))
-        nome_y = card_y0 + 40
-    else:
-        nome_y = card_y0 + 36
-
-    # Pill identificadora compacta
-    ph_pill = 20
-    py_pill = card_y0 + 12 if tipo != "gol" else card_y0 + 10
-    if tipo != "gol":
-        d.rounded_rectangle([x_txt, py_pill, x_txt + pw, py_pill + ph_pill], radius=4, fill=cor_lance + (255,))
-        d.text((x_txt + pw // 2, py_pill + ph_pill // 2), rotulo_pill, font=f_pill,
-               fill=contraste_cor(cor_lance) + (255,), anchor="mm")
-
-    # Nome do autor
-    d.text((x_txt, nome_y), jogador_principal, font=f_nome, fill=(255, 255, 255, 255))
-
-    # Time name abaixo do nome (só no gol)
-    if tipo == "gol":
-        d.text((x_txt, nome_y + 34), time_nome, font=fonte(15, False), fill=cor_lance + (200,))
-
-    # Assistência compacta
-    if assist_nome:
-        y_ass = nome_y + 36 if tipo != "gol" else nome_y + 60
-        d.text((x_txt, y_ass), "assistência: ", font=f_ass, fill=FRACO + (255,))
-        bb_lbl = d.textbbox((0, 0), "assistência: ", font=f_ass)
-        w_lbl = bb_lbl[2] - bb_lbl[0]
-        foto_ass = obter_avatar_jogador(assist_nome, time_obj_alvo, tamanho=(18, 18), cor_time=cor_lance)
-        if foto_ass:
-            img.paste(foto_ass, (x_txt + w_lbl, y_ass), foto_ass)
-            d.text((x_txt + w_lbl + 24, y_ass), assist_nome, font=fonte(14, True), fill=(240, 244, 250, 255))
-        else:
-            d.text((x_txt + w_lbl, y_ass), assist_nome, font=fonte(14, True), fill=(240, 244, 250, 255))
-    elif tipo != "gol" and ev.get("destaque"):
-        y_det = card_y0 + 68
-        d.text((x_txt, y_det), ev["destaque"], font=f_ass, fill=FRACO + (255,))
-
+    avatar_size = 76 if tipo == "gol" else 66
+    avatar = obter_avatar_jogador(titulo, times[time_idx] if valido else times[0],
+                                  tamanho=(avatar_size, avatar_size), cor_time=cor_lance)
+    avatar_x, avatar_y = card_x + 24, card_y + (altura - avatar_size) // 2
+    if avatar:
+        img.paste(avatar, (avatar_x, avatar_y), avatar)
+    tx = avatar_x + avatar_size + 20
+    draw.text((tx, card_y + 14), kicker, font=fonte(13, True), fill=cor_kicker + (255,))
+    draw.text((tx, card_y + (37 if tipo == "gol" else 34)), nome_fit,
+              font=f_nome, fill=PREMIUM_TEXT + (255,))
+    if assist:
+        label = "ASSISTÊNCIA"
+        draw.text((tx, card_y + 86), label, font=fonte(12, True), fill=PREMIUM_MUTED + (255,))
+        bb_label = draw.textbbox((0, 0), label, font=fonte(12, True))
+        ax = tx + bb_label[2] + 10
+        assist_avatar = obter_avatar_jogador(assist, times[time_idx] if valido else times[0],
+                                             tamanho=(22, 22), cor_time=cor_lance)
+        if assist_avatar:
+            img.paste(assist_avatar, (ax, card_y + 84), assist_avatar)
+            ax += 30
+        draw.text((ax, card_y + 85), _texto_ajustado(draw, assist, fonte(14, True), 280),
+                  font=fonte(14, True), fill=PREMIUM_TEXT + (255,))
     return img
 
 
@@ -1435,7 +1400,7 @@ def _barra_topo_tema(d):
     else:
         d.rectangle([0, 0, L, 6], fill=VERDE)
 
-FIM_DE_JOGO_GOLS_POR_TELA = 15
+FIM_DE_JOGO_GOLS_POR_TELA = 12
 
 
 def paginas_fim_de_jogo(d_):
@@ -1478,225 +1443,124 @@ def _cartela_fim_de_jogo_tema(d_, pagina=0):
     _col_gols(img, d, col_x_b, col_w, topo_col, A-40, times[1], gols_b_p, cb, accent, psub)
     return img
 
-def cartela_fim_de_jogo(d_, pagina=0):
-    """
-    Placar final profissional estilo transmissão esportiva pós-jogo (SporTV / Premiere).
-    Mostra o placar oficial e a lista de todos os gols de cada time.
-    Design moderno com gradientes e tipografia refinada.
-    """
-    if TEMA != "atual":
-        return _cartela_fim_de_jogo_tema(d_, pagina)
-    img = criar_fundo_base(d_)
-    d = ImageDraw.Draw(img)
+def _cartela_fim_de_jogo_premium(d_, pagina=0):
     meta, times = d_["meta"], d_["times"]
     ca, cb = hex_rgb(times[0]["cor"]), hex_rgb(times[1]["cor"])
-
-    # Barra superior com gradiente sutil
-    for i in range(8):
-        alpha = int(255 * (1 - i / 8))
-        d.rectangle([0, i, L, i + 1], fill=(0, 180, 100, alpha) if i < 4 else VERDE)
-
-    # Logo do campeonato com sombra elegante
-    logo_fim = obter_logo_campeonato(d_, tamanho=(120, 120))
-    y_logo = 20
-    if logo_fim:
-        lw, lh = logo_fim.size
-        lx = (L - lw) // 2
-        # Sombra suave
-        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
-                  fill=(0, 0, 0, 60))
-        # Anel dourado com gradiente
-        d.ellipse([lx - 10, y_logo - 8, lx + lw + 10, y_logo + lh + 8],
-                  outline=DOURADO, width=3)
-        d.ellipse([lx - 7, y_logo - 5, lx + lw + 7, y_logo + lh + 5],
-                  fill=(12, 18, 32), outline=(255, 215, 0, 180), width=1)
-        if logo_fim.mode != "RGBA":
-            logo_fim = logo_fim.convert("RGBA")
-        img.paste(logo_fim, (lx, y_logo), logo_fim)
-        y_textos = y_logo + lh + 20
-    else:
-        y_textos = 32
-
+    subtitle = " · ".join(str(x) for x in (
+        meta.get("pelada") or meta.get("torneio"),
+        meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")
+    ) if x)
     total_pag = paginas_fim_de_jogo(d_)
-    titulo_fim = "FIM DE JOGO"
-    if total_pag > 1:
-        titulo_fim += f" · PÁGINA {pagina + 1}/{total_pag}"
-    
-    # Título com sombra e destaque
-    centralizado_contornado(d, y_textos, titulo_fim, fonte(44, True),
-                           DOURADO, (0, 0, 0), 4)
-    
-    sub = " · ".join(x for x in [meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data"), meta.get("local")] if x)
-    if sub:
-        centralizado_contornado(d, y_textos + 52, sub, fonte(26, False),
-                               (240, 240, 240), (0, 0, 0), 3)
+    etiqueta = f"PÁGINA {pagina + 1} / {total_pag}" if total_pag > 1 else "RESULTADO OFICIAL"
+    img = _fundo_premium(d_)
+    draw = ImageDraw.Draw(img)
+    _cabecalho_premium(img, draw, d_, "PÓS-JOGO", "RESULTADO FINAL", subtitle, etiqueta)
 
-    gols_ordenados = sorted(d_.get("gols", []), key=_tempo_em_segundos)
-    gols_a = [g for g in gols_ordenados if g.get("time") == 0]
-    gols_b = [g for g in gols_ordenados if g.get("time") == 1]
-    n_por = FIM_DE_JOGO_GOLS_POR_TELA
-    gols_a_pag = gols_a[pagina * n_por:(pagina + 1) * n_por]
-    gols_b_pag = gols_b[pagina * n_por:(pagina + 1) * n_por]
-    total_a = len(gols_a)
-    total_b = len(gols_b)
-    if meta.get("placar_jogo"):
-        if meta["placar_jogo"][0] is not None:
-            total_a = meta["placar_jogo"][0]
-        if meta["placar_jogo"][1] is not None:
-            total_b = meta["placar_jogo"][1]
+    gols = sorted(d_.get("gols", []), key=_tempo_em_segundos)
+    gols_a = [g for g in gols if g.get("time") == 0]
+    gols_b = [g for g in gols if g.get("time") == 1]
+    inicio = pagina * FIM_DE_JOGO_GOLS_POR_TELA
+    gols_a_pag = gols_a[inicio:inicio + FIM_DE_JOGO_GOLS_POR_TELA]
+    gols_b_pag = gols_b[inicio:inicio + FIM_DE_JOGO_GOLS_POR_TELA]
+    placar = meta.get("placar_jogo") or [None, None]
+    total_a = placar[0] if len(placar) > 0 and placar[0] is not None else len(gols_a)
+    total_b = placar[1] if len(placar) > 1 and placar[1] is not None else len(gols_b)
 
-    # Placar Central - Design Moderno e Elegante
-    y_p = y_textos + 95
-    pw = 1040
-    ph = 155
-    px0 = (L - pw) // 2
-    
-    # Sombra do painel
-    d.rounded_rectangle([px0 + 6, y_p + 6, px0 + pw + 6, y_p + ph + 6], 
-                        radius=20, fill=(0, 0, 0, 80))
-    
-    # Painel principal com gradiente simulado
-    d.rounded_rectangle([px0, y_p, px0 + pw, y_p + ph], 
-                        radius=20, fill=(18, 24, 36))
-    d.rounded_rectangle([px0 + 2, y_p + 2, px0 + pw - 2, y_p + ph - 2], 
-                        radius=18, outline=(45, 55, 75), width=2)
-    
-    # Barras de cor dos times — alinhadas com os números
-    cx = L // 2
-    barra_h = 6
-    d.rounded_rectangle([px0 + 20, y_p + ph - 16, cx - 20, y_p + ph - 16 + barra_h],
-                        radius=3, fill=ca)
-    d.rounded_rectangle([cx + 20, y_p + ph - 16, px0 + pw - 20, y_p + ph - 16 + barra_h],
-                        radius=3, fill=cb)
-    
-    # Divisor central com estilo
-    d.line([cx, y_p + 25, cx, y_p + ph - 30], fill=(60, 70, 90), width=2)
-    
-    # Posições fixas dos números — simétricos ao centro, espaçados o suficiente
-    x_num_a = cx - 130    # número do Time A
-    x_num_b = cx + 130    # número do Time B
-    
-    # Nomes alinhados acima dos respectivos números
-    nome_a = times[0]["nome"].upper()
-    nome_b = times[1]["nome"].upper()
-    f_nome = fonte(30, True)
-    
-    d.text((x_num_a, y_p + 32), nome_a, font=f_nome,
-           fill=ca, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
-    d.text((x_num_b, y_p + 32), nome_b, font=f_nome,
-           fill=cb, anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
-    
-    # Placar - números grandes e elegantes
-    f_placar = fonte(96, True)
-    f_vs = fonte(42, False)
-    
-    d.text((x_num_a, y_p + 100), str(total_a), font=f_placar,
-           fill=(255, 255, 255), anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
-    d.text((cx, y_p + 100), "×", font=f_vs,
-           fill=(160, 170, 190), anchor="mm")
-    d.text((x_num_b, y_p + 100), str(total_b), font=f_placar,
-           fill=(255, 255, 255), anchor="mm", stroke_width=3, stroke_fill=(0, 0, 0))
+    sx0, sy0, sx1, sy1 = 70, 176, L - 70, 360
+    _painel_premium(draw, (sx0, sy0, sx1, sy1), fill=PREMIUM_PANEL_ALT, radius=24)
+    split = L // 2
+    draw.rounded_rectangle([sx0 + 2, sy0 + 20, sx0 + 10, sy1 - 20], radius=4, fill=ca)
+    draw.rounded_rectangle([sx1 - 10, sy0 + 20, sx1 - 2, sy1 - 20], radius=4, fill=cb)
+    draw.rounded_rectangle([split - 160, sy0 + 23, split + 160, sy1 - 23], radius=22,
+                           fill=(7, 13, 23), outline=PREMIUM_LINE, width=1)
 
-    # Colunas com Lista de Gols - Design Refinado
-    col_w = 730
-    gap_central = 100
-    topo_col = y_p + ph + 30
+    draw.text((sx0 + 54, sy0 + 40), "TIME 01", font=fonte(13, True), fill=ca)
+    draw.text((sx0 + 54, sy0 + 68), _texto_ajustado(draw, times[0]["nome"], fonte(29, True), 500),
+              font=fonte(29, True), fill=PREMIUM_TEXT)
+    draw.text((sx1 - 54, sy0 + 40), "TIME 02", font=fonte(13, True), fill=cb, anchor="ra")
+    draw.text((sx1 - 54, sy0 + 68), _texto_ajustado(draw, times[1]["nome"], fonte(29, True), 500),
+              font=fonte(29, True), fill=PREMIUM_TEXT, anchor="ra")
+    draw.text((split - 73, sy0 + 92), str(total_a), font=fonte(80, True),
+              fill=PREMIUM_TEXT, anchor="mm")
+    draw.text((split, sy0 + 92), "×", font=fonte(30, False),
+              fill=PREMIUM_MUTED, anchor="mm")
+    draw.text((split + 73, sy0 + 92), str(total_b), font=fonte(80, True),
+              fill=PREMIUM_TEXT, anchor="mm")
+    draw.rounded_rectangle([sx0 + 30, sy1 - 14, split - 180, sy1 - 8], radius=3, fill=ca)
+    draw.rounded_rectangle([split + 180, sy1 - 14, sx1 - 30, sy1 - 8], radius=3, fill=cb)
 
-    def desenhar_coluna_gols(x0, time_obj, lista_gols, cor, lado="esquerda"):
-        fim_col = A - 50
-        altura_col = fim_col - topo_col
-        espaco_itens = max(1, altura_col - 90)
-        passo_item = max(30, min(42, espaco_itens // max(len(lista_gols), 1)))
-        total_time = len(gols_a) if time_obj is times[0] else len(gols_b)
-        tam_autor = max(18, min(21, passo_item - 12))
-        tam_assist = max(13, min(15, passo_item - 17))
-        tam_tempo = max(12, min(14, passo_item - 18))
-        tam_avatar = max(24, min(30, passo_item - 8))
+    col_y, col_h, col_w, gap = 390, 630, 876, 32
+    col_a = 68
+    col_b = col_a + col_w + gap
 
-        # Sombra da coluna
-        d.rounded_rectangle([x0 + 4, topo_col + 4, x0 + col_w + 4, fim_col + 4], 
-                           radius=16, fill=(0, 0, 0, 60))
-        
-        # Painel da coluna com gradiente
-        d.rounded_rectangle([x0, topo_col, x0 + col_w, fim_col], 
-                           radius=16, fill=(20, 26, 38))
-        d.rounded_rectangle([x0 + 2, topo_col + 2, x0 + col_w - 2, fim_col - 2], 
-                           radius=14, outline=(50, 60, 80), width=2)
-        
-        # Header da coluna com cor do time
-        header_h = 55
-        d.rounded_rectangle([x0, topo_col, x0 + col_w, topo_col + header_h], 
-                           radius=16, fill=(30, 36, 48))
-        d.rectangle([x0 + 8, topo_col + header_h - 4, x0 + col_w - 8, topo_col + header_h], 
-                   fill=cor)
-        
-        # Título da coluna (sem emoji - Pillow não renderiza ⚽ corretamente)
-        titulo_col = f"GOLS · {time_obj['nome'].upper()}"
-        d.text((x0 + 28, topo_col + 22), titulo_col, 
-               font=fonte(24, True), fill=cor)
-        d.text((x0 + col_w - 28, topo_col + 28), f"{total_time} gol{'s' if total_time != 1 else ''}", 
-               font=fonte(17, False), fill=(180, 190, 210), anchor="ra")
+    def desenhar_lista(x0, time_obj, itens, todos, cor):
+        _painel_premium(draw, (x0, col_y, x0 + col_w, col_y + col_h), radius=20)
+        draw.rounded_rectangle([x0 + 2, col_y + 2, x0 + col_w - 2, col_y + 74], radius=18,
+                               fill=PREMIUM_PANEL_ALT)
+        draw.rectangle([x0 + 2, col_y + 64, x0 + col_w - 2, col_y + 74], fill=PREMIUM_PANEL_ALT)
+        draw.rounded_rectangle([x0 + 22, col_y + 20, x0 + 28, col_y + 54], radius=3, fill=cor)
+        draw.text((x0 + 44, col_y + 18), "GOLEADORES", font=fonte(12, True), fill=PREMIUM_MUTED)
+        draw.text((x0 + 44, col_y + 36), _texto_ajustado(draw, time_obj["nome"].upper(), fonte(20, True), 530),
+                  font=fonte(20, True), fill=PREMIUM_TEXT)
+        gols_total = len(todos)
+        chip = f"{gols_total:02d} GOL" + ("S" if gols_total != 1 else "")
+        draw.text((x0 + col_w - 26, col_y + 39), chip, font=fonte(13, True),
+                  fill=cor, anchor="ra")
 
-        y_item = topo_col + header_h + 24
-        if not lista_gols:
-            d.text((x0 + 28, y_item + 15), "Nenhum gol marcado", 
-                   font=fonte(19, False), fill=(120, 130, 150))
+        max_rows = FIM_DE_JOGO_GOLS_POR_TELA
+        body_top = col_y + 91
+        area = col_y + col_h - body_top - 18
+        if not itens:
+            draw.text((x0 + 32, body_top + 24), "Nenhum gol registrado", font=fonte(17, False),
+                      fill=PREMIUM_MUTED)
             return
-
-        for idx, g in enumerate(lista_gols):
-            if y_item + passo_item > fim_col - 12:
+        n_rows = min(len(itens), max_rows)
+        row_h = area // n_rows
+        if n_rows <= 9:
+            row_h = min(70, row_h)
+        row_h = max(34, row_h)
+        body_top += max(0, (area - row_h * n_rows) // 2)
+        for i, goal in enumerate(itens[:max_rows]):
+            yy = body_top + i * row_h
+            if yy + row_h > col_y + col_h - 8:
                 break
-            
-            # Linha separadora sutil
-            if idx > 0:
-                d.line([x0 + 24, y_item - 12, x0 + col_w - 24, y_item - 12], 
-                       fill=(40, 50, 70), width=1)
-            
-            t_str = g.get("tempo", "")
-            # Badge do tempo - mais moderno
-            badge_w = 68
-            badge_h = min(30, passo_item - 2)
-            badge_x = x0 + 24
-            badge_y = y_item
-            
-            d.rounded_rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + badge_h], 
-                               radius=6, fill=(35, 45, 65))
-            d.rounded_rectangle([badge_x + 1, badge_y + 1, badge_x + badge_w - 1, badge_y + badge_h - 1], 
-                               radius=5, outline=cor, width=2)
-            d.text((badge_x + badge_w // 2, badge_y + badge_h // 2), t_str, 
-                   font=fonte(tam_tempo, True), fill=(255, 255, 255), anchor="mm")
+            if i:
+                draw.line([x0 + 24, yy, x0 + col_w - 24, yy], fill=PREMIUM_LINE, width=1)
+            time_text = str(goal.get("tempo") or "--:--")
+            draw.rounded_rectangle([x0 + 24, yy + 6, x0 + 99, yy + row_h - 6], radius=11,
+                                   fill=(7, 14, 24), outline=(54, 71, 93), width=1)
+            draw.text((x0 + 61, yy + row_h // 2), time_text, font=fonte(14, True),
+                      fill=PREMIUM_TEXT, anchor="mm")
+            autor = _limpar_nome_pillow(goal.get("autor") or "Gol")
+            avatar = obter_avatar_jogador(autor, time_obj, tamanho=(34, 34), cor_time=cor)
+            if avatar:
+                img.paste(avatar, (x0 + 118, yy + (row_h - 34) // 2), avatar)
+            nome_x = x0 + 164
+            max_nome = 400 if goal.get("assist") else col_w - 194
+            f_autor = fonte(19, True)
+            draw.text((nome_x, yy + (row_h - 22) // 2),
+                      _texto_ajustado(draw, autor, f_autor, max_nome),
+                      font=f_autor, fill=PREMIUM_TEXT)
+            if goal.get("assist"):
+                assist = "ASSIST. " + _limpar_nome_pillow(goal["assist"])
+                f_ass = fonte(13, False)
+                draw.text((x0 + col_w - 24, yy + row_h // 2),
+                          _texto_ajustado(draw, assist, f_ass, 245),
+                          font=f_ass, fill=PREMIUM_MUTED, anchor="rm")
 
-            # Avatar e nome do autor
-            autor = g.get("autor", "Gol")
-            avatar_x = x0 + 108
-            av = obter_avatar_jogador(autor, time_obj, tamanho=(tam_avatar, tam_avatar), cor_time=cor)
-            if av:
-                img.paste(av, (avatar_x, badge_y + 3), av)
-                d.text((avatar_x + tam_avatar + 12, badge_y + 4), autor, 
-                       font=fonte(tam_autor, True), fill=(240, 245, 255))
-            else:
-                d.text((avatar_x, badge_y + 4), autor, 
-                       font=fonte(tam_autor, True), fill=(240, 245, 255))
-
-            # Assistência
-            if g.get("assist"):
-                assist_txt = f"⇨ {g['assist']}"
-                d.text((x0 + col_w - 28, badge_y + 6), assist_txt, 
-                       font=fonte(tam_assist, False), fill=(160, 170, 190), anchor="ra")
-            
-            y_item += passo_item
-
-    # Desenhar as duas colunas
-    col_x_esq = (L - col_w * 2 - gap_central) // 2
-    col_x_dir = col_x_esq + col_w + gap_central
-    
-    desenhar_coluna_gols(col_x_esq, times[0], gols_a_pag, ca, "esquerda")
-    desenhar_coluna_gols(col_x_dir, times[1], gols_b_pag, cb, "direita")
-
+    desenhar_lista(col_a, times[0], gols_a_pag, gols_a, ca)
+    desenhar_lista(col_b, times[1], gols_b_pag, gols_b, cb)
     return img
 
 
-CRONOLOGIA_POR_TELA = 20
+def cartela_fim_de_jogo(d_, pagina=0):
+    """Placar final e lista de gols com hierarquia de leitura para TV."""
+    if TEMA != "atual":
+        return _cartela_fim_de_jogo_tema(d_, pagina)
+    return _cartela_fim_de_jogo_premium(d_, pagina)
+
+
+CRONOLOGIA_POR_TELA = 16
 
 
 def paginas_cronologia(d_):
@@ -1705,78 +1569,75 @@ def paginas_cronologia(d_):
 
 
 def cartela_cronologia(d_, pagina=0):
-    img = criar_fundo_base(d_)
-    d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, L, 6], fill=VERDE)
-
-    logo_cr = obter_logo_campeonato(d_, tamanho=(105, 105))
-    y_logo = 16
-    if logo_cr:
-        lw, lh = logo_cr.size
-        lx = (L - lw) // 2
-        d.ellipse([lx - 8, y_logo - 6, lx + lw + 8, y_logo + lh + 6],
-                  fill=(16, 24, 38), outline=DOURADO, width=2)
-        if logo_cr.mode != "RGBA":
-            logo_cr = logo_cr.convert("RGBA")
-        img.paste(logo_cr, (lx, y_logo), logo_cr)
-        y_textos = y_logo + lh + 14
-    else:
-        y_textos = 28
-
+    """Linha do tempo dos gols em uma página limpa e fácil de acompanhar."""
+    eventos = sorted(d_.get("gols", []), key=_tempo_em_segundos)
     total_pag = paginas_cronologia(d_)
-    titulo = "COMO FOI O JOGO · CRONOLOGIA COMPLETA"
-    if total_pag > 1:
-        titulo += f" ({pagina + 1}/{total_pag})"
-    centralizado(d, y_textos, titulo, fonte(38), DOURADO)
+    inicio = pagina * CRONOLOGIA_POR_TELA
+    eventos_pagina = eventos[inicio:inicio + CRONOLOGIA_POR_TELA]
+    etiqueta = f"PÁGINA {pagina + 1} / {total_pag}" if total_pag > 1 else f"{len(eventos)} GOLS"
+    meta = d_.get("meta", {})
+    subtitle = " · ".join(str(x) for x in (
+        meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data")
+    ) if x)
+    img = _fundo_premium(d_)
+    draw = ImageDraw.Draw(img)
+    _cabecalho_premium(img, draw, d_, "LINHA DO TEMPO", "COMO FOI O JOGO", subtitle, etiqueta)
 
-    gols_ordenados = sorted(d_.get("gols", []), key=_tempo_em_segundos)
-    ini = pagina * CRONOLOGIA_POR_TELA
-    gols_ordenados = gols_ordenados[ini:ini + CRONOLOGIA_POR_TELA]
+    x0, y0, w, h = 100, 188, 1720, 826
+    _painel_premium(draw, (x0, y0, x0 + w, y0 + h), radius=22)
+    draw.text((x0 + 34, y0 + 28), "CRONOLOGIA DOS GOLS", font=fonte(14, True), fill=PREMIUM_MUTED)
+    draw.text((x0 + w - 34, y0 + 28), "MINUTO  ·  AUTOR  ·  ASSISTÊNCIA  ·  TIME",
+              font=fonte(12, True), fill=PREMIUM_MUTED, anchor="ra")
+    draw.line([x0 + 28, y0 + 66, x0 + w - 28, y0 + 66], fill=PREMIUM_LINE, width=1)
 
-    card_w = 1400
-    card_x0 = (L - card_w) // 2
-    card_y0 = y_textos + 65
-    card_h = A - card_y0 - 25
-    passo = (card_h - 30) // CRONOLOGIA_POR_TELA
-    d.rounded_rectangle([card_x0, card_y0, card_x0 + card_w, card_y0 + card_h], radius=14,
-                        fill=PAINEL, outline=PAINEL_BORDA, width=1)
+    if not eventos_pagina:
+        draw.text((L // 2, y0 + h // 2), "Nenhum gol registrado nesta partida",
+                  font=fonte(24, True), fill=PREMIUM_MUTED, anchor="mm")
+        return img
 
-    y = card_y0 + 25
-    for g in gols_ordenados:
-        t_idx = g.get("time", 0)
-        t_obj = d_["times"][t_idx] if 0 <= t_idx < len(d_["times"]) else d_["times"][0]
-        cor = hex_rgb(t_obj["cor"])
+    row_top = y0 + 82
+    row_h = (h - 100) // max(len(eventos_pagina), 1)
+    timeline_x = x0 + 78
+    if len(eventos_pagina) > 1:
+        draw.line([timeline_x, row_top + 18, timeline_x,
+                   row_top + (len(eventos_pagina) - 1) * row_h + 45],
+                  fill=(47, 62, 82), width=2)
 
-        # Linha colorida do time
-        d.rounded_rectangle([card_x0 + 30, y + 4, card_x0 + 36, y + 36], radius=3, fill=cor)
+    for i, goal in enumerate(eventos_pagina):
+        time_idx = goal.get("time", 0)
+        if not isinstance(time_idx, int) or not 0 <= time_idx < len(d_["times"]):
+            time_idx = 0
+        team = d_["times"][time_idx]
+        color = hex_rgb(team.get("cor"))
+        yy = row_top + i * row_h
+        if i:
+            draw.line([x0 + 28, yy, x0 + w - 28, yy], fill=(35, 49, 68), width=1)
+        draw.ellipse([timeline_x - 8, yy + 17, timeline_x + 8, yy + 33],
+                     fill=PREMIUM_PANEL, outline=color, width=3)
+        draw.rounded_rectangle([x0 + 112, yy + 7, x0 + 192, yy + 47], radius=12,
+                               fill=(7, 14, 24), outline=(55, 72, 95), width=1)
+        draw.text((x0 + 152, yy + 27), str(goal.get("tempo") or "--:--"),
+                  font=fonte(16, True), fill=PREMIUM_TEXT, anchor="mm")
 
-        # Tempo
-        d.rounded_rectangle([card_x0 + 50, y + 2, card_x0 + 125, y + 36], radius=6,
-                            fill=(24, 32, 48), outline=(55, 70, 95), width=1)
-        d.text((card_x0 + 87, y + 19), g.get("tempo", ""), font=fonte(16, True), fill=TEXTO, anchor="mm")
+        autor = _limpar_nome_pillow(goal.get("autor") or "Gol")
+        avatar = obter_avatar_jogador(autor, team, tamanho=(42, 42), cor_time=color)
+        if avatar:
+            img.paste(avatar, (x0 + 224, yy + 6), avatar)
+        draw.text((x0 + 282, yy + 8), _texto_ajustado(draw, autor, fonte(22, True), 400),
+                  font=fonte(22, True), fill=PREMIUM_TEXT)
+        if goal.get("assist"):
+            draw.text((x0 + 282, yy + 35),
+                      _texto_ajustado(draw, "ASSIST. " + goal["assist"], fonte(13, False), 400),
+                      font=fonte(13, False), fill=PREMIUM_MUTED)
 
-        # Foto / Avatar do autor
-        autor = g.get("autor", "Gol")
-        av = obter_avatar_jogador(autor, t_obj, tamanho=(34, 34), cor_time=cor)
-        if av:
-            img.paste(av, (card_x0 + 145, y + 2), av)
-            d.text((card_x0 + 190, y + 7), autor, font=fonte(24, True), fill=TEXTO)
-        else:
-            d.text((card_x0 + 145, y + 7), autor, font=fonte(24, True), fill=TEXTO)
-
-        if g.get("assist"):
-            d.text((card_x0 + 540, y + 10), f"assistência: {g['assist']}", font=fonte(20, False), fill=FRACO)
-
-        # Pill do time
-        t_nome = t_obj["nome"]
-        f_tag = fonte(15, True)
-        bb = d.textbbox((0, 0), t_nome, font=f_tag)
-        tw = bb[2] - bb[0] + 20
-        tx = card_x0 + card_w - tw - 30
-        d.rounded_rectangle([tx, y + 4, tx + tw, y + 34], radius=6, fill=cor)
-        d.text((tx + tw // 2, y + 19), t_nome, font=f_tag, fill=contraste_cor(cor), anchor="mm")
-
-        y += passo
+        chip_w = min(300, max(180, draw.textbbox((0, 0), team["nome"], font=fonte(13, True))[2] + 48))
+        chip_x = x0 + w - chip_w - 28
+        draw.rounded_rectangle([chip_x, yy + 11, chip_x + chip_w, yy + 43], radius=16,
+                               fill=(18, 29, 45), outline=color, width=1)
+        draw.ellipse([chip_x + 12, yy + 22, chip_x + 20, yy + 30], fill=color)
+        draw.text((chip_x + 30, yy + 27),
+                  _texto_ajustado(draw, team["nome"].upper(), fonte(13, True), chip_w - 46),
+                  font=fonte(13, True), fill=PREMIUM_TEXT, anchor="lm")
 
     return img
 
@@ -1818,71 +1679,84 @@ def _cartela_destaques_tema(d_):
             y_i += alt + 2
     return img
 
+def _cartela_destaques_premium(d_):
+    meta = d_.get("meta", {})
+    subtitle = " · ".join(str(x) for x in (
+        meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data")
+    ) if x)
+    img = _fundo_premium(d_)
+    draw = ImageDraw.Draw(img)
+    _cabecalho_premium(img, draw, d_, "PÓS-JOGO", "DESTAQUES DA PARTIDA", subtitle, "TOP 5")
+
+    medalhas = [(246, 196, 82), (184, 198, 214), (194, 132, 91), (93, 111, 136), (93, 111, 136)]
+    colunas = [
+        ("ARTILHEIROS", "artilheiros", "gols", "GOLS MARCADOS"),
+        ("LÍDERES EM ASSISTÊNCIAS", "garcons", "assistencias", "ASSISTÊNCIAS"),
+    ]
+    card_y, card_h, card_w, gap = 184, 836, 862, 34
+    card_xs = [64, 64 + card_w + gap]
+
+    for x0, (title, key, field, label) in zip(card_xs, colunas):
+        _painel_premium(draw, (x0, card_y, x0 + card_w, card_y + card_h), radius=22)
+        draw.rounded_rectangle([x0 + 2, card_y + 2, x0 + card_w - 2, card_y + 104], radius=20,
+                               fill=PREMIUM_PANEL_ALT)
+        draw.rectangle([x0 + 2, card_y + 91, x0 + card_w - 2, card_y + 104], fill=PREMIUM_PANEL_ALT)
+        draw.text((x0 + 30, card_y + 23), title, font=fonte(22, True), fill=PREMIUM_TEXT)
+        draw.text((x0 + 30, card_y + 59), label, font=fonte(12, True), fill=PREMIUM_MUTED)
+        draw.rounded_rectangle([x0 + card_w - 64, card_y + 32, x0 + card_w - 30, card_y + 66],
+                               radius=17, fill=PREMIUM_BG, outline=PREMIUM_LINE, width=1)
+        for bar_idx, bar_h in enumerate((9, 15, 22)):
+            bx = x0 + card_w - 55 + bar_idx * 7
+            draw.rounded_rectangle([bx, card_y + 57 - bar_h, bx + 4, card_y + 57],
+                                   radius=2, fill=PREMIUM_ACCENT)
+
+        itens = (d_.get(key) or [])[:5]
+        row_top = card_y + 120
+        row_h = (card_h - 148) // 5
+        if not itens:
+            draw.text((x0 + 34, row_top + 38), "Ainda não há dados para este ranking",
+                      font=fonte(17, False), fill=PREMIUM_MUTED)
+            continue
+
+        for i, item in enumerate(itens):
+            yy = row_top + i * row_h
+            medal = medalhas[min(i, len(medalhas) - 1)]
+            is_top = i == 0
+            row_box = [x0 + 18, yy + 4, x0 + card_w - 18, yy + row_h - 8]
+            draw.rounded_rectangle(row_box, radius=16,
+                                   fill=(20, 32, 49) if is_top else (10, 18, 30),
+                                   outline=medal if i < 3 else (34, 48, 66), width=2 if i < 3 else 1)
+            draw.ellipse([x0 + 34, yy + row_h // 2 - 25, x0 + 84, yy + row_h // 2 + 25],
+                         fill=medal)
+            draw.text((x0 + 59, yy + row_h // 2), f"{i + 1:02d}", font=fonte(17, True),
+                      fill=(8, 14, 23), anchor="mm")
+
+            jogador = _limpar_nome_pillow(item.get("jogador") or "Jogador")
+            avatar = obter_avatar_jogador(jogador, d_.get("times"), tamanho=(64, 64), cor_time=medal)
+            if avatar:
+                img.paste(avatar, (x0 + 104, yy + (row_h - 64) // 2), avatar)
+            text_x = x0 + 190
+            max_text = card_w - 335
+            nome_font = fonte(24 if is_top else 21, True)
+            draw.text((text_x, yy + row_h // 2 - 23),
+                      _texto_ajustado(draw, jogador, nome_font, max_text),
+                      font=nome_font, fill=PREMIUM_TEXT)
+            draw.text((text_x, yy + row_h // 2 + 12), label,
+                      font=fonte(11, True), fill=PREMIUM_MUTED)
+
+            numero = str(item.get(field, 0))
+            draw.text((x0 + card_w - 44, yy + row_h // 2 - 2), numero,
+                      font=fonte(46 if is_top else 38, True), fill=medal, anchor="rm")
+            draw.text((x0 + card_w - 45, yy + row_h // 2 + 28),
+                      "GOLS" if field == "gols" else "AST",
+                      font=fonte(10, True), fill=PREMIUM_MUTED, anchor="rm")
+    return img
+
+
 def cartela_destaques(d_):
     if TEMA != "atual":
         return _cartela_destaques_tema(d_)
-    img = criar_fundo_base(d_)
-    d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, L, 6], fill=VERDE)
-
-    logo_des = obter_logo_campeonato(d_, tamanho=(105, 105))
-    y_logo = 16
-    if logo_des:
-        lw, lh = logo_des.size
-        lx = (L - lw) // 2
-        d.ellipse([lx - 8, y_logo - 6, lx + lw + 8, y_logo + lh + 6],
-                  fill=(16, 24, 38), outline=DOURADO, width=2)
-        if logo_des.mode != "RGBA":
-            logo_des = logo_des.convert("RGBA")
-        img.paste(logo_des, (lx, y_logo), logo_des)
-        y_textos = y_logo + lh + 14
-    else:
-        y_textos = 28
-
-    centralizado(d, y_textos, "DESTAQUES DA PARTIDA", fonte(40), DOURADO)
-
-    medalha = [(255, 215, 0), (200, 210, 225), (205, 140, 90)]
-    topo_cards = y_textos + 75
-    h_card = 630
-    w_card = 680
-
-    for col, (titulo, chave, campo) in enumerate([
-        ("ARTILHEIROS", "artilheiros", "gols"),
-        ("LÍDERES EM ASSISTÊNCIAS", "garcons", "assistencias")
-    ]):
-        x0 = 170 if col == 0 else L // 2 + 60
-        d.rounded_rectangle([x0, topo_cards, x0 + w_card, topo_cards + h_card], radius=14,
-                            fill=PAINEL, outline=PAINEL_BORDA, width=1)
-        # Header do card
-        d.rounded_rectangle([x0, topo_cards, x0 + w_card, topo_cards + 56], radius=14, fill=(24, 34, 52))
-        d.rectangle([x0, topo_cards + 50, x0 + w_card, topo_cards + 56], fill=(24, 34, 52))
-        d.text((x0 + 24, topo_cards + 18), titulo, font=fonte(22, True), fill=DOURADO)
-
-        itens = (d_.get(chave) or [])[:5]
-        for k, item in enumerate(itens):
-            y = topo_cards + 84 + k * 102
-            cor_med = medalha[k] if k < 3 else (70, 85, 110)
-
-            # Medalha / Posição
-            d.ellipse([x0 + 24, y + 4, x0 + 72, y + 52], fill=cor_med)
-            d.text((x0 + 48, y + 28), str(k + 1), font=fonte(24, True), fill=(10, 14, 22), anchor="mm")
-
-            # Foto / Avatar do jogador (52x52px)
-            av = obter_avatar_jogador(item["jogador"], d_.get("times"), tamanho=(52, 52), cor_time=cor_med)
-            if av:
-                img.paste(av, (x0 + 90, y + 2), av)
-                d.text((x0 + 158, y + 14), item["jogador"], font=fonte(32, True), fill=TEXTO)
-            else:
-                d.text((x0 + 90, y + 14), item["jogador"], font=fonte(32, True), fill=TEXTO)
-
-            # Contagem com badge
-            qtd_str = str(item[campo])
-            d.rounded_rectangle([x0 + w_card - 100, y + 8, x0 + w_card - 24, y + 48], radius=8,
-                                fill=(24, 36, 56), outline=cor_med, width=2)
-            d.text((x0 + w_card - 62, y + 28), qtd_str, font=fonte(26, True), fill=cor_med, anchor="mm")
-
-    centralizado(d, topo_cards + h_card + 35, d_["meta"].get("pelada") or d_["meta"].get("torneio") or "", fonte(26), VERDE)
-    return img
+    return _cartela_destaques_premium(d_)
 
 
 def _cartela_assista_outros_videos_tema(d_):
@@ -1915,14 +1789,19 @@ def cartela_assista_outros_videos(d_):
     """Tela final limpa, com espaço livre para os quadros recomendados do YouTube."""
     if TEMA != "atual":
         return _cartela_assista_outros_videos_tema(d_)
-    img = criar_fundo_base(d_)
+    img = _fundo_premium(d_)
     d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, L, 7], fill=VERDE)
-    # Área central propositalmente vazia: o YouTube coloca os vídeos sugeridos aqui.
-    d.rounded_rectangle([150, 100, L - 150, A - 70], radius=28,
-                        fill=(10, 17, 29, 235), outline=(0, 255, 135, 210), width=3)
-    centralizado(d, 155, "ASSISTA ESTES OUTROS VÍDEOS", fonte(52, True), BRANCO)
-    centralizado(d, A - 125, "Obrigado por assistir", fonte(25, False), FRACO)
+    _cabecalho_premium(img, d, d_, "FIM DE JOGO", "OBRIGADO POR ASSISTIR",
+                       "Acompanhe mais partidas e melhores momentos", "ATÉ A PRÓXIMA")
+    # A área central fica livre para os quadros recomendados do YouTube.
+    x0, y0, w, h = 250, 230, 1420, 570
+    _painel_premium(d, (x0, y0, x0 + w, y0 + h), radius=26)
+    d.text((L // 2, y0 + 94), "CONTINUE NO CLIMA DO JOGO", font=fonte(16, True),
+           fill=PREMIUM_ACCENT, anchor="mm")
+    d.text((L // 2, y0 + h - 78), "ESCOLHA UM VÍDEO PARA ASSISTIR", font=fonte(18, True),
+           fill=PREMIUM_MUTED, anchor="mm")
+    d.text((L // 2, A - 92), "Nos vemos na próxima partida", font=fonte(20, False),
+           fill=PREMIUM_MUTED, anchor="mm")
     return img
 
 
