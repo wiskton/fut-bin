@@ -29,6 +29,7 @@ import shutil
 import time
 import uuid
 from typing import Any, Dict, List, Optional
+from persistencia import gravar_json_atomico
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 SESSOES_DIR = os.path.join(PROJECT_DIR, "sessoes")
@@ -65,12 +66,13 @@ def _ler_json_seguro(caminho: str) -> dict:
 
 
 def _gravar_json_atomico(caminho: str, dados: Any):
-    pasta = os.path.dirname(caminho)
-    os.makedirs(pasta, exist_ok=True)
-    tmp = caminho + f".tmp_{uuid.uuid4().hex[:6]}"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, caminho)
+    gravar_json_atomico(caminho, dados)
+
+
+def _copiar_json_atomico(origem: str, destino: str) -> None:
+    with open(origem, "r", encoding="utf-8-sig") as arquivo:
+        dados = json.load(arquivo)
+    _gravar_json_atomico(destino, dados)
 
 
 def obter_id_sessao_ativa() -> str:
@@ -203,7 +205,7 @@ def inicializar() -> dict:
                                  (ZONAS_FILE, "zonas.json")]:
             if os.path.isfile(origem):
                 try:
-                    shutil.copy2(origem, os.path.join(pasta_sessao, nome_arq))
+                    _copiar_json_atomico(origem, os.path.join(pasta_sessao, nome_arq))
                 except Exception:
                     pass
 
@@ -211,7 +213,7 @@ def inicializar() -> dict:
             gols_dest = os.path.join(pasta_sessao, "gols")
             os.makedirs(gols_dest, exist_ok=True)
             try:
-                shutil.copy2(GOLS_JSON, os.path.join(gols_dest, "gols.json"))
+                _copiar_json_atomico(GOLS_JSON, os.path.join(gols_dest, "gols.json"))
             except Exception:
                 pass
 
@@ -245,7 +247,7 @@ def salvar_sessao_atual():
         destino = os.path.join(pasta_sessao, nome_arq)
         if os.path.isfile(origem):
             try:
-                shutil.copy2(origem, destino)
+                _copiar_json_atomico(origem, destino)
             except Exception:
                 pass
         elif os.path.isfile(destino):
@@ -259,7 +261,7 @@ def salvar_sessao_atual():
         gols_dest = os.path.join(pasta_sessao, "gols")
         os.makedirs(gols_dest, exist_ok=True)
         try:
-            shutil.copy2(GOLS_JSON, os.path.join(gols_dest, "gols.json"))
+            _copiar_json_atomico(GOLS_JSON, os.path.join(gols_dest, "gols.json"))
         except Exception:
             pass
 
@@ -322,7 +324,7 @@ def _trocar_pastas_sessao(sessao_saindo_id: str, sessao_entrando_id: str):
         dest_arq = os.path.join(pasta_saindo, nome_arq)
         if os.path.isfile(raiz_arq):
             try:
-                shutil.copy2(raiz_arq, dest_arq)
+                _copiar_json_atomico(raiz_arq, dest_arq)
                 os.remove(raiz_arq)
             except OSError:
                 pass
@@ -357,11 +359,11 @@ def _trocar_pastas_sessao(sessao_saindo_id: str, sessao_entrando_id: str):
     # Restaura JSONs
     src_partida = os.path.join(pasta_entrando, "partida.json")
     if os.path.isfile(src_partida):
-        shutil.copy2(src_partida, PARTIDA_JSON)
+        _copiar_json_atomico(src_partida, PARTIDA_JSON)
 
     src_placar = os.path.join(pasta_entrando, "placar.json")
     if os.path.isfile(src_placar):
-        shutil.copy2(src_placar, PLACAR_FILE)
+        _copiar_json_atomico(src_placar, PLACAR_FILE)
     elif os.path.isfile(PLACAR_FILE):
         try:
             os.remove(PLACAR_FILE)
@@ -370,7 +372,7 @@ def _trocar_pastas_sessao(sessao_saindo_id: str, sessao_entrando_id: str):
 
     src_zonas = os.path.join(pasta_entrando, "zonas.json")
     if os.path.isfile(src_zonas):
-        shutil.copy2(src_zonas, ZONAS_FILE)
+        _copiar_json_atomico(src_zonas, ZONAS_FILE)
     elif os.path.isfile(ZONAS_FILE):
         try:
             os.remove(ZONAS_FILE)
@@ -426,8 +428,7 @@ def criar_nova_sessao(nome: Optional[str] = None, reaproveitar_times: bool = Tru
     salvar_sessao_atual()
 
     # Gera id único
-    timestamp = int(time.time())
-    novo_id = f"sessao_{timestamp}"
+    novo_id = f"sessao_{int(time.time())}_{uuid.uuid4().hex[:8]}"
 
     # Carrega dados a reaproveitar se solicitado
     times = []
@@ -556,7 +557,7 @@ def duplicar_sessao(sessao_id: str, novo_nome: Optional[str] = None) -> dict:
     if not origem_meta:
         raise ValueError(f"Sessão não encontrada: {sessao_id}")
 
-    novo_id = f"sessao_{int(time.time())}"
+    novo_id = f"sessao_{int(time.time())}_{uuid.uuid4().hex[:8]}"
     if not novo_nome:
         novo_nome = f"{origem_meta.get('nome', 'Sessão')} (Cópia)"
 
@@ -569,20 +570,28 @@ def duplicar_sessao(sessao_id: str, novo_nome: Optional[str] = None) -> dict:
 
     pasta_origem = os.path.join(SESSOES_DIR, sessao_id)
     pasta_nova = os.path.join(SESSOES_DIR, novo_id)
+    origem_ativa = obter_id_sessao_ativa() == sessao_id
     os.makedirs(pasta_nova, exist_ok=True)
 
     # Copia arquivos da sessão
     for arq in ("sessao.json", "partida.json", "placar.json", "zonas.json"):
         p = os.path.join(pasta_origem, arq)
         if os.path.isfile(p):
-            shutil.copy2(p, os.path.join(pasta_nova, arq))
+            _copiar_json_atomico(p, os.path.join(pasta_nova, arq))
 
     _gravar_json_atomico(os.path.join(pasta_nova, "sessao.json"), nova_meta)
 
     # Copia gols/ e clipes se existirem na pasta da sessão
-    gols_origem = os.path.join(pasta_origem, "gols")
+    gols_origem = GOLS_DIR if origem_ativa else os.path.join(pasta_origem, "gols")
     if os.path.isdir(gols_origem):
         shutil.copytree(gols_origem, os.path.join(pasta_nova, "gols"), dirs_exist_ok=True)
+
+    # Uma cópia da sessão deve preservar também os vídeos já renderizados.
+    for nome_pasta in ("final", "videos_jogadores"):
+        origem = (os.path.join(PROJECT_DIR, nome_pasta) if origem_ativa
+                  else os.path.join(pasta_origem, nome_pasta))
+        if os.path.isdir(origem):
+            shutil.copytree(origem, os.path.join(pasta_nova, nome_pasta), dirs_exist_ok=True)
 
     sessoes = _carregar_indice_sessoes()
     sessoes.append(nova_meta)
@@ -600,6 +609,10 @@ def excluir_sessao(sessao_id: str) -> dict:
         raise ValueError("Não é possível excluir a sessão ativa diretamente. Alterne para outra sessão antes de excluir.")
 
     sessoes = _carregar_indice_sessoes()
+    if not re.fullmatch(r"sessao_[A-Za-z0-9_-]+", sessao_id):
+        raise ValueError("Identificador de sessão inválido.")
+    if not any(s.get("id") == sessao_id for s in sessoes):
+        raise ValueError(f"Sessão não encontrada: {sessao_id}")
     sessoes_novas = [s for s in sessoes if s.get("id") != sessao_id]
     _salvar_indice_sessoes(sessoes_novas)
 

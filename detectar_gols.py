@@ -33,6 +33,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 from video_quality import clip_command
+from persistencia import gravar_json_atomico
 
 # --- amostragem ---
 SAMPLE_FPS = 5.0        # amostras por segundo
@@ -100,8 +101,7 @@ def pick_placar(video_path, arquivo):
         return None
 
     rect = [int(x / escala), int(y / escala), int(cw / escala), int(ch / escala)]
-    with open(arquivo, "w", encoding="utf-8") as f:
-        json.dump({"placar": rect}, f)
+    gravar_json_atomico(arquivo, {"placar": rect})
     crop = frame[rect[1]:rect[1] + rect[3], rect[0]:rect[0] + rect[2]]
     cv2.imwrite("placar_recorte.png", cv2.resize(crop, None, fx=8, fy=8,
                                                  interpolation=cv2.INTER_NEAREST))
@@ -585,10 +585,11 @@ def main():
     print(f"\n{len(novos)} eventos novos (de {len(limpos)} detectados agora); "
           f"{len(limpos) - len(novos)} ja estavam marcados e foram preservados.")
 
-    with open(caminho_json, "w", encoding="utf-8") as f:
-        json.dump({"video": os.path.basename(args.source_video_path), "fps": fps,
-                   "limiar": limiar, "fonte": "misto" if existentes else "placar",
-                   "gols": existentes + novos}, f, indent=2, ensure_ascii=False)
+    gravar_json_atomico(caminho_json, {
+        "video": os.path.basename(args.source_video_path), "fps": fps,
+        "limiar": limiar, "fonte": "misto" if existentes else "placar",
+        "gols": existentes + novos,
+    })
 
     print("\nCONFIRA contato_placar.png: cada linha mostra o placar antes -> depois.")
     print("Se o numero de eventos nao bate com o placar final do jogo, abra")

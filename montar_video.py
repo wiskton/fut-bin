@@ -2000,24 +2000,12 @@ def concatenar_segmentos(partes, lista, saida):
             referencia = assinatura
         duracao_total += float(dados["format"]["duration"])
     
-    # Se houver incompatibilidade, recodifica TODOS para formato consistente
     if incompativeis:
-        print(f"[>] Recodificando {len(partes)} segmentos para formato consistente...")
-        partes_recodificadas = []
-        for i, parte in enumerate(partes):
-            saida_rec = parte.replace(".mp4", "_rec.mp4")
-            print(f"   [{i+1}/{len(partes)}] {os.path.basename(parte)}")
-            roda(["ffmpeg", "-y", "-loglevel", "error", "-i", parte,
-                  "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-                  "-pix_fmt", "yuv420p",
-                  "-vf", f"scale={LV if VERTICAL else L}:{AV if VERTICAL else A}:force_original_aspect_ratio=decrease:flags=lanczos,pad={LV if VERTICAL else L}:{AV if VERTICAL else A}:-1:-1:color=black",
-                  "-r", str(FPS),
-                  "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2",
-                  "-movflags", "+faststart",
-                  "-video_track_timescale", str(VIDEO_TIMESCALE),
-                  saida_rec])
-            partes_recodificadas.append(saida_rec)
-        partes = partes_recodificadas
+        nomes = ", ".join(os.path.basename(partes[i]) for i in incompativeis)
+        raise RuntimeError(
+            f"Segmento incompativel detectado para concatenacao: {nomes}. "
+            "Gere novamente os clipes para padronizar o formato antes da montagem."
+        )
     
     with open(lista, "w", encoding="utf-8") as f:
         for parte in partes:

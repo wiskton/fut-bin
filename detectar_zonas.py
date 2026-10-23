@@ -35,6 +35,7 @@ import os
 
 import cv2
 import numpy as np
+from persistencia import gravar_json_atomico
 from tqdm import tqdm
 
 from detectar_gols import (
@@ -189,10 +190,10 @@ def main():
 
     ranking(tempos, dist, os.path.join(args.output_dir, "ranking_picos_zonas.txt"), limiar, ruido)
 
-    with open(caminho_json, "w", encoding="utf-8") as f:
-        json.dump({"video": os.path.basename(args.source_video_path), "fps": fps,
-                   "fonte": "misto", "gols": existentes + eventos},
-                  f, indent=2, ensure_ascii=False)
+    gravar_json_atomico(caminho_json, {
+        "video": os.path.basename(args.source_video_path), "fps": fps,
+        "fonte": "misto", "gols": existentes + eventos,
+    })
 
     print("\nCONFIRA cada clipe novo no passo 4 do assistente (ou assistindo o arquivo direto) -")
     print("movimento na zona erra mais que o placar: jogador passando perto ou goleiro se")

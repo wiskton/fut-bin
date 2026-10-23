@@ -103,7 +103,7 @@ run.bat site
 .\run.ps1 site
 ```
 
-Abre `http://127.0.0.1:8000` automaticamente e guia por 7 passos:
+Abre `http://127.0.0.1:8000` automaticamente e guia por 9 passos:
 
 1. **Vídeo** — navega pelas pastas do computador (um seletor tipo explorador de arquivos,
    começando em `~/Vídeos` ou `~/Downloads` se existirem) e clica no vídeo do jogo - não precisa
@@ -137,8 +137,9 @@ mandar um vídeo de vários GB pela rede seria só perda de tempo. Se preferir m
 organizados dentro do projeto, uma pasta `videos/` (crie se quiser) aparece como atalho rápido
 no topo do passo 1, mas não é obrigatória.
 
-As etapas pesadas (detecção, corte, montagem) continuam sendo os mesmos scripts de sempre, só que
-chamados em segundo plano com o log ao vivo na tela em vez de precisar abrir terminal. Se preferir
+O servidor só atende conexões da própria máquina, porque consegue ler arquivos locais e iniciar
+processamentos. As etapas pesadas (detecção, corte, montagem) continuam sendo os mesmos scripts de
+sempre, chamados em segundo plano com o log ao vivo na tela em vez de precisar abrir terminal. Se preferir
 o fluxo manual (útil pra depurar um caso difícil olhando `ranking_picos.txt`/`contato_placar.png`
 direto), ele continua funcionando normalmente - ver [Fluxo completo](#fluxo-completo) abaixo.
 

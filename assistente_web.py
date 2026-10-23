@@ -36,6 +36,7 @@ except Exception:
 
 import argparse
 import base64
+import ipaddress
 import json
 import re
 import os
@@ -48,11 +49,12 @@ import uuid
 
 from preview_video import preview_key
 from video_quality import CLIP_QUALITY_VERSION, clip_command as _comando_corte_qualidade_maxima
+from persistencia import gravar_json_atomico as _salvar_json_atomico
 from typing import List, Optional
 
 import cv2
 import numpy as np
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -62,6 +64,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from detectar_gols import ANTES_S, DEPOIS_S, MIN_INTERVALO_S
 import gerenciador_sessoes
+import rotas_sessoes
 gerenciador_sessoes.inicializar()
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -79,6 +82,11 @@ FINAL_VIDEO = os.path.join(FINAL_DIR, "melhores_momentos.mp4")
 FINAL_VIDEO_GOLS = os.path.join(FINAL_DIR, "apenas_gols.mp4")
 # Os destaques individuais são independentes dos dois vídeos finais da partida.
 PLAYER_VIDEOS_DIR = os.path.join(PROJECT_DIR, "videos_jogadores")
+VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm")
+
+
+def _salvar_json(caminho: str, dados) -> None:
+    _salvar_json_atomico(caminho, dados)
 
 def _nome_download_video(tipo: str) -> str:
     """Nome amigável do arquivo baixado, baseado nos dados da partida."""
@@ -129,6 +137,20 @@ GOLS_LOCK = threading.Lock()
 app = FastAPI(title="fut-bin - assistente")
 
 
+@app.middleware("http")
+async def bloquear_acesso_remoto(request: Request, call_next):
+    """O assistente lê arquivos locais e, por isso, só atende clientes loopback."""
+    cliente = request.client.host if request.client else ""
+    try:
+        endereco = ipaddress.ip_address(cliente)
+        local = endereco.is_loopback or bool(endereco.ipv4_mapped and endereco.ipv4_mapped.is_loopback)
+    except ValueError:
+        local = False
+    if not local:
+        return JSONResponse({"detail": "Acesso remoto desabilitado; use o assistente nesta máquina."}, status_code=403)
+    return await call_next(request)
+
+
 # --------------------------------------------------------------- utilitarios
 
 def _resolver_video(caminho: str) -> str:
@@ -139,7 +161,9 @@ def _resolver_video(caminho: str) -> str:
         raise HTTPException(400, "caminho de video nao informado")
     alvo = os.path.abspath(os.path.expanduser(caminho))
     if os.path.isfile(alvo):
-        return alvo
+        if os.path.splitext(alvo)[1].lower() in VIDEO_EXTS:
+            return alvo
+        raise HTTPException(400, "o arquivo selecionado não tem uma extensão de vídeo compatível")
     nome = os.path.basename(caminho)
     home = os.path.expanduser("~")
     candidatos = [
@@ -150,7 +174,7 @@ def _resolver_video(caminho: str) -> str:
         os.path.join(home, "Videos", nome),
     ]
     for c in candidatos:
-        if os.path.isfile(c):
+        if os.path.isfile(c) and os.path.splitext(c)[1].lower() in VIDEO_EXTS:
             return c
     raise HTTPException(404, f"video nao encontrado: {caminho}")
 
@@ -245,11 +269,37 @@ def _recorte_zoom(frame: np.ndarray, rect: List[int], zoom: int = 8) -> np.ndarr
 # --------------------------------------------------------------- jobs (processos em segundo plano)
 
 JOBS: dict = {}
+JOB_RETENTION_SECONDS = 24 * 60 * 60
+MAX_FINISHED_JOBS = 500
+
+
+def _limpar_jobs() -> None:
+    """Remove jobs finalizados antigos e limita o histórico em memória."""
+    agora = time.time()
+    finalizados = []
+    for job_id, job in list(JOBS.items()):
+        if job.get("status") in ("done", "error", "canceled"):
+            criado = job.get("iniciado_em", agora)
+            if agora - criado > JOB_RETENTION_SECONDS:
+                JOBS.pop(job_id, None)
+            else:
+                finalizados.append((criado, job_id))
+    for _, job_id in sorted(finalizados)[:-MAX_FINISHED_JOBS]:
+        JOBS.pop(job_id, None)
+    preview_jobs = globals().get("PREVIEW_JOBS")
+    preview_lock = globals().get("PREVIEW_LOCK")
+    if preview_jobs is not None and preview_lock is not None:
+        with preview_lock:
+            for key, job_id in list(preview_jobs.items()):
+                job = JOBS.get(job_id)
+                if job is None or job.get("status") in ("done", "error", "canceled"):
+                    preview_jobs.pop(key, None)
 
 
 def _iniciar_job(cmd: List[str], pos=None) -> str:
     """`pos` (opcional) roda quando o processo termina bem, antes de o job virar "done"."""
-    job_id = uuid.uuid4().hex[:8]
+    _limpar_jobs()
+    job_id = uuid.uuid4().hex
     job = {"status": "queued", "log": [], "linha_atual": "", "returncode": None,
            "lock": threading.Lock(), "iniciado_em": time.time()}
     JOBS[job_id] = job
@@ -298,8 +348,7 @@ def _alinhar_eventos_novos(indices_antes: set, offset_s: float, video_ref: Optio
         dados["gols"] = finais
     if video_ref:
         dados["video"] = os.path.basename(video_ref)
-    with open(GOLS_JSON, "w", encoding="utf-8") as f:
-        json.dump(dados, f, indent=2, ensure_ascii=False)
+    _salvar_json(GOLS_JSON, dados)
 
 
 def _rodar_job(job: dict, cmd: List[str], pos=None) -> None:
@@ -388,6 +437,7 @@ def _notificar_sistema(titulo: str, msg: str) -> None:
 
 @app.get("/api/job/{job_id}")
 def api_job(job_id: str):
+    _limpar_jobs()
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(404, "job desconhecido")
@@ -400,6 +450,7 @@ def api_job(job_id: str):
 
 @app.post("/api/job/{job_id}/cancelar")
 def api_cancelar_job(job_id: str):
+    _limpar_jobs()
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(404, "job desconhecido")
@@ -457,9 +508,6 @@ def api_videos():
                 "duracao_s": _ffprobe_duracao(caminho),
             })
     return resultado
-
-
-VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".avi")
 
 
 @app.get("/api/videos/buscar")
@@ -534,7 +582,7 @@ def video_completo(video: Optional[str] = None):
 # Cópias leves são exclusivas da visualização; os cortes usam o original.
 PREVIEW_DIR = os.path.join(PROJECT_DIR, ".preview_cache")
 PREVIEW_JOBS = {}
-PREVIEW_LOCK = threading.Lock()
+PREVIEW_LOCK = threading.RLock()
 
 
 class PreviewBody(BaseModel):
@@ -688,7 +736,9 @@ def api_sincronizar_cameras(payload: dict = Body(...)):
         raise HTTPException(400, 'Selecione a câmera principal e câmeras distintas.')
     with SYNC_LOCK:
         for key in list(SYNC_JOBS):
-            if time.monotonic()-SYNC_JOBS[key]['criado'] > 3600:
+            job_antigo = SYNC_JOBS[key]
+            terminou = job_antigo.get('status') in ('concluido', 'cancelado', 'erro')
+            if terminou and time.monotonic() - job_antigo['criado'] > 3600:
                 del SYNC_JOBS[key]
         if any(j['status']=='executando' for j in SYNC_JOBS.values()):
             raise HTTPException(409, 'Já existe uma sincronização em andamento. Aguarde terminar.')
@@ -759,8 +809,7 @@ def api_salvar_placar(body: PlacarRect):
     if len(body.rect) != 4 or body.rect[2] <= 0 or body.rect[3] <= 0:
         raise HTTPException(400, "retangulo invalido")
     video = _resolver_video(body.video)
-    with open(PLACAR_FILE, "w", encoding="utf-8") as f:
-        json.dump({"placar": body.rect}, f)
+    _salvar_json(PLACAR_FILE, {"placar": body.rect})
     frame = _capturar_frame(video, body.tempo_s)
     if frame is None:
         return {"ok": True, "preview": None}
@@ -813,8 +862,7 @@ def api_salvar_zonas(body: ZonasBody):
         if len(r) != 4 or r[2] <= 0 or r[3] <= 0:
             raise HTTPException(400, "retangulo invalido")
     _resolver_video(body.video)
-    with open(ZONAS_FILE, "w", encoding="utf-8") as f:
-        json.dump({"zonas": body.zonas}, f)
+    _salvar_json(ZONAS_FILE, {"zonas": body.zonas})
     return {"ok": True, "total": len(body.zonas)}
 
 
@@ -976,9 +1024,8 @@ def api_confirmar_gols(body: ConfirmarGols):
 
     finais.sort(key=lambda ev: ev.get("indice", 0))
     os.makedirs(GOLS_DIR, exist_ok=True)
-    with open(GOLS_JSON, "w", encoding="utf-8") as f:
-        json.dump({"video": os.path.basename(video), "fonte": "misto" if existentes else "revisado",
-                   "gols": finais}, f, indent=2, ensure_ascii=False)
+    _salvar_json(GOLS_JSON, {"video": os.path.basename(video), "fonte": "misto" if existentes else "revisado",
+                   "gols": finais})
     return {"ok": True, "total": len(finais)}
 
 
@@ -1028,8 +1075,7 @@ def _atualizar_partida_indices(mapa_indices: dict):
                         item["i"] = mapa_indices[old]
         if "descartados" in partida and isinstance(partida["descartados"], list):
             partida["descartados"] = [mapa_indices.get(idx, idx) for idx in partida["descartados"]]
-        with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-            json.dump(partida, f, indent=2, ensure_ascii=False)
+        _salvar_json(PARTIDA_JSON, partida)
     except Exception:
         pass
 
@@ -1108,8 +1154,7 @@ def api_adicionar_gol(body: AdicionarGol):
 
     dados["gols"] = existentes
     os.makedirs(GOLS_DIR, exist_ok=True)
-    with open(GOLS_JSON, "w", encoding="utf-8") as f:
-        json.dump(dados, f, indent=2, ensure_ascii=False)
+    _salvar_json(GOLS_JSON, dados)
 
     # Corta APENAS o novo clipe diretamente com ffmpeg para o arquivo exclusivo
     dur = round(fim_s - inicio_s, 2)
@@ -1146,8 +1191,7 @@ def api_adicionar_gol(body: AdicionarGol):
                 novo_p["assist"] = None
                 novo_p["destaque"] = None
                 partida["_todosGols"].append(novo_p)
-            with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                json.dump(partida, f, indent=2, ensure_ascii=False)
+            _salvar_json(PARTIDA_JSON, partida)
         except Exception:
             pass
 
@@ -1208,8 +1252,7 @@ def api_ajustar_zoom_clipe(body: AjustarZoomClipe):
         if not evento:
             raise HTTPException(404, "Clipe nao encontrado")
         montar_video.definir_zoom_camera(evento, camera, zoom, zoom_x, zoom_y)
-        with open(GOLS_JSON, "w", encoding="utf-8") as f:
-            json.dump(dados, f, indent=2, ensure_ascii=False)
+        _salvar_json(GOLS_JSON, dados)
 
         if os.path.exists(PARTIDA_JSON):
             try:
@@ -1219,8 +1262,7 @@ def api_ajustar_zoom_clipe(body: AjustarZoomClipe):
                     for item in partida.get(lista_nome, []):
                         if item.get("indice") == body.indice:
                             montar_video.definir_zoom_camera(item, camera, zoom, zoom_x, zoom_y)
-                with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                    json.dump(partida, f, indent=2, ensure_ascii=False)
+                _salvar_json(PARTIDA_JSON, partida)
             except Exception:
                 pass
     return {"ok": True, "zoom": zoom, "zoom_x": zoom_x, "zoom_y": zoom_y, "camera": camera}
@@ -1321,8 +1363,7 @@ def api_confirmar_gol(body: ConfirmarGol):
                     if "assist" in fields and body.assist is not None: ev["assist"] = body.assist
                     if "destaque" in fields and body.destaque is not None: ev["destaque"] = body.destaque
 
-        with open(GOLS_JSON, "w", encoding="utf-8") as f:
-            json.dump(dados, f, indent=2, ensure_ascii=False)
+        _salvar_json(GOLS_JSON, dados)
 
         # Atualiza em partida.json se existir
         if os.path.exists(PARTIDA_JSON):
@@ -1421,8 +1462,7 @@ def api_confirmar_gol(body: ConfirmarGol):
                         "fonte": ev_info.get("fonte")
                     })
 
-                with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                    json.dump(p, f, indent=2, ensure_ascii=False)
+                _salvar_json(PARTIDA_JSON, p)
             except Exception:
                 pass
 
@@ -1463,8 +1503,7 @@ def api_descartar_gol(body: DescartarGol):
                     dados = json.load(f)
                 restantes = [ev for ev in dados.get("gols", []) if ev.get("indice") != body.indice]
                 dados["gols"] = restantes
-                with open(GOLS_JSON, "w", encoding="utf-8") as f:
-                    json.dump(dados, f, indent=2, ensure_ascii=False)
+                _salvar_json(GOLS_JSON, dados)
             except Exception:
                 pass
 
@@ -1480,8 +1519,7 @@ def api_descartar_gol(body: DescartarGol):
                     p["_todosGols"] = [g for g in p["_todosGols"] if g.get("indice") != body.indice]
                 if "descartados" in p and isinstance(p["descartados"], list):
                     p["descartados"] = [d for d in p["descartados"] if d != body.indice]
-                with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                    json.dump(p, f, indent=2, ensure_ascii=False)
+                _salvar_json(PARTIDA_JSON, p)
             except Exception:
                 pass
 
@@ -1721,6 +1759,8 @@ def video_clipe_camera(indice: int, camera: int):
 
 @app.api_route("/video/clipes/{nome}", methods=["GET", "HEAD"])
 def video_clipe(nome: str):
+    if os.path.basename(nome) != nome or not nome.lower().endswith(".mp4"):
+        raise HTTPException(404)
     caminho = os.path.join(CLIPES_DIR, nome)
     if not os.path.isfile(caminho):
         raise HTTPException(404)
@@ -1752,8 +1792,7 @@ def api_salvar_partida(payload: dict = Body(...)):
                     meta[chave] = antigo[chave]
         except Exception:
             pass
-    with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+    _salvar_json(PARTIDA_JSON, payload)
     try:
         gerenciador_sessoes.salvar_sessao_atual()
     except Exception:
@@ -1838,8 +1877,7 @@ def api_upload_foto_jogador(body: UploadFotoJogadorPayload):
                     for t in times:
                         if jogador in t.get("jogadores", []):
                             t.setdefault("fotos", {})[jogador] = rel_url
-                with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                    json.dump(p, f, indent=2, ensure_ascii=False)
+                _salvar_json(PARTIDA_JSON, p)
             except Exception:
                 pass
 
@@ -1875,8 +1913,7 @@ def api_remover_foto_jogador(body: RemoverFotoJogadorPayload):
             else:
                 for t in times:
                     t.get("fotos", {}).pop(jogador, None)
-            with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                json.dump(p, f, indent=2, ensure_ascii=False)
+            _salvar_json(PARTIDA_JSON, p)
         except Exception:
             pass
     return {"ok": True}
@@ -1989,8 +2026,7 @@ def api_salvar_fundo_cartela(body: AjustarFundoPayload):
                 p["meta"] = {}
             p["meta"]["fundo_cartela"] = "fundo_cartela.png"
             p["meta"]["fundo_config"] = body.model_dump() if hasattr(body, "model_dump") else body.dict()
-            with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                json.dump(p, f, indent=2, ensure_ascii=False)
+            _salvar_json(PARTIDA_JSON, p)
         except Exception:
             pass
     
@@ -2012,14 +2048,12 @@ def api_restaurar_fundo_cartela():
             if "meta" in p:
                 p["meta"].pop("fundo_cartela", None)
                 p["meta"].pop("fundo_config", None)
-            with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-                json.dump(p, f, indent=2, ensure_ascii=False)
+            _salvar_json(PARTIDA_JSON, p)
         except Exception:
             pass
     return {"ok": True}
 
 
-@app.get("/api/cartelas/preview/{tipo}")
 @app.get("/api/cartelas/preview/{tipo}")
 def api_preview_cartela(tipo: str, tema: str = "atual"):
     import io
@@ -2248,93 +2282,6 @@ def api_videos_jogadores():
     return {"videos": videos}
 
 
-# --------------------------------------------------------------- sessoes (multi-video / historico)
-
-class CriarSessaoBody(BaseModel):
-    nome: Optional[str] = None
-    reaproveitar_times: bool = True
-
-
-class RenomearSessaoBody(BaseModel):
-    nome: str
-
-
-class DuplicarSessaoBody(BaseModel):
-    nome: Optional[str] = None
-
-
-@app.get("/api/sessoes")
-def api_sessoes_listar():
-    return {
-        "sessao_ativa_id": gerenciador_sessoes.obter_id_sessao_ativa(),
-        "sessoes": gerenciador_sessoes.listar_sessoes(),
-    }
-
-
-@app.post("/api/sessoes/criar")
-def api_sessoes_criar(body: CriarSessaoBody = Body(default_factory=CriarSessaoBody)):
-    ocupados = [j for j in list(JOBS.values()) + list(SYNC_JOBS.values())
-                if j.get("status") in ("running", "queued", "executando")]
-    if ocupados:
-        raise HTTPException(409, "Há um processamento em andamento. Cancele ou aguarde antes de criar outra sessão.")
-    try:
-        sessao = gerenciador_sessoes.criar_nova_sessao(nome=body.nome, reaproveitar_times=body.reaproveitar_times)
-        _DURACAO_CACHE.clear()
-        return {"ok": True, "sessao": sessao}
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-
-@app.post("/api/sessoes/{sessao_id}/ativar")
-def api_sessoes_ativar(sessao_id: str):
-    ocupados = [j for j in list(JOBS.values()) + list(SYNC_JOBS.values())
-                if j.get("status") in ("running", "queued", "executando")]
-    if ocupados:
-        raise HTTPException(409, "Há um processamento em andamento. Cancele ou aguarde antes de trocar de sessão.")
-    try:
-        sessao = gerenciador_sessoes.ativar_sessao(sessao_id)
-        _DURACAO_CACHE.clear()
-        return {"ok": True, "sessao": sessao}
-    except Exception as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/api/sessoes/{sessao_id}/renomear")
-def api_sessoes_renomear(sessao_id: str, body: RenomearSessaoBody):
-    try:
-        sessao = gerenciador_sessoes.renomear_sessao(sessao_id, body.nome)
-        return {"ok": True, "sessao": sessao}
-    except Exception as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/api/sessoes/{sessao_id}/duplicar")
-def api_sessoes_duplicar(sessao_id: str, body: DuplicarSessaoBody = Body(default_factory=DuplicarSessaoBody)):
-    try:
-        sessao = gerenciador_sessoes.duplicar_sessao(sessao_id, body.nome)
-        return {"ok": True, "sessao": sessao}
-    except Exception as e:
-        raise HTTPException(400, str(e))
-
-
-@app.delete("/api/sessoes/{sessao_id}")
-def api_sessoes_excluir(sessao_id: str):
-    try:
-        res = gerenciador_sessoes.excluir_sessao(sessao_id)
-        return res
-    except Exception as e:
-        raise HTTPException(400, str(e))
-
-
-@app.post("/api/sessoes/salvar")
-def api_sessoes_salvar():
-    try:
-        gerenciador_sessoes.salvar_sessao_atual()
-        return {"ok": True}
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-
 # --------------------------------------------------------------- estado (retomar de onde parou)
 
 @app.get("/api/estado")
@@ -2406,8 +2353,7 @@ def api_novo_corte():
             "meta": {k: meta[k] for k in ("data", "comp", "local", "pelada", "placar_jogo") if k in meta},
             "times": antiga.get("times") or [],
         }
-        with open(PARTIDA_JSON, "w", encoding="utf-8") as f:
-            json.dump(nova, f, ensure_ascii=False, indent=2)
+        _salvar_json(PARTIDA_JSON, nova)
     for arq in (PLACAR_FILE, ZONAS_FILE):
         if os.path.isfile(arq):
             os.remove(arq)
@@ -2444,8 +2390,7 @@ def _carregar_jogadores():
 
 def _salvar_jogadores(jogadores: list):
     """Salva lista de jogadores no jogadores.json"""
-    with open(JOGADORES_JSON, "w", encoding="utf-8") as f:
-        json.dump({"jogadores": jogadores}, f, indent=2, ensure_ascii=False)
+    _salvar_json(JOGADORES_JSON, {"jogadores": jogadores})
 
 
 @app.get("/api/jogadores")
@@ -2614,6 +2559,12 @@ def favicon():
 
 app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
 
+# Rotas de sessões isoladas para manter este módulo focado no pipeline de vídeo.
+app.state.jobs = JOBS
+app.state.sync_jobs = SYNC_JOBS
+app.state.duracao_cache = _DURACAO_CACHE
+app.include_router(rotas_sessoes.router)
+
 
 def main():
     import uvicorn
@@ -2622,6 +2573,13 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--reload", action="store_true", default=False)
     args = ap.parse_args()
+    host = args.host.strip().lower().strip("[]")
+    try:
+        host_local = host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        host_local = False
+    if not host_local:
+        ap.error("por segurança, o servidor só pode escutar em localhost/loopback")
     try:
         data_dir = os.path.expanduser("~/.local/share/fut-bin")
         os.makedirs(data_dir, exist_ok=True)

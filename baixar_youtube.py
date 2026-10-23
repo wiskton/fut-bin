@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import yt_dlp
+from persistencia import gravar_json_atomico
 
 
 def main():
@@ -89,8 +90,7 @@ def main():
             }
 
             meta_caminho = args.meta_file or os.path.join(args.output_dir, ".ultimo_download.json")
-            with open(meta_caminho, "w", encoding="utf-8") as f:
-                json.dump(meta, f, indent=2, ensure_ascii=False)
+            gravar_json_atomico(meta_caminho, meta)
 
             print(f"\n✓ Vídeo pronto! Salvo em: {os.path.abspath(arquivo_mp4)}", flush=True)
             print(f"METADADOS_JSON: {json.dumps(meta)}", flush=True)

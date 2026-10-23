@@ -35,6 +35,7 @@ import os
 
 import cv2
 import numpy as np
+from persistencia import gravar_json_atomico
 from tqdm import tqdm
 
 ZOOM = 7           # ampliacao de cada miniatura
@@ -146,9 +147,9 @@ def gerar_json(caminho_tempos, video_path, saida):
         })
     os.makedirs(saida, exist_ok=True)
     destino = os.path.join(saida, "gols.json")
-    with open(destino, "w", encoding="utf-8") as f:
-        json.dump({"video": os.path.basename(video_path), "fonte": "manual",
-                   "gols": eventos}, f, indent=2, ensure_ascii=False)
+    gravar_json_atomico(destino, {
+        "video": os.path.basename(video_path), "fonte": "manual", "gols": eventos,
+    })
     print(f"{len(eventos)} gols gravados em {destino}")
     for ev in eventos:
         print(f"  #{ev['indice']:02d}  {ev['tempo']}   "
