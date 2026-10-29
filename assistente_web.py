@@ -1033,6 +1033,7 @@ def api_confirmar_gols(body: ConfirmarGols):
 
 class IniciarCorte(BaseModel):
     video: str
+    encoder: Optional[str] = None
 
 
 @app.post("/api/cortar/iniciar")
@@ -1040,8 +1041,10 @@ def api_iniciar_corte(body: IniciarCorte):
     video = _resolver_video(body.video)
     if not os.path.exists(GOLS_JSON):
         raise HTTPException(400, "confirme os gols antes de cortar")
+    from video_quality import obter_encoder_configurado
+    enc = body.encoder or obter_encoder_configurado()
     cmd = [PYTHON_EXEC, os.path.join(PROJECT_DIR, "detectar_gols.py"), "--source_video_path", video,
-           "--cortar", "--output_dir", "gols", "--placar_file", "placar.json"]
+           "--cortar", "--output_dir", "gols", "--placar_file", "placar.json", "--encoder", enc]
     return {"job_id": _iniciar_job(cmd)}
 
 
@@ -1410,7 +1413,8 @@ def api_confirmar_gol(body: ConfirmarGol):
                                 g.pop("autor", None)
                                 g.pop("assist", None)
 
-                # Mantem sincronizadas as listas gols e lances em partida.json
+                # Mantem sincronizadas as listas gols e lances em partida.json sem perder tempos
+                old_item = next((item for item in p.get("gols", []) + p.get("lances", []) if item.get("indice") == body.indice), None)
                 p["gols"] = [g for g in p.get("gols", []) if g.get("indice") != body.indice]
                 p["lances"] = [l for l in p.get("lances", []) if l.get("indice") != body.indice]
 
@@ -1420,15 +1424,22 @@ def api_confirmar_gol(body: ConfirmarGol):
                 assist_val = body.assist if body.assist is not None else ev_info.get("assist")
                 destaque_val = body.destaque if body.destaque is not None else ev_info.get("destaque")
 
+                tempo_salvar = ev_info.get("tempo") or (old_item.get("tempo") if old_item else None)
+                tempo_s_salvar = ev_info.get("tempo_s") if ev_info.get("tempo_s") is not None else (old_item.get("tempo_s") if old_item else None)
+                inicio_s_salvar = ev_info.get("inicio_s") if ev_info.get("inicio_s") is not None else (old_item.get("inicio_s") if old_item else None)
+                fim_s_salvar = ev_info.get("fim_s") if ev_info.get("fim_s") is not None else (old_item.get("fim_s") if old_item else None)
+                if tempo_s_salvar is not None and (not tempo_salvar or tempo_salvar == "00:00"):
+                    tempo_salvar = _fmt_tempo(tempo_s_salvar)
+
                 if body.status == "gol" and autor_val and time_val is not None:
                     times_list = p.get("times", [])
                     time_nome = times_list[time_val]["nome"] if (time_val is not None and time_val < len(times_list)) else None
                     p["gols"].append({
                         "indice": body.indice,
-                        "tempo": ev_info.get("tempo"),
-                        "tempo_s": ev_info.get("tempo_s"),
-                        "inicio_s": ev_info.get("inicio_s"),
-                        "fim_s": ev_info.get("fim_s"),
+                        "tempo": tempo_salvar,
+                        "tempo_s": tempo_s_salvar,
+                        "inicio_s": inicio_s_salvar,
+                        "fim_s": fim_s_salvar,
                         "tipo": "gol",
                         "status": "gol",
                         "time": time_val,
@@ -1445,10 +1456,10 @@ def api_confirmar_gol(body: ConfirmarGol):
                 elif body.status and body.status != "gol":
                     p["lances"].append({
                         "indice": body.indice,
-                        "tempo": ev_info.get("tempo"),
-                        "tempo_s": ev_info.get("tempo_s"),
-                        "inicio_s": ev_info.get("inicio_s"),
-                        "fim_s": ev_info.get("fim_s"),
+                        "tempo": tempo_salvar,
+                        "tempo_s": tempo_s_salvar,
+                        "inicio_s": inicio_s_salvar,
+                        "fim_s": fim_s_salvar,
                         "tipo": "lance",
                         "status": body.status,
                         "lance": body.lance or ev_info.get("lance") or "Lance",
@@ -1538,9 +1549,15 @@ def api_clipes():
         try:
             with open(PARTIDA_JSON, encoding="utf-8-sig") as pf:
                 p_data = json.load(pf)
-                for g in p_data.get("_todosGols", []):
-                    if "indice" in g:
+                for g in (p_data.get("_todosGols", []) or []):
+                    if isinstance(g, dict) and "indice" in g:
                         partida_meta[g["indice"]] = g
+                for g in (p_data.get("gols", []) or []):
+                    if isinstance(g, dict) and "indice" in g:
+                        partida_meta.setdefault(g["indice"], g)
+                for l in (p_data.get("lances", []) or []):
+                    if isinstance(l, dict) and "indice" in l:
+                        partida_meta.setdefault(l["indice"], l)
         except Exception:
             pass
 
@@ -1556,15 +1573,31 @@ def api_clipes():
         ev = eventos.get(indice, {})
         p_ev = partida_meta.get(indice, {})
 
-        inicio_s = ev.get("inicio_s")
-        fim_s = ev.get("fim_s")
-        tempo_s = ev.get("tempo_s")
+        inicio_s = ev.get("inicio_s") if ev.get("inicio_s") is not None else p_ev.get("inicio_s")
+        fim_s = ev.get("fim_s") if ev.get("fim_s") is not None else p_ev.get("fim_s")
+        tempo_s = ev.get("tempo_s") if ev.get("tempo_s") is not None else p_ev.get("tempo_s")
+        tempo_str = ev.get("tempo") or p_ev.get("tempo")
+
+        if tempo_s is None and tempo_str:
+            partes = str(tempo_str).split(":")
+            try:
+                if len(partes) == 3:
+                    tempo_s = int(partes[0]) * 3600 + int(partes[1]) * 60 + float(partes[2])
+                elif len(partes) == 2:
+                    tempo_s = int(partes[0]) * 60 + float(partes[1])
+                elif len(partes) == 1:
+                    tempo_s = float(partes[0])
+            except (ValueError, TypeError):
+                pass
+
         if inicio_s is None and tempo_s is not None:
             inicio_s = max(0.0, tempo_s - 20.0)
         if fim_s is None and tempo_s is not None:
             fim_s = tempo_s + 4.0
         if tempo_s is None and inicio_s is not None:
             tempo_s = inicio_s + 20.0
+        if (not tempo_str or tempo_str in ("00:00", "--:--")) and tempo_s is not None:
+            tempo_str = _fmt_tempo(tempo_s)
 
         status_val = ev.get("status")
         lance_val = ev.get("lance")
@@ -1859,7 +1892,7 @@ def api_upload_foto_jogador(body: UploadFotoJogadorPayload):
         img.thumbnail((300, 300), Image.Resampling.LANCZOS)
 
         slug = re.sub(r'[^a-zA-Z0-9_-]', '_', jogador.lower())
-        nome_arquivo = f"{slug}.png"
+        nome_arquivo = f"{slug}_t2.png" if body.time_idx == 1 else f"{slug}.png"
         caminho_foto = os.path.join(FOTOS_DIR, nome_arquivo)
         img.save(caminho_foto, "PNG")
 
@@ -1880,6 +1913,24 @@ def api_upload_foto_jogador(body: UploadFotoJogadorPayload):
                 _salvar_json(PARTIDA_JSON, p)
             except Exception:
                 pass
+
+        # Também atualiza no banco de jogadores cadastrados se existir
+        try:
+            jog_cadastrados = _carregar_jogadores()
+            alterou_cad = False
+            for j in jog_cadastrados:
+                if (j.get("apelido") and j.get("apelido").strip().lower() == jogador.lower()) or (j.get("nome") and j.get("nome").strip().lower() == jogador.lower()):
+                    if body.time_idx == 1:
+                        j["foto2"] = rel_url
+                    else:
+                        j["foto"] = rel_url
+                        j["foto1"] = rel_url
+                    alterou_cad = True
+                    break
+            if alterou_cad:
+                _salvar_jogadores(jog_cadastrados)
+        except Exception:
+            pass
 
         return {"ok": True, "url": rel_url, "jogador": jogador}
     except Exception as e:
@@ -2151,8 +2202,9 @@ def api_iniciar_montagem(body: IniciarMontagem):
         cmd.extend(["--crf", str(body.crf)])
     if body.preset:
         cmd.extend(["--preset", str(body.preset)])
-    if body.codec:
-        cmd.extend(["--codec", str(body.codec)])
+    from video_quality import obter_encoder_configurado
+    codec_usar = body.codec if (body.codec and body.codec != "auto") else obter_encoder_configurado()
+    cmd.extend(["--codec", str(codec_usar)])
     if body.resolucao in (480, 720, 1080, 1440, 2160):
         cmd.extend(["--resolucao", str(body.resolucao)])
     if body.formato == "9:16":
@@ -2284,6 +2336,119 @@ def api_videos_jogadores():
 
 # --------------------------------------------------------------- estado (retomar de onde parou)
 
+
+_HW_INFO_CACHE = None
+
+
+def detectar_hardware_video():
+    """Detecta automaticamente se há GPU NVIDIA (NVENC), AMD (AMF) ou Intel (QSV) disponível."""
+    global _HW_INFO_CACHE
+    if _HW_INFO_CACHE is not None:
+        return _HW_INFO_CACHE
+
+    nomes_gpu = []
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+            capture_output=True, text=True, timeout=5
+        )
+        if r.returncode == 0:
+            nomes_gpu = [linha.strip() for linha in r.stdout.splitlines() if linha.strip()]
+    except Exception:
+        pass
+
+    def _testar(codec_name):
+        try:
+            r = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "testsrc=duration=1:size=320x240:rate=10",
+                 "-c:v", codec_name, "-f", "null", "-"],
+                capture_output=True, text=True, timeout=4
+            )
+            return r.returncode == 0
+        except Exception:
+            return False
+
+    tem_nvidia = _testar("h264_nvenc")
+    tem_amd = _testar("h264_amf")
+    tem_intel = _testar("h264_qsv")
+
+    gpu_tipo = "nenhum"
+    encoder_gpu = None
+    gpu_nome = "Placa de Vídeo"
+
+    if tem_nvidia:
+        gpu_tipo = "nvidia"
+        encoder_gpu = "h264_nvenc"
+        for n in nomes_gpu:
+            if any(k in n.lower() for k in ("nvidia", "geforce", "rtx", "gtx")):
+                gpu_nome = n
+                break
+        if gpu_nome == "Placa de Vídeo": gpu_nome = "NVIDIA (NVENC)"
+    elif tem_amd:
+        gpu_tipo = "amd"
+        encoder_gpu = "h264_amf"
+        for n in nomes_gpu:
+            if any(k in n.lower() for k in ("amd", "radeon")):
+                gpu_nome = n
+                break
+        if gpu_nome == "Placa de Vídeo": gpu_nome = "AMD Radeon (AMF)"
+    elif tem_intel:
+        gpu_tipo = "intel"
+        encoder_gpu = "h264_qsv"
+        for n in nomes_gpu:
+            if any(k in n.lower() for k in ("intel", "arc", "iris", "uhd")):
+                gpu_nome = n
+                break
+        if gpu_nome == "Placa de Vídeo": gpu_nome = "Intel (QuickSync QSV)"
+
+    _HW_INFO_CACHE = {
+        "gpu_disponivel": gpu_tipo != "nenhum",
+        "gpu_tipo": gpu_tipo,
+        "gpu_nome": gpu_nome,
+        "encoder_gpu": encoder_gpu,
+        "encoders_disponiveis": {
+            "nvidia": tem_nvidia,
+            "amd": tem_amd,
+            "intel": tem_intel,
+            "cpu": True
+        },
+        "gpus_detectadas": nomes_gpu
+    }
+    return _HW_INFO_CACHE
+
+
+
+class ConfigRender(BaseModel):
+    encoder: str
+
+
+@app.get("/api/config/render")
+def api_get_config_render():
+    from video_quality import obter_encoder_configurado
+    return {"encoder": obter_encoder_configurado()}
+
+
+@app.post("/api/config/render")
+def api_set_config_render(body: ConfigRender):
+    encoder = str(body.encoder).strip()
+    config_file = os.path.join(PROJECT_DIR, "render_config.json")
+    _salvar_json(config_file, {"encoder": encoder})
+    if os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                p = json.load(f)
+            p.setdefault("meta", {})["render_encoder"] = encoder
+            _salvar_json(PARTIDA_JSON, p)
+        except Exception:
+            pass
+    return {"ok": True, "encoder": encoder}
+
+
+@app.get("/api/hardware")
+def api_hardware():
+    return detectar_hardware_video()
+
+
 @app.get("/api/estado")
 def api_estado():
     n_gols = 0
@@ -2406,6 +2571,8 @@ class JogadorNovo(BaseModel):
     posicao: Optional[str] = None
     numero: Optional[int] = None
     foto: Optional[str] = None
+    foto1: Optional[str] = None
+    foto2: Optional[str] = None
 
 
 @app.post("/api/jogadores")
@@ -2418,13 +2585,16 @@ def api_adicionar_jogador(jogador: JogadorNovo):
     while any(j.get("id") == novo_id for j in jogadores):
         novo_id = str(uuid.uuid4())[:8]
     
+    f1 = jogador.foto1 or jogador.foto
     novo_jogador = {
         "id": novo_id,
         "nome": jogador.nome.strip(),
         "apelido": jogador.apelido.strip() if jogador.apelido else None,
         "posicao": jogador.posicao,
         "numero": jogador.numero,
-        "foto": jogador.foto,
+        "foto": f1,
+        "foto1": f1,
+        "foto2": jogador.foto2,
     }
     
     jogadores.append(novo_jogador)
@@ -2445,8 +2615,12 @@ def api_atualizar_jogador(jogador_id: str, jogador: JogadorNovo):
             j["apelido"] = jogador.apelido.strip() if jogador.apelido else None
             j["posicao"] = jogador.posicao
             j["numero"] = jogador.numero
-            if jogador.foto:
-                j["foto"] = jogador.foto
+            if jogador.foto is not None or jogador.foto1 is not None:
+                f1 = jogador.foto1 if jogador.foto1 is not None else jogador.foto
+                j["foto"] = f1 if f1 != "" else None
+                j["foto1"] = f1 if f1 != "" else None
+            if jogador.foto2 is not None:
+                j["foto2"] = jogador.foto2 if jogador.foto2 != "" else None
             encontrado = True
             break
     
@@ -2482,27 +2656,32 @@ def api_remover_jogador(jogador_id: str):
 
 
 @app.post("/api/jogadores/{jogador_id}/foto")
-async def api_upload_foto_jogador(jogador_id: str, foto: bytes = Body(...)):
-    """Upload de foto para um jogador"""
+async def api_upload_foto_jogador(jogador_id: str, slot: int = 1, foto: bytes = Body(...)):
+    """Upload de foto para um jogador (slot=1 para Foto 1/Time 1, slot=2 para Foto 2/Time 2)"""
     jogadores = _carregar_jogadores()
     
     jogador = next((j for j in jogadores if j.get("id") == jogador_id), None)
     if not jogador:
         raise HTTPException(404, "Jogador não encontrado")
     
-    # Cria diretório de fotos se não existir
     foto_dir = os.path.join(WEB_DIR, "fotos_jogadores")
     os.makedirs(foto_dir, exist_ok=True)
     
-    # Remove foto antiga se existir
+    prefixo = f"{jogador_id}_foto{slot}_"
     for arquivo in os.listdir(foto_dir):
-        if arquivo.startswith(f"{jogador_id}_"):
-            try:
-                os.remove(os.path.join(foto_dir, arquivo))
-            except Exception:
-                pass
+        if slot == 1:
+            if arquivo.startswith(prefixo) or (arquivo.startswith(f"{jogador_id}_") and "_foto2_" not in arquivo and "_foto1_" not in arquivo):
+                try:
+                    os.remove(os.path.join(foto_dir, arquivo))
+                except Exception:
+                    pass
+        elif slot == 2:
+            if arquivo.startswith(prefixo):
+                try:
+                    os.remove(os.path.join(foto_dir, arquivo))
+                except Exception:
+                    pass
     
-    # Salva nova foto
     extensao = "jpg"
     try:
         from PIL import Image
@@ -2515,21 +2694,58 @@ async def api_upload_foto_jogador(jogador_id: str, foto: bytes = Body(...)):
     except Exception:
         pass
     
-    nome_arquivo = f"{jogador_id}_{int(time.time())}.{extensao}"
+    nome_arquivo = f"{jogador_id}_foto{slot}_{int(time.time())}.{extensao}"
     caminho_foto = os.path.join(foto_dir, nome_arquivo)
     
     with open(caminho_foto, "wb") as f:
         f.write(foto)
     
-    # Atualiza referência no jogador
+    rel_url = f"/web/fotos_jogadores/{nome_arquivo}"
+    
     for j in jogadores:
         if j.get("id") == jogador_id:
-            j["foto"] = f"/web/fotos_jogadores/{nome_arquivo}"
+            if slot == 2:
+                j["foto2"] = rel_url
+            else:
+                j["foto"] = rel_url
+                j["foto1"] = rel_url
             break
     
     _salvar_jogadores(jogadores)
+    return {"ok": True, "foto": rel_url, "slot": slot}
+
+
+@app.delete("/api/jogadores/{jogador_id}/foto")
+def api_remover_foto_slot(jogador_id: str, slot: int = 1):
+    """Remove a foto de um slot específico do jogador"""
+    jogadores = _carregar_jogadores()
+    jogador = next((j for j in jogadores if j.get("id") == jogador_id), None)
+    if not jogador:
+        raise HTTPException(404, "Jogador não encontrado")
     
-    return {"ok": True, "foto": f"/web/fotos_jogadores/{nome_arquivo}"}
+    foto_dir = os.path.join(WEB_DIR, "fotos_jogadores")
+    prefixo = f"{jogador_id}_foto{slot}_"
+    if os.path.exists(foto_dir):
+        for arquivo in os.listdir(foto_dir):
+            if slot == 1 and (arquivo.startswith(prefixo) or (arquivo.startswith(f"{jogador_id}_") and "_foto2_" not in arquivo)):
+                try:
+                    os.remove(os.path.join(foto_dir, arquivo))
+                except Exception:
+                    pass
+            elif slot == 2 and arquivo.startswith(prefixo):
+                try:
+                    os.remove(os.path.join(foto_dir, arquivo))
+                except Exception:
+                    pass
+    
+    if slot == 2:
+        jogador["foto2"] = None
+    else:
+        jogador["foto"] = None
+        jogador["foto1"] = None
+        
+    _salvar_jogadores(jogadores)
+    return {"ok": True}
 
 
 # --------------------------------------------------------------- estatico / boot

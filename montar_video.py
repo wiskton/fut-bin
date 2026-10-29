@@ -277,12 +277,31 @@ def obter_foto_jogador(nome, time_obj=None, tamanho=(50, 50), borda_cor=None, bo
     nome_str = str(nome).strip()
     candidatos = []
 
+    # Verifica se time_obj indica Time 2
+    is_time_2 = False
     if isinstance(time_obj, dict) and "times" in time_obj:
-        for t in time_obj["times"]:
+        times_list = time_obj.get("times", [])
+        if len(times_list) > 1 and nome_str in times_list[1].get("jogadores", []):
+            is_time_2 = True
+        # Prioriza o time onde o jogador realmente está no elenco
+        for t in times_list:
+            if isinstance(t, dict) and nome_str in t.get("jogadores", []):
+                fmap = t.get("fotos", {})
+                if isinstance(fmap, dict) and fmap.get(nome_str):
+                    candidatos.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
+        for t in times_list:
             fmap = t.get("fotos", {})
             if isinstance(fmap, dict) and fmap.get(nome_str):
                 candidatos.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
     elif isinstance(time_obj, list):
+        if len(time_obj) > 1 and isinstance(time_obj[1], dict) and nome_str in time_obj[1].get("jogadores", []):
+            is_time_2 = True
+        # Prioriza o time onde o jogador realmente está no elenco
+        for t in time_obj:
+            if isinstance(t, dict) and nome_str in t.get("jogadores", []):
+                fmap = t.get("fotos", {})
+                if isinstance(fmap, dict) and fmap.get(nome_str):
+                    candidatos.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
         for t in time_obj:
             if isinstance(t, dict):
                 fmap = t.get("fotos", {})
@@ -295,6 +314,30 @@ def obter_foto_jogador(nome, time_obj=None, tamanho=(50, 50), borda_cor=None, bo
             candidatos.append(os.path.join(SCRIPT_DIR, p.lstrip("/")))
 
     slug = re.sub(r'[^a-zA-Z0-9_-]', '_', nome_str.lower())
+    if is_time_2:
+        candidatos.append(os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}_t2.png"))
+
+    # Fallback no banco de jogadores cadastrados
+    try:
+        j_path = os.path.join(SCRIPT_DIR, "jogadores.json")
+        if os.path.isfile(j_path):
+            with open(j_path, "r", encoding="utf-8-sig") as jf:
+                banco = json.load(jf)
+                j_list = banco.get("jogadores", []) if isinstance(banco, dict) else (banco if isinstance(banco, list) else [])
+                for j_item in j_list:
+                    if j_item.get("nome") == nome_str or j_item.get("apelido") == nome_str:
+                        if is_time_2 and j_item.get("foto2"):
+                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto2"].lstrip("/")))
+                        elif j_item.get("foto"):
+                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto"].lstrip("/")))
+                        elif j_item.get("foto1"):
+                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto1"].lstrip("/")))
+                        if j_item.get("foto2"):
+                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto2"].lstrip("/")))
+                        break
+    except Exception:
+        pass
+
     candidatos.extend([
         os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}.png"),
         os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}.jpg"),
@@ -497,7 +540,7 @@ def _tempo_em_segundos(ev):
                 return float(val)
             except (ValueError, TypeError):
                 pass
-    tempo_str = str(ev.get("tempo") or "").strip()
+    tempo_str = _obter_tempo_str_evento(ev).strip()
     if tempo_str:
         partes = tempo_str.split(":")
         try:
@@ -514,6 +557,95 @@ def _tempo_em_segundos(ev):
     except (ValueError, TypeError):
         return 0.0
 
+
+
+_MELHOR_GPU_CACHE = None
+
+
+def detectar_melhor_hardware_video():
+    """Detecta automaticamente se há encoder por GPU NVIDIA (NVENC), AMD (AMF) ou Intel (QSV)."""
+    global _MELHOR_GPU_CACHE
+    if _MELHOR_GPU_CACHE is not None:
+        return _MELHOR_GPU_CACHE
+
+    def _testar(c_name):
+        try:
+            r = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "testsrc=duration=1:size=320x240:rate=10",
+                 "-c:v", c_name, "-f", "null", "-"],
+                capture_output=True, text=True, timeout=4
+            )
+            return r.returncode == 0
+        except Exception:
+            return False
+
+    if _testar("h264_nvenc"):
+        _MELHOR_GPU_CACHE = ("nvidia", "h264_nvenc")
+    elif _testar("h264_amf"):
+        _MELHOR_GPU_CACHE = ("amd", "h264_amf")
+    elif _testar("h264_qsv"):
+        _MELHOR_GPU_CACHE = ("intel", "h264_qsv")
+    else:
+        _MELHOR_GPU_CACHE = ("cpu", "libx264")
+    return _MELHOR_GPU_CACHE
+
+
+def args_encoder_video(codec="libx264", crf=24, preset="medium"):
+    """Retorna os argumentos do ffmpeg otimizados para GPU (NVIDIA NVENC, AMD AMF ou Intel QSV) ou CPU (libx264 com multi-threads)."""
+    c = str(codec or "libx264").lower().strip()
+    if any(k in c for k in ("nvenc", "gpu", "amf", "qsv", "auto")):
+        if "amf" in c: gpu_tipo = "amd"
+        elif "qsv" in c: gpu_tipo = "intel"
+        elif "nvenc" in c: gpu_tipo = "nvidia"
+        else:
+            gpu_tipo, _ = detectar_melhor_hardware_video()
+
+        if gpu_tipo == "nvidia":
+            cq = max(12, min(36, int(crf)))
+            nv_p = "p4"
+            if preset in ("ultrafast", "superfast", "veryfast"): nv_p = "p2"
+            elif preset in ("fast", "faster"): nv_p = "p3"
+            elif preset in ("slow", "slower"): nv_p = "p5"
+            c_v = "hevc_nvenc" if ("hevc" in c or "265" in c) else "h264_nvenc"
+            return ["-c:v", c_v, "-preset", nv_p, "-rc:v", "vbr", "-cq:v", str(cq), "-b:v", "0"]
+        elif gpu_tipo == "amd":
+            c_v = "hevc_amf" if ("hevc" in c or "265" in c) else "h264_amf"
+            return ["-c:v", c_v, "-quality", "speed", "-rc", "cqp", "-qp_p", str(crf), "-qp_i", str(crf)]
+        elif gpu_tipo == "intel":
+            c_v = "hevc_qsv" if ("hevc" in c or "265" in c) else "h264_qsv"
+            return ["-c:v", c_v, "-preset", "faster", "-global_quality", str(crf)]
+        else:
+            print("[AVISO] Nenhuma GPU dedicada (NVIDIA/AMD/Intel) disponível; usando CPU (libx264 com multi-threads).")
+            c = "libx264"
+
+    c_v = "libx265" if ("hevc" in c or "265" in c) else "libx264"
+    cpu_p = "faster" if preset in ("fast", "faster", "veryfast") else str(preset)
+    return ["-c:v", c_v, "-preset", cpu_p, "-crf", str(crf), "-threads", "0"]
+
+
+def _fmt_tempo(s):
+    if s is None or s < 0:
+        return "00:00"
+    try:
+        s = float(s)
+        m = int(s // 60)
+        sec = int(s % 60)
+        return f"{m:02d}:{sec:02d}"
+    except (ValueError, TypeError):
+        return "00:00"
+
+
+def _obter_tempo_str_evento(ev):
+    """Garante que o tempo exibido no clipe NUNCA se perde nem fica 00:00 se tempo_s ou inicio_s existirem."""
+    if not ev or not isinstance(ev, dict):
+        return "00:00"
+    t_str = str(ev.get("tempo") or "").strip()
+    if t_str and t_str not in ("00:00", "--:--", "None", ""):
+        return t_str
+    ts = _tempo_em_segundos(ev)
+    if ts and ts > 0:
+        return _fmt_tempo(ts)
+    return t_str or "00:00"
 
 def classificar_posicao(pos):
     """Normaliza qualquer rotulo de posicao em goleiro/zagueiro/meio/atacante.
@@ -968,7 +1100,7 @@ def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", code
         sequencia.append((frozenset(va), frozenset(vb), dur))
 
     # Gera cada frame PNG e concatena com ffmpeg
-    c_v = codec if codec in ("libx264", "libx265") else "libx264"
+    encoder_args = args_encoder_video(codec, crf, preset)
     segmentos = []
 
     for idx, (va_frame, vb_frame, dur_frame) in enumerate(sequencia):
@@ -991,7 +1123,7 @@ def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", code
               "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
               "-t", str(dur_frame), "-r", str(FPS),
               "-vf", f"{fade_filter}format=yuv420p{escala_saida()},setsar=1",
-              "-c:v", c_v, "-preset", preset, "-crf", str(crf),
+              *encoder_args,
               "-pix_fmt", "yuv420p", "-movflags", "+faststart",
               "-video_track_timescale", str(VIDEO_TIMESCALE),
               "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2",
@@ -1033,7 +1165,7 @@ def _cartela_lance_fifa(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fal
     d.text((px0+wta+pw_s-26, py0+ph//2), str(placar_b), font=f_score, fill=(255,255,255,255), anchor="mm")
     d.rounded_rectangle([px0+wta+pw_s, py0, px0+total_w, py0+ph], radius=4, fill=cb+(245,))
     d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=contraste_cor(cb)+(255,), anchor="mm")
-    tempo_str = str(ev.get("tempo") or "")
+    tempo_str = _obter_tempo_str_evento(ev)
     if tempo_str:
         # FIFA: quadrado preto com borda dourada ao lado do placar
         tw_box = 88
@@ -1086,7 +1218,7 @@ def _cartela_lance_iss(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fals
     d.rectangle([px0+wta+pw_s, py0, px0+total_w, py0+ph], fill=cb+(220,))
     d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=contraste_cor(cb)+(255,), anchor="mm")
     # Tempo — quadrado retrô amarelo com borda (ISS style)
-    tempo_str_iss = str(ev.get("tempo") or "")
+    tempo_str_iss = _obter_tempo_str_evento(ev)
     if tempo_str_iss:
         tx0_iss = px0 + total_w + 4
         tw_iss = 96
@@ -1136,7 +1268,7 @@ def _cartela_lance_pes(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fals
     d.text((sep_x-16, py0+ph//2), str(placar_a), font=f_score, fill=(255,255,255,255), anchor="rm")
     d.text((sep_x, py0+ph//2-2), ":", font=fonte(20), fill=(160,160,160,200), anchor="mm")
     d.text((sep_x+16, py0+ph//2), str(placar_b), font=f_score, fill=(255,255,255,255), anchor="lm")
-    tempo_str = str(ev.get("tempo") or "")
+    tempo_str = _obter_tempo_str_evento(ev)
     if tempo_str:
         # PES: quadrado arredondado cinza-azul escuro com borda branca sutil
         tw_pes = 84
@@ -1182,7 +1314,7 @@ def _cartela_lance_tv(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False
     d.text((px0+wta+pw_s//2, py0+ph//2-1), "-", font=fonte(16), fill=(150,150,150,200), anchor="mm")
     d.text((px0+wta+pw_s//2+12, py0+ph//2), str(placar_b), font=f_score, fill=(255,255,255,255), anchor="mm")
     d.text((px0+wta+pw_s+wtb//2, py0+ph//2), nome_b, font=f_team, fill=cb+(230,), anchor="mm")
-    tempo_str = str(ev.get("tempo") or "")
+    tempo_str = _obter_tempo_str_evento(ev)
     if tempo_str:
         # TV: quadrado verde escuro com texto branco — destaca como cronômetro ao vivo
         tw_tv = 72
@@ -1264,7 +1396,7 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
     draw.rounded_rectangle([xt, y0, xt + timer_w, y0 + score_h], radius=14,
                            fill=(10, 25, 28, 246), outline=(51, 103, 91, 170), width=1)
     draw.ellipse([xt + 14, y0 + 27, xt + 23, y0 + 36], fill=PREMIUM_ACCENT + (255,))
-    draw.text((xt + 67, y0 + 31), str(ev.get("tempo") or "00:00"), font=fonte(19, True),
+    draw.text((xt + 67, y0 + 31), _obter_tempo_str_evento(ev), font=fonte(19, True),
               fill=PREMIUM_TEXT + (255,), anchor="mm")
 
     if gol_neste_clipe and time_gol in (0, 1):
@@ -1293,9 +1425,22 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
         altura = 126
     else:
         titulo = ev.get("destaque") or ev.get("autor") or ev.get("lance") or "Melhor momento"
-        kicker = (ev.get("lance") or "MELHOR MOMENTO").upper()
+        lance_raw = (ev.get("lance") or "").strip()
+        kicker = (lance_raw or "MELHOR MOMENTO").upper()
         assist = None
-        cor_kicker = cor_lance
+        lance_lower = lance_raw.lower()
+        if "falta" in lance_lower:
+            cor_kicker = (239, 68, 68)
+        elif "bizarro" in lance_lower:
+            cor_kicker = (236, 72, 153)
+        elif "gol perdido" in lance_lower or "gol_perdido" in lance_lower:
+            cor_kicker = (249, 115, 22)
+        elif "trave" in lance_lower:
+            cor_kicker = (234, 179, 8)
+        elif "defesa" in lance_lower:
+            cor_kicker = (56, 189, 248)
+        else:
+            cor_kicker = cor_lance
         altura = 100
 
     f_nome = fonte(32, True)
@@ -1526,7 +1671,7 @@ def _cartela_fim_de_jogo_premium(d_, pagina=0):
                 break
             if i:
                 draw.line([x0 + 24, yy, x0 + col_w - 24, yy], fill=PREMIUM_LINE, width=1)
-            time_text = str(goal.get("tempo") or "--:--")
+            time_text = _obter_tempo_str_evento(goal)
             draw.rounded_rectangle([x0 + 24, yy + 6, x0 + 99, yy + row_h - 6], radius=11,
                                    fill=(7, 14, 24), outline=(54, 71, 93), width=1)
             draw.text((x0 + 61, yy + row_h // 2), time_text, font=fonte(14, True),
@@ -1616,7 +1761,7 @@ def cartela_cronologia(d_, pagina=0):
                      fill=PREMIUM_PANEL, outline=color, width=3)
         draw.rounded_rectangle([x0 + 112, yy + 7, x0 + 192, yy + 47], radius=12,
                                fill=(7, 14, 24), outline=(55, 72, 95), width=1)
-        draw.text((x0 + 152, yy + 27), str(goal.get("tempo") or "--:--"),
+        draw.text((x0 + 152, yy + 27), _obter_tempo_str_evento(goal),
                   font=fonte(16, True), fill=PREMIUM_TEXT, anchor="mm")
 
         autor = _limpar_nome_pillow(goal.get("autor") or "Gol")
@@ -1642,8 +1787,45 @@ def cartela_cronologia(d_, pagina=0):
     return img
 
 
-def _cartela_destaques_tema(d_):
-    """Destaques minimalistas."""
+
+def _obter_ranking_artilheiros(d_):
+    itens = d_.get("artilheiros")
+    if itens:
+        return [dict(i) for i in itens if (i.get("gols") or 0) > 0]
+    cont = {}
+    for g in d_.get("gols", []):
+        if not g.get("descartado") and g.get("tipo") == "gol" and g.get("autor"):
+            autor = str(g["autor"]).strip()
+            if autor:
+                cont[autor] = cont.get(autor, 0) + 1
+    ord_ = sorted(cont.items(), key=lambda x: -x[1])
+    return [{"jogador": k, "gols": v} for k, v in ord_]
+
+
+def _obter_ranking_garcons(d_):
+    itens = d_.get("garcons")
+    if itens:
+        return [dict(i) for i in itens if (i.get("assistencias") or 0) > 0]
+    cont = {}
+    for g in d_.get("gols", []):
+        if not g.get("descartado") and g.get("tipo") == "gol" and g.get("assist"):
+            ast = str(g["assist"]).strip()
+            if ast:
+                cont[ast] = cont.get(ast, 0) + 1
+    ord_ = sorted(cont.items(), key=lambda x: -x[1])
+    return [{"jogador": k, "assistencias": v} for k, v in ord_]
+
+
+def paginas_destaques(d_):
+    itens_a = _obter_ranking_artilheiros(d_)
+    itens_b = _obter_ranking_garcons(d_)
+    m = max(len(itens_a), len(itens_b))
+    if m <= 10:
+        return 1
+    return max(1, -(-m // 10))
+
+def _cartela_destaques_tema(d_, pagina=0):
+    """Destaques minimalistas exibindo todos os atletas com gols e assistências."""
     cfg = {"fifa": ((8,10,16),(200,168,90)), "iss": ((10,10,20),(200,200,200)),
            "pes": ((10,14,22),(100,140,210)), "tv": ((8,10,14),(150,200,110))}
     bg, accent = cfg.get(TEMA, (PAINEL, DOURADO))
@@ -1652,111 +1834,173 @@ def _cartela_destaques_tema(d_):
     img = Image.new("RGB", (L, A), bg)
     d = ImageDraw.Draw(img)
     y = _topo_minimalista(img, d, d_, accent)
-    d.text((L//2, y+12), "DESTAQUES DA PARTIDA", font=fonte(18, True), fill=(50,60,78), anchor="mm")
+    
+    todos_art = _obter_ranking_artilheiros(d_)
+    todos_garc = _obter_ranking_garcons(d_)
+    max_total = max(len(todos_art), len(todos_garc))
+    itens_por_pag = 10 if max_total > 10 else max(1, max_total)
+    total_pag = paginas_destaques(d_)
+    
+    sub = f"PÁGINA {pagina + 1} / {total_pag}" if total_pag > 1 else "RANKING COMPLETO"
+    d.text((L//2, y+12), f"DESTAQUES DA PARTIDA · {sub}", font=fonte(18, True), fill=(50,60,78), anchor="mm")
+    
     topo = y + 40; w_card = L//2 - 80
-    for col, (titulo, chave, campo) in enumerate([("ARTILHEIROS","artilheiros","gols"),
-                                                   ("ASSISTENCIAS","garcons","assistencias")]):
+    inicio_idx = pagina * itens_por_pag
+    fim_idx = inicio_idx + itens_por_pag
+    
+    for col, (titulo, lista_itens, campo) in enumerate([("ARTILHEIROS", todos_art, "gols"),
+                                                        ("ASSISTENCIAS", todos_garc, "assistencias")]):
         x0 = 50 if col == 0 else L//2 + 30
-        d.text((x0, topo), titulo, font=fonte(16, True), fill=(55,65,85))
+        d.text((x0, topo), f"{titulo} ({len(lista_itens)})", font=fonte(16, True), fill=(55,65,85))
         d.rectangle([x0, topo+24, x0+w_card, topo+26], fill=(22,28,40))
-        itens = (d_.get(chave) or [])[:5]; y_i = topo + 36
+        itens = lista_itens[inicio_idx:fim_idx]
+        y_i = topo + 36
+        n_linhas = max(1, len(itens))
+        alt = max(48, min(80, (A - topo - 60) // n_linhas - 4))
         for k, item in enumerate(itens):
-            cor_m = medalha[k] if k < 3 else (50,58,78)
-            alt = 88 if k == 0 else 70
+            pos_real = inicio_idx + k
+            cor_m = medalha[pos_real] if pos_real < 3 else (50,58,78)
             d.rectangle([x0, y_i, x0+w_card, y_i+alt], fill=(13,17,26))
-            d.text((x0+18, y_i+alt//2), str(k+1), font=fonte(30 if k==0 else 22, True), fill=cor_m, anchor="lm")
-            av_sz = alt - 14
+            d.text((x0+18, y_i+alt//2), str(pos_real+1), font=fonte(22 if pos_real==0 else 18, True), fill=cor_m, anchor="lm")
+            av_sz = max(32, alt - 14)
             av = obter_avatar_jogador(item["jogador"], d_.get("times"), tamanho=(av_sz,av_sz), cor_time=cor_m)
-            if av: img.paste(av, (x0+58, y_i+7), av)
-            ox = x0 + 58 + av_sz + 14
-            d.text((ox, y_i + 14), _limpar_nome_pillow(item["jogador"]),
-                   font=fonte(26 if k==0 else 20, True), fill=(225,230,245))
-            d.text((ox, y_i + (46 if k==0 else 40)), str(item[campo]) + "  " + campo,
-                   font=fonte(14, False), fill=psub)
+            if av: img.paste(av, (x0+50, y_i+(alt-av_sz)//2), av)
+            ox = x0 + 50 + av_sz + 12
+            d.text((ox, y_i + max(4, (alt-36)//2)), _limpar_nome_pillow(item["jogador"]),
+                   font=fonte(20 if pos_real==0 else 17, True), fill=(225,230,245))
+            d.text((ox, y_i + max(24, (alt-36)//2 + 22)), str(item[campo]) + "  " + campo,
+                   font=fonte(13, False), fill=psub)
             d.text((x0+w_card-16, y_i+alt//2), str(item[campo]),
-                   font=fonte(38 if k==0 else 28, True), fill=cor_m, anchor="rm")
+                   font=fonte(30 if pos_real==0 else 24, True), fill=cor_m, anchor="rm")
             d.rectangle([x0, y_i+alt, x0+w_card, y_i+alt+2], fill=(18,22,32))
-            y_i += alt + 2
+            y_i += alt + 4
     return img
 
-def _cartela_destaques_premium(d_):
+
+def _cartela_destaques_premium(d_, pagina=0):
     meta = d_.get("meta", {})
     subtitle = " · ".join(str(x) for x in (
         meta.get("pelada") or meta.get("torneio"), meta.get("comp") or meta.get("rodada"), meta.get("data")
     ) if x)
     img = _fundo_premium(d_)
     draw = ImageDraw.Draw(img)
-    _cabecalho_premium(img, draw, d_, "PÓS-JOGO", "DESTAQUES DA PARTIDA", subtitle, "TOP 5")
 
-    medalhas = [(246, 196, 82), (184, 198, 214), (194, 132, 91), (93, 111, 136), (93, 111, 136)]
+    todos_art = _obter_ranking_artilheiros(d_)
+    todos_garc = _obter_ranking_garcons(d_)
+    max_total = max(len(todos_art), len(todos_garc))
+
+    # Até 10 itens cabem na mesma tela perfeitamente
+    itens_por_pag = 10 if max_total > 10 else max(1, max_total)
+    total_pag = paginas_destaques(d_)
+    
+    etiqueta = f"PÁGINA {pagina + 1} / {total_pag}" if total_pag > 1 else "RANKING COMPLETO"
+    _cabecalho_premium(img, draw, d_, "PÓS-JOGO", "DESTAQUES DA PARTIDA", subtitle, etiqueta)
+
+    medalhas = [(246, 196, 82), (184, 198, 214), (194, 132, 91)]
+    cor_padrao = (93, 111, 136)
+
     colunas = [
-        ("ARTILHEIROS", "artilheiros", "gols", "GOLS MARCADOS"),
-        ("LÍDERES EM ASSISTÊNCIAS", "garcons", "assistencias", "ASSISTÊNCIAS"),
+        ("ARTILHEIROS", todos_art, "gols", "GOLS MARCADOS", "GOLS"),
+        ("LÍDERES EM ASSISTÊNCIAS", todos_garc, "assistencias", "ASSISTÊNCIAS", "AST"),
     ]
     card_y, card_h, card_w, gap = 184, 836, 862, 34
     card_xs = [64, 64 + card_w + gap]
 
-    for x0, (title, key, field, label) in zip(card_xs, colunas):
+    inicio_idx = pagina * itens_por_pag
+    fim_idx = inicio_idx + itens_por_pag
+
+    n_linhas = min(itens_por_pag, max(1, max_total - inicio_idx))
+    row_top = card_y + 114
+    disp_h = card_h - 128
+    row_h = max(56, disp_h // n_linhas)
+
+    for x0, (title, todos_itens, field, label, sigla) in zip(card_xs, colunas):
         _painel_premium(draw, (x0, card_y, x0 + card_w, card_y + card_h), radius=22)
-        draw.rounded_rectangle([x0 + 2, card_y + 2, x0 + card_w - 2, card_y + 104], radius=20,
+        draw.rounded_rectangle([x0 + 2, card_y + 2, x0 + card_w - 2, card_y + 98], radius=20,
                                fill=PREMIUM_PANEL_ALT)
-        draw.rectangle([x0 + 2, card_y + 91, x0 + card_w - 2, card_y + 104], fill=PREMIUM_PANEL_ALT)
-        draw.text((x0 + 30, card_y + 23), title, font=fonte(22, True), fill=PREMIUM_TEXT)
-        draw.text((x0 + 30, card_y + 59), label, font=fonte(12, True), fill=PREMIUM_MUTED)
-        draw.rounded_rectangle([x0 + card_w - 64, card_y + 32, x0 + card_w - 30, card_y + 66],
+        draw.rectangle([x0 + 2, card_y + 85, x0 + card_w - 2, card_y + 98], fill=PREMIUM_PANEL_ALT)
+        
+        cont_txt = f" ({len(todos_itens)})" if todos_itens else ""
+        draw.text((x0 + 30, card_y + 20), title + cont_txt, font=fonte(22, True), fill=PREMIUM_TEXT)
+        draw.text((x0 + 30, card_y + 56), label, font=fonte(12, True), fill=PREMIUM_MUTED)
+        draw.rounded_rectangle([x0 + card_w - 64, card_y + 28, x0 + card_w - 30, card_y + 62],
                                radius=17, fill=PREMIUM_BG, outline=PREMIUM_LINE, width=1)
         for bar_idx, bar_h in enumerate((9, 15, 22)):
             bx = x0 + card_w - 55 + bar_idx * 7
-            draw.rounded_rectangle([bx, card_y + 57 - bar_h, bx + 4, card_y + 57],
+            draw.rounded_rectangle([bx, card_y + 53 - bar_h, bx + 4, card_y + 53],
                                    radius=2, fill=PREMIUM_ACCENT)
 
-        itens = (d_.get(key) or [])[:5]
-        row_top = card_y + 120
-        row_h = (card_h - 148) // 5
-        if not itens:
+        itens_pag = todos_itens[inicio_idx:fim_idx]
+        if not itens_pag:
             draw.text((x0 + 34, row_top + 38), "Ainda não há dados para este ranking",
                       font=fonte(17, False), fill=PREMIUM_MUTED)
             continue
 
-        for i, item in enumerate(itens):
-            yy = row_top + i * row_h
-            medal = medalhas[min(i, len(medalhas) - 1)]
-            is_top = i == 0
-            row_box = [x0 + 18, yy + 4, x0 + card_w - 18, yy + row_h - 8]
-            draw.rounded_rectangle(row_box, radius=16,
+        av_sz = max(34, min(64, row_h - 14))
+        r_circ = max(13, min(24, (row_h - 14) // 2))
+
+        for local_i, item in enumerate(itens_pag):
+            global_i = inicio_idx + local_i
+            yy = row_top + local_i * row_h
+            medal = medalhas[global_i] if global_i < 3 else cor_padrao
+            is_top = (global_i == 0)
+
+            pad_v = max(2, min(5, (row_h - av_sz) // 3))
+            row_box = [x0 + 16, yy + pad_v, x0 + card_w - 16, yy + row_h - pad_v]
+            draw.rounded_rectangle(row_box, radius=max(10, min(16, row_h // 5)),
                                    fill=(20, 32, 49) if is_top else (10, 18, 30),
-                                   outline=medal if i < 3 else (34, 48, 66), width=2 if i < 3 else 1)
-            draw.ellipse([x0 + 34, yy + row_h // 2 - 25, x0 + 84, yy + row_h // 2 + 25],
-                         fill=medal)
-            draw.text((x0 + 59, yy + row_h // 2), f"{i + 1:02d}", font=fonte(17, True),
+                                   outline=medal if global_i < 3 else (34, 48, 66), width=2 if global_i < 3 else 1)
+
+            cy = yy + row_h // 2
+            draw.ellipse([x0 + 30, cy - r_circ, x0 + 30 + r_circ * 2, cy + r_circ], fill=medal)
+            draw.text((x0 + 30 + r_circ, cy), f"{global_i + 1:02d}",
+                      font=fonte(max(11, min(17, int(r_circ * 0.75))), True),
                       fill=(8, 14, 23), anchor="mm")
 
             jogador = _limpar_nome_pillow(item.get("jogador") or "Jogador")
-            avatar = obter_avatar_jogador(jogador, d_.get("times"), tamanho=(64, 64), cor_time=medal)
+            avatar_x = x0 + 40 + r_circ * 2
+            avatar = obter_avatar_jogador(jogador, d_.get("times"), tamanho=(av_sz, av_sz), cor_time=medal)
             if avatar:
-                img.paste(avatar, (x0 + 104, yy + (row_h - 64) // 2), avatar)
-            text_x = x0 + 190
-            max_text = card_w - 335
-            nome_font = fonte(24 if is_top else 21, True)
-            draw.text((text_x, yy + row_h // 2 - 23),
-                      _texto_ajustado(draw, jogador, nome_font, max_text),
-                      font=nome_font, fill=PREMIUM_TEXT)
-            draw.text((text_x, yy + row_h // 2 + 12), label,
-                      font=fonte(11, True), fill=PREMIUM_MUTED)
+                img.paste(avatar, (avatar_x, cy - av_sz // 2), avatar)
+
+            text_x = avatar_x + av_sz + 14
+            max_text = card_w - (text_x - x0) - 100
+            
+            f_nome_sz = max(15, min(24 if is_top else 21, int(row_h * 0.28)))
+            nome_font = fonte(f_nome_sz, True)
+            
+            if row_h >= 74:
+                draw.text((text_x, cy - f_nome_sz // 2 - 4),
+                          _texto_ajustado(draw, jogador, nome_font, max_text),
+                          font=nome_font, fill=PREMIUM_TEXT)
+                draw.text((text_x, cy + 12), label,
+                          font=fonte(max(9, min(11, f_nome_sz - 9)), True), fill=PREMIUM_MUTED)
+            else:
+                draw.text((text_x, cy),
+                          _texto_ajustado(draw, jogador, nome_font, max_text),
+                          font=nome_font, fill=PREMIUM_TEXT, anchor="lm")
 
             numero = str(item.get(field, 0))
-            draw.text((x0 + card_w - 44, yy + row_h // 2 - 2), numero,
-                      font=fonte(46 if is_top else 38, True), fill=medal, anchor="rm")
-            draw.text((x0 + card_w - 45, yy + row_h // 2 + 28),
-                      "GOLS" if field == "gols" else "AST",
-                      font=fonte(10, True), fill=PREMIUM_MUTED, anchor="rm")
+            f_num_sz = max(20, min(44 if is_top else 36, int(row_h * 0.44)))
+            
+            if row_h >= 74:
+                draw.text((x0 + card_w - 44, cy - 2), numero,
+                          font=fonte(f_num_sz, True), fill=medal, anchor="rm")
+                draw.text((x0 + card_w - 45, cy + 26), sigla,
+                          font=fonte(10, True), fill=PREMIUM_MUTED, anchor="rm")
+            else:
+                draw.text((x0 + card_w - 40, cy), numero,
+                          font=fonte(f_num_sz, True), fill=medal, anchor="rm")
+                draw.text((x0 + card_w - 18, cy + 1), sigla,
+                          font=fonte(9, True), fill=PREMIUM_MUTED, anchor="lm")
+
     return img
 
 
-def cartela_destaques(d_):
+def cartela_destaques(d_, pagina=0):
     if TEMA != "atual":
-        return _cartela_destaques_tema(d_)
-    return _cartela_destaques_premium(d_)
+        return _cartela_destaques_tema(d_, pagina)
+    return _cartela_destaques_premium(d_, pagina)
 
 
 def _cartela_assista_outros_videos_tema(d_):
@@ -1859,44 +2103,192 @@ def filtro_audio_normalizado(clipe):
     return f"{AUDIO_FORMAT},{LOUDNESS}:{parametros}:linear=true"
 
 
-def concatenar_segmentos(partes, lista, saida):
+_CAMPOS_ASSINATURA = (
+    "codec_type", "codec_name", "time_base", "width", "height",
+    "pix_fmt", "sample_aspect_ratio", "sample_rate", "channels", "channel_layout",
+)
+
+
+def _assinatura_midia(dados):
+    return tuple(tuple(s.get(k) for k in _CAMPOS_ASSINATURA) for s in dados["streams"])
+
+
+def _diferencas_assinatura(ref, atual):
+    """Descreve, em texto, o que muda entre a assinatura de referencia e a de um segmento."""
+    if len(ref) != len(atual):
+        return [f"quantidade de streams: {len(ref)} -> {len(atual)}"]
+    difs = []
+    for n, (r, a) in enumerate(zip(ref, atual)):
+        for campo, vr, va in zip(_CAMPOS_ASSINATURA, r, a):
+            if vr != va:
+                difs.append(f"stream {n} {campo}: {vr} -> {va}")
+    return difs
+
+
+def normalizar_segmento(parte, destino, ref_dados, dur, crf=24, preset="medium", codec="libx264"):
+    """Recodifica um segmento para o mesmo formato dos demais (resolucao, fps, SAR,
+    pix_fmt, timescale, audio 48 kHz estereo), preservando a duracao (1x)."""
+    video = next(s for s in ref_dados["streams"] if s["codec_type"] == "video")
+    larg, alt = int(video["width"]), int(video["height"])
+    encoder_args = args_encoder_video(codec, crf, preset)
+    tem_audio = any(s["codec_type"] == "audio" for s in dados_midia(parte)["streams"])
+
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", parte]
+    if tem_audio:
+        cmd += ["-map", "0:v:0", "-map", "0:a:0",
+                "-af", f"aresample={AUDIO_HZ}:async=1,{AUDIO_FORMAT}"]
+    else:
+        cmd += ["-f", "lavfi", "-i", f"anullsrc=channel_layout=stereo:sample_rate={AUDIO_HZ}",
+                "-map", "0:v:0", "-map", "1:a:0"]
+    cmd += [
+        "-vf", (f"scale={larg}:{alt}:force_original_aspect_ratio=decrease,"
+                f"pad={larg}:{alt}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS},format=yuv420p"),
+        "-t", f"{dur:.3f}", "-r", str(FPS),
+        *encoder_args,
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        "-video_track_timescale", str(VIDEO_TIMESCALE),
+        "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2",
+        destino,
+    ]
+    roda(cmd)
+    validar_duracao(destino, dur, tolerancia=0.15)
+
+
+def concatenar_segmentos(partes, lista, saida, crf=24, preset="medium", codec="libx264"):
     # O concat com stream copy exige bases de tempo e formatos iguais.
     # Em especial, AAC 44,1 kHz nao pode ser interpretado como AAC 48 kHz.
-    # Se houver incompatibilidade, recodifica TODOS os segmentos para o formato padrão
-    referencia = None
-    duracao_total = 0.0
-    incompativeis = []
-    for i, parte in enumerate(partes):
-        dados = dados_midia(parte)
-        assinatura = [tuple(s.get(k) for k in (
-            "codec_type", "codec_name", "time_base", "width", "height",
-            "pix_fmt", "sample_aspect_ratio", "sample_rate", "channels", "channel_layout"
-        )) for s in dados["streams"]]
-        if referencia is not None and assinatura != referencia:
-            print(f"[!] Segmento {i+1} incompativel detectado: {os.path.basename(parte)}")
-            incompativeis.append(i)
-        elif referencia is None:
-            referencia = assinatura
-        duracao_total += float(dados["format"]["duration"])
-    
+    # Se houver incompatibilidade, recodifica apenas os segmentos divergentes para o
+    # formato padrao (o da maioria); se ainda sobrar diferenca, recodifica TODOS.
+    from collections import Counter
+
+    partes = list(partes)
+    dados_partes = [dados_midia(p) for p in partes]
+    assinaturas = [_assinatura_midia(d_) for d_ in dados_partes]
+    duracoes = [float(d_["format"]["duration"]) for d_ in dados_partes]
+    duracao_total = sum(duracoes)
+
+    # Referencia = formato mais comum (e nao simplesmente o primeiro segmento).
+    ref_ass, _ = Counter(assinaturas).most_common(1)[0]
+    ref_idx = assinaturas.index(ref_ass)
+    incompativeis = [i for i, a in enumerate(assinaturas) if a != ref_ass]
+    usar_reencode = False
+
     if incompativeis:
-        nomes = ", ".join(os.path.basename(partes[i]) for i in incompativeis)
-        raise RuntimeError(
-            f"Segmento incompativel detectado para concatenacao: {nomes}. "
-            "Gere novamente os clipes para padronizar o formato antes da montagem."
-        )
-    
-    with open(lista, "w", encoding="utf-8") as f:
-        for parte in partes:
-            caminho = parte.replace("\\", "/").replace("'", "'\\''")
-            f.write(f"file '{caminho}'\n")
-    roda(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-          "-i", lista, "-c", "copy", "-movflags", "+faststart", saida])
-    validar_duracao(saida, duracao_total, tolerancia=0.15)
+        pasta_norm = os.path.join(os.path.dirname(os.path.abspath(lista)), "norm")
+        os.makedirs(pasta_norm, exist_ok=True)
+        print(f"[!] {len(incompativeis)} segmento(s) fora do padrao; padronizando antes de juntar...")
+        for k, i in enumerate(incompativeis):
+            nome = os.path.basename(partes[i])
+            if k < 3:  # mostra o motivo das primeiras divergencias, para diagnostico
+                for dif in _diferencas_assinatura(ref_ass, assinaturas[i]):
+                    print(f"    {nome}: {dif}")
+            destino = os.path.join(pasta_norm, nome)
+            normalizar_segmento(partes[i], destino, dados_partes[ref_idx],
+                                duracoes[i], crf=crf, preset=preset, codec=codec)
+            partes[i] = destino
+            dados_partes[i] = dados_midia(destino)
+            assinaturas[i] = _assinatura_midia(dados_partes[i])
+
+        restantes = [i for i, a in enumerate(assinaturas) if a != ref_ass]
+        if restantes:
+            # Ultimo recurso: recodifica tambem os que ja estavam "iguais" para um padrao unico.
+            print("[!] Ainda ha diferencas; recodificando todos os segmentos...")
+            for i, parte in enumerate(partes):
+                if os.path.dirname(os.path.abspath(parte)) == os.path.abspath(pasta_norm):
+                    continue
+                destino = os.path.join(pasta_norm, os.path.basename(parte))
+                normalizar_segmento(parte, destino, dados_partes[ref_idx],
+                                    duracoes[i], crf=crf, preset=preset, codec=codec)
+                partes[i] = destino
+                assinaturas[i] = _assinatura_midia(dados_midia(destino))
+            if len(set(assinaturas)) != 1:
+                # Nao aborta: mostra o que ainda difere e junta recodificando tudo de uma vez.
+                nomes = [os.path.basename(p) for p, a in zip(partes, assinaturas)
+                         if a != assinaturas[ref_idx]]
+                print(f"[!] Nao foi possivel igualar {len(nomes)} segmento(s) por stream copy: "
+                      f"{', '.join(nomes[:5])}{'...' if len(nomes) > 5 else ''}")
+                mostrados = 0
+                for p, a in zip(partes, assinaturas):
+                    if a != assinaturas[ref_idx] and mostrados < 3:
+                        for dif in _diferencas_assinatura(assinaturas[ref_idx], a):
+                            print(f"    {os.path.basename(p)}: {dif}")
+                        mostrados += 1
+                usar_reencode = True
+
+    if not usar_reencode:
+        with open(lista, "w", encoding="utf-8") as f:
+            for parte in partes:
+                caminho = parte.replace("\\", "/").replace("'", "'\\''")
+                f.write(f"file '{caminho}'\n")
+        r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                            "-i", lista, "-c", "copy", "-movflags", "+faststart", saida],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            try:
+                validar_duracao(saida, duracao_total, tolerancia=0.15)
+                return
+            except RuntimeError as e:
+                print(f"[!] {e}")
+        else:
+            print("[!] concat com stream copy falhou:", r.stderr[-400:])
+        usar_reencode = True
+
+    print("[!] Juntando com recodificacao completa (concat filter)...")
+    concatenar_reencodando(partes, duracoes, saida, dados_partes[ref_idx],
+                           crf=crf, preset=preset, codec=codec)
+    validar_duracao(saida, duracao_total, tolerancia=0.5)
+
+
+def concatenar_reencodando(partes, duracoes, saida, ref_dados, crf=24, preset="medium",
+                           codec="libx264"):
+    """Ultimo recurso, sempre funciona: o concat filter escala/reamostra cada entrada
+    para um formato unico e recodifica tudo numa passada so (duracao preservada, 1x)."""
+    video = next(s for s in ref_dados["streams"] if s["codec_type"] == "video")
+    larg, alt = int(video["width"]), int(video["height"])
+    encoder_args = args_encoder_video(codec, crf, preset)
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    filtros, juntar = [], []
+    for i, p in enumerate(partes):
+        cmd += ["-i", p]
+        tem_audio = any(s["codec_type"] == "audio" for s in dados_midia(p)["streams"])
+        filtros.append(
+            f"[{i}:v:0]scale={larg}:{alt}:force_original_aspect_ratio=decrease,"
+            f"pad={larg}:{alt}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS},format=yuv420p[v{i}]")
+        if tem_audio:
+            filtros.append(f"[{i}:a:0]aresample={AUDIO_HZ}:async=1,{AUDIO_FORMAT}[a{i}]")
+        else:
+            filtros.append(f"anullsrc=r={AUDIO_HZ}:cl=stereo,atrim=duration={duracoes[i]:.3f}[a{i}]")
+        juntar.append(f"[v{i}][a{i}]")
+    filtros.append("".join(juntar) + f"concat=n={len(partes)}:v=1:a=1[v][a]")
+    # O filtro vai por arquivo: com dezenas de segmentos ele passa do limite da linha de
+    # comando do Windows (WinError 206).
+    arq_filtro = os.path.splitext(os.path.abspath(saida))[0] + "_filtro.txt"
+    with open(arq_filtro, "w", encoding="utf-8") as f:
+        f.write(";\n".join(filtros))
+    final = ["-map", "[v]", "-map", "[a]",
+             *encoder_args, "-pix_fmt", "yuv420p",
+             "-r", str(FPS), "-video_track_timescale", str(VIDEO_TIMESCALE),
+             "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2",
+             "-movflags", "+faststart", saida]
+    try:
+        # ffmpeg novo (7+) usa -/filter_complex; o antigo, -filter_complex_script.
+        r = None
+        for opcao in (["-filter_complex_script", arq_filtro], ["-/filter_complex", arq_filtro]):
+            r = subprocess.run(cmd + opcao + final, capture_output=True, text=True)
+            if r.returncode == 0 or "nrecognized option" not in r.stderr:
+                break
+        if r.returncode != 0:
+            print("ERRO ffmpeg:\n", r.stderr[-1500:])
+            raise SystemExit(1)
+    finally:
+        try:
+            os.remove(arq_filtro)
+        except OSError:
+            pass
 
 
 def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec="libx264"):
-    c_v = codec if codec in ("libx264", "libx265") else "libx264"
+    encoder_args = args_encoder_video(codec, crf, preset)
     roda(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", img_path,
           "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
           "-t", str(dur), "-r", str(FPS),
@@ -1905,7 +2297,7 @@ def seg_de_imagem(img_path, dur, saida, fade=0.5, crf=24, preset="medium", codec
                   f"[bg][fg]overlay=(W-w)/2:(H-h)/2," if VERTICAL else "")
                  + f"format=yuv420p,fade=t=in:st=0:d={fade},"
                  f"fade=t=out:st={max(dur - fade, 0.1)}:d={fade}{escala_saida()},setsar=1",
-          "-c:v", c_v, "-preset", str(preset), "-crf", str(crf),
+          *encoder_args,
           "-pix_fmt", "yuv420p", "-movflags", "+faststart",
           "-video_track_timescale", str(VIDEO_TIMESCALE),
           "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2", "-shortest", saida])
@@ -1968,9 +2360,9 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
                 filtro + f";[0:a:0]{audio_normalizado},afade=t=in:st=0:d={fade},"
                          f"afade=t=out:st={max(dur - fade, 0.1):.2f}:d={fade}[a]",
                 "-map", "[v]", "-map", "[a]"]
-    c_v = codec if codec in ("libx264", "libx265") else "libx264"
-    cmd += ["-t", str(dur), "-r", str(FPS), "-c:v", c_v, "-preset", str(preset),
-            "-crf", str(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+    encoder_args = args_encoder_video(codec, crf, preset)
+    cmd += ["-t", str(dur), "-r", str(FPS), *encoder_args,
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
             "-video_track_timescale", str(VIDEO_TIMESCALE),
             "-c:a", "aac", "-b:a", "128k", "-ar", str(AUDIO_HZ), "-ac", "2", saida]
     roda(cmd)
@@ -2086,7 +2478,7 @@ def main():
     ap.add_argument("--contraste", type=float, default=None, help="Ajuste de contraste dos clipes (1.0 = normal)")
     ap.add_argument("--crf", type=int, default=24, help="Nível de compressão CRF (20=original/pesado, 24=otimizado/recomendado, 27=compacto, 29=ultraleve)")
     ap.add_argument("--preset", default="medium", help="Preset do encoder (ultrafast, fast, medium, slow)")
-    ap.add_argument("--codec", default="libx264", help="Codec de vídeo (libx264, libx265)")
+    ap.add_argument("--codec", default="h264_nvenc", help="Codec de vídeo (h264_nvenc para GPU rápido, libx264 para CPU)")
     ap.add_argument("--resolucao", type=int, default=1080, choices=[480, 720, 1080, 1440, 2160],
                     help="Altura do vídeo final em pixels (16:9)")
     ap.add_argument("--formato", choices=["16:9", "9:16"], default="16:9",
@@ -2128,19 +2520,29 @@ def main():
     por_indice = {g["indice"]: ("gol", g) for g in d.get("gols", [])}
     por_indice.update({l["indice"]: ("lance", l) for l in d.get("lances", [])})
 
-    # O zoom (área escolhida no quadro) é gravado em gols/gols.json ao arrastar o quadro.
-    # Ele é a fonte mais atual: o partida.json pode ter sido regravado sem esses campos.
+    # Sincroniza zoom e timestamps de gols/gols.json (se existirem) para NUNCA perder os tempos
     try:
         with open(os.path.join(os.path.dirname(os.path.abspath(args.clipes)), "gols.json"), encoding="utf-8-sig") as f:
-            zoom_por_indice = {e["indice"]: e for e in json.load(f).get("gols", []) if "indice" in e}
+            gols_meta_por_indice = {e["indice"]: e for e in json.load(f).get("gols", []) if "indice" in e}
         for idx_z, (_, ev_z) in por_indice.items():
-            src = zoom_por_indice.get(idx_z)
-            if src and src.get("zoom") is not None:
-                ev_z["zoom"] = src["zoom"]
-                ev_z["zoom_x"] = src.get("zoom_x", 0.5)
-                ev_z["zoom_y"] = src.get("zoom_y", 0.5)
-            if src and src.get("zoom_por_camera"):
-                ev_z["zoom_por_camera"] = src["zoom_por_camera"]
+            src = gols_meta_por_indice.get(idx_z)
+            if src:
+                if src.get("zoom") is not None:
+                    ev_z["zoom"] = src["zoom"]
+                    ev_z["zoom_x"] = src.get("zoom_x", 0.5)
+                    ev_z["zoom_y"] = src.get("zoom_y", 0.5)
+                if src.get("zoom_por_camera"):
+                    ev_z["zoom_por_camera"] = src["zoom_por_camera"]
+                if ev_z.get("tempo_s") is None and src.get("tempo_s") is not None:
+                    ev_z["tempo_s"] = src["tempo_s"]
+                if (not ev_z.get("tempo") or ev_z.get("tempo") in ("00:00", "--:--")) and src.get("tempo"):
+                    ev_z["tempo"] = src["tempo"]
+                if ev_z.get("inicio_s") is None and src.get("inicio_s") is not None:
+                    ev_z["inicio_s"] = src["inicio_s"]
+                if ev_z.get("fim_s") is None and src.get("fim_s") is not None:
+                    ev_z["fim_s"] = src["fim_s"]
+            # Garante que o tempo está devidamente formatado
+            ev_z["tempo"] = _obter_tempo_str_evento(ev_z)
     except (OSError, ValueError):
         pass
 
@@ -2268,7 +2670,10 @@ def main():
                 cartelas.append((f"cronologia_{pg + 1}",
                                  lambda d_, pg=pg: cartela_cronologia(d_, pg),
                                  args.fechamento))
-            cartelas.append(("destaques", cartela_destaques, args.fechamento))
+            for pg in range(paginas_destaques(d)):
+                cartelas.append((f"destaques_{pg + 1}" if paginas_destaques(d) > 1 else "destaques",
+                                 lambda d_, pg=pg: cartela_destaques(d_, pg),
+                                 args.fechamento))
             for nome, func, dur in cartelas:
                 p = os.path.join(tmp, f"{nome}.png")
                 func(d).save(p)
@@ -2287,7 +2692,8 @@ def main():
 
         lista = os.path.join(tmp, "lista.txt")
         print("\njuntando vídeo completo (todos os clipes)...")
-        concatenar_segmentos(partes, lista, args.saida)
+        concatenar_segmentos(partes, lista, args.saida,
+                             crf=args.crf, preset=args.preset, codec=args.codec)
 
         dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                               "format=duration", "-of", "csv=p=0", args.saida],
@@ -2300,7 +2706,8 @@ def main():
         if args.saida_gols and any(item["i"] in por_indice and por_indice[item["i"]][0] == "gol" for item in roteiro):
             lista_gols = os.path.join(tmp, "lista_gols.txt")
             print("\njuntando vídeo só dos gols...")
-            concatenar_segmentos(partes_gols, lista_gols, args.saida_gols)
+            concatenar_segmentos(partes_gols, lista_gols, args.saida_gols,
+                                 crf=args.crf, preset=args.preset, codec=args.codec)
             dur_g = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                                   "format=duration", "-of", "csv=p=0", args.saida_gols],
                                  capture_output=True, text=True).stdout.strip()

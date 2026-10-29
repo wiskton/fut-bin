@@ -435,14 +435,14 @@ def ranking(tempos, dist, caminho, limiar, ruido):
         f.write("\n".join(linhas))
 
 
-def cortar(video_path, eventos, output_dir):
+def cortar(video_path, eventos, output_dir, encoder=None):
     destino = os.path.join(output_dir, "clipes")
     os.makedirs(destino, exist_ok=True)
     for ev in tqdm(eventos, desc="cortando"):
         saida = os.path.join(destino, f"gol_{ev['indice']:02d}.mp4")
         dur = ev["fim_s"] - ev["inicio_s"]
         subprocess.run(
-            clip_command(video_path, ev["inicio_s"], dur, saida),
+            clip_command(video_path, ev["inicio_s"], dur, saida, encoder=encoder),
             check=False,
         )
     print(f"clipes em {os.path.abspath(destino)}")
@@ -455,6 +455,7 @@ def main():
     ap.add_argument("--source_video_path", required=True)
     ap.add_argument("--pick_placar", action="store_true")
     ap.add_argument("--cortar", action="store_true")
+    ap.add_argument("--encoder", default=None, help="Encoder para corte (h264_nvenc, h264_amf, h264_qsv, libx264)")
     ap.add_argument("--gols", type=int, default=None,
                     help="numero de gols do placar final; dispensa limiar")
     ap.add_argument("--limiar", type=float, default=None,
@@ -486,7 +487,7 @@ def main():
             print("gols.json nao encontrado. Rode a deteccao primeiro.")
             return
         with open(caminho_json, encoding="utf-8-sig") as f:
-            cortar(args.source_video_path, json.load(f)["gols"], args.output_dir)
+            cortar(args.source_video_path, json.load(f)["gols"], args.output_dir, encoder=args.encoder)
         return
 
     if args.fixo:

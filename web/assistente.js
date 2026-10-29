@@ -20,9 +20,12 @@ let ESTADO = {
 let S = { meta:{data:'',comp:'',local:'',pelada:'Will Cup'},
   times:[{nome:'Time Amarelo',cor:'#eab308',jogadores:[]},{nome:'Time Azul',cor:'#2563eb',jogadores:[]}] };
 let rascunho = {tipo:null,time:null,autor:null,assist:null,lance:null,destaque:null};
-const TIPOS_LANCE = ['Defesaça','Chute na trave','Quase gol','Drible','Bola perdida','Confusão','Engraçado'];
+const TIPOS_LANCE = ['Defesaça', 'Chute na trave', 'Quase gol', 'Gol perdido', 'Falta', 'Bizarro', 'Drible', 'Bola perdida', 'Confusão', 'Engraçado'];
 const TIPOS_CLIPE = [
   { id: 'gol', rotulo: 'Gol', icon: '⚽', cor: 'var(--accent)', bg: 'rgba(0,255,135,0.18)', border: '#00ff87', isGol: true, hotkey: 'g' },
+  { id: 'falta', rotulo: 'Falta', icon: '⚠️', cor: '#ef4444', bg: 'rgba(239,68,68,0.18)', border: '#ef4444', lanceNome: 'Falta', isGol: false, hotkey: 'f' },
+  { id: 'gol_perdido', rotulo: 'Gol perdido', icon: '😱', cor: '#f97316', bg: 'rgba(249,115,22,0.18)', border: '#f97316', lanceNome: 'Gol perdido', isGol: false, hotkey: 'p' },
+  { id: 'bizarro', rotulo: 'Bizarro', icon: '🤪', cor: '#ec4899', bg: 'rgba(236,72,153,0.18)', border: '#ec4899', lanceNome: 'Bizarro', isGol: false, hotkey: 'b' },
   { id: 'lance', rotulo: 'Outro lance', icon: '🎬', cor: '#00f0ff', bg: 'rgba(0,240,255,0.18)', border: '#00f0ff', lanceNome: 'Outro lance', isGol: false, hotkey: 'o' },
 ];
 
@@ -175,6 +178,18 @@ function obterInfoTipo(status, lance){
   if(s === 'revisar' || s === 'pendente' || s === 'null' || s === 'none' || s === 'undefined') return null;
 
   if(s === 'gol' || (!s && l === 'gol')) return TIPOS_CLIPE[0];
+  if(s === 'falta' || (s !== 'gol' && l === 'falta')){
+    return TIPOS_CLIPE.find(t => t.id === 'falta') || { id: 'falta', rotulo: 'Falta', icon: '⚠️', cor: '#ef4444',
+             bg: 'rgba(239,68,68,0.18)', border: '#ef4444', lanceNome: 'Falta', isGol: false, hotkey: 'f' };
+  }
+  if(s === 'gol_perdido' || s === 'gol perdido' || s === 'golperdido' || (s !== 'gol' && (l === 'gol perdido' || l === 'gol_perdido' || l === 'golperdido'))){
+    return TIPOS_CLIPE.find(t => t.id === 'gol_perdido') || { id: 'gol_perdido', rotulo: 'Gol perdido', icon: '😱', cor: '#f97316',
+             bg: 'rgba(249,115,22,0.18)', border: '#f97316', lanceNome: 'Gol perdido', isGol: false, hotkey: 'p' };
+  }
+  if(s === 'bizarro' || (s !== 'gol' && l === 'bizarro')){
+    return TIPOS_CLIPE.find(t => t.id === 'bizarro') || { id: 'bizarro', rotulo: 'Bizarro', icon: '🤪', cor: '#ec4899',
+             bg: 'rgba(236,72,153,0.18)', border: '#ec4899', lanceNome: 'Bizarro', isGol: false, hotkey: 'b' };
+  }
   if(s === 'confusao' || (s !== 'gol' && l === 'confusao')){
     return { id: 'confusao', rotulo: 'Confusão', icon: '🥊', cor: '#a855f7',
              bg: 'rgba(168,85,247,0.18)', border: '#a855f7', lanceNome: 'Confusão', isGol: false };
@@ -183,7 +198,7 @@ function obterInfoTipo(status, lance){
     return { id: 'engracado', rotulo: 'Engraçado', icon: '🤣', cor: '#f59e0b',
              bg: 'rgba(245,158,11,0.18)', border: '#f59e0b', lanceNome: 'Engraçado', isGol: false };
   }
-  if(s || l) return TIPOS_CLIPE[1];
+  if(s || l) return TIPOS_CLIPE.find(t => t.id === 'lance') || TIPOS_CLIPE[TIPOS_CLIPE.length - 1];
   return null;
 }
 
@@ -871,26 +886,54 @@ function estadoParaPartida(){
       fotos: t.fotos || {},
       camera_ataque: t.camera_ataque || 0,
     })),
-    gols: v.map(g=>({indice:g.indice, tempo:g.tempo,
-      tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
-      inicio_s:g.inicio_s, fim_s:g.fim_s, camera:g.camera || 1, cameras_clipe:g.cameras_clipe || [g.camera || 1], tipo:'gol', status:'gol', time:g.time,
-      time_nome:S.times[g.time]?.nome || '', autor:g.autor, assist:g.assist, fonte:g.fonte||null,
-      zoom:g.zoom ?? 1, zoom_x:g.zoom_x ?? 0.5, zoom_y:g.zoom_y ?? 0.5})),
-    lances: l.map(g=>{
-      const inf = obterInfoTipo(g.status || g.tipo, g.lance);
+    gols: v.map(g => {
+      const tS = (g.tempo_s != null && !isNaN(g.tempo_s)) ? Number(g.tempo_s) : obterTempoSegundosClipe(g);
+      const tStr = (g.tempo && g.tempo !== '00:00' && g.tempo !== '--:--') ? g.tempo : (tS !== -1 ? fmtTempo(tS) : '00:00');
+      const iniS = (g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) : (tS !== -1 ? Math.max(0, tS - 20) : null);
+      const fimS = (g.fim_s != null && !isNaN(g.fim_s)) ? Number(g.fim_s) : (tS !== -1 ? tS + 4 : null);
       return {
         indice: g.indice,
-        tempo: g.tempo,
-        tempo_s: (g.tempo_s != null) ? g.tempo_s : obterTempoSegundosClipe(g),
-        inicio_s: g.inicio_s,
-        fim_s: g.fim_s, camera:g.camera || 1, cameras_clipe:g.cameras_clipe || [g.camera || 1],
+        tempo: tStr,
+        tempo_s: (tS !== -1) ? tS : null,
+        inicio_s: iniS,
+        fim_s: fimS,
+        camera: g.camera || 1,
+        cameras_clipe: g.cameras_clipe || [g.camera || 1],
+        tipo: 'gol',
+        status: 'gol',
+        time: g.time,
+        time_nome: S.times[g.time]?.nome || '',
+        autor: g.autor,
+        assist: g.assist,
+        fonte: g.fonte || null,
+        zoom: g.zoom ?? 1,
+        zoom_x: g.zoom_x ?? 0.5,
+        zoom_y: g.zoom_y ?? 0.5
+      };
+    }),
+    lances: l.map(g => {
+      const inf = obterInfoTipo(g.status || g.tipo, g.lance);
+      const tS = (g.tempo_s != null && !isNaN(g.tempo_s)) ? Number(g.tempo_s) : obterTempoSegundosClipe(g);
+      const tStr = (g.tempo && g.tempo !== '00:00' && g.tempo !== '--:--') ? g.tempo : (tS !== -1 ? fmtTempo(tS) : '00:00');
+      const iniS = (g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) : (tS !== -1 ? Math.max(0, tS - 20) : null);
+      const fimS = (g.fim_s != null && !isNaN(g.fim_s)) ? Number(g.fim_s) : (tS !== -1 ? tS + 4 : null);
+      return {
+        indice: g.indice,
+        tempo: tStr,
+        tempo_s: (tS !== -1) ? tS : null,
+        inicio_s: iniS,
+        fim_s: fimS,
+        camera: g.camera || 1,
+        cameras_clipe: g.cameras_clipe || [g.camera || 1],
         tipo: 'lance',
         status: g.status || (inf ? inf.id : 'lance'),
         lance: g.lance || (inf ? inf.lanceNome : 'Lance'),
         time: g.time,
         destaque: g.destaque,
-        fonte: g.fonte||null,
-        zoom: g.zoom ?? 1, zoom_x: g.zoom_x ?? 0.5, zoom_y: g.zoom_y ?? 0.5
+        fonte: g.fonte || null,
+        zoom: g.zoom ?? 1,
+        zoom_x: g.zoom_x ?? 0.5,
+        zoom_y: g.zoom_y ?? 0.5
       };
     }),
     roteiro: todosRoteiro.map(g=>({i:g.indice, t:obterTempoSegundosClipe(g), tipo:g.tipo})),
@@ -1431,9 +1474,21 @@ function sincronizarJogadoresCadastrados(timeIdx, jogadores, posicoes, fotos){
         posicoes[nomeElenco] = posId;
       }
 
-      // Aplica foto se ainda não definida
-      if(!fotos[nomeElenco] && jogadorCadastrado.foto){
-        fotos[nomeElenco] = jogadorCadastrado.foto;
+      // Aplica foto: a foto 2 será usada para time 2 sempre
+      if(timeIdx === 1){
+        const fotoT2 = jogadorCadastrado.foto2 || jogadorCadastrado.foto1 || jogadorCadastrado.foto;
+        if(fotoT2){
+          if(jogadorCadastrado.foto2 || !fotos[nomeElenco]){
+            fotos[nomeElenco] = fotoT2;
+          }
+        }
+      } else {
+        const fotoT1 = jogadorCadastrado.foto1 || jogadorCadastrado.foto;
+        if(fotoT1){
+          if(!fotos[nomeElenco] || (jogadorCadastrado.foto2 && fotos[nomeElenco] === jogadorCadastrado.foto2)){
+            fotos[nomeElenco] = fotoT1;
+          }
+        }
       }
     }
   });
@@ -2145,8 +2200,9 @@ $('#btnDetectar').onclick = async ()=>{
     await fetch('/api/gols', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({video: ESTADO.video.caminho, eventos: eventos.map(e=>({tempo_s:e.tempo_s}))})});
 
+    const encCorte = localStorage.getItem('futbin_render_encoder') || 'h264_nvenc';
     r = await fetch('/api/cortar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({video: ESTADO.video.caminho})});
+      body: JSON.stringify({video: ESTADO.video.caminho, encoder: encCorte})});
     if(!r.ok){
       logEl.style.display = 'block';
       logEl.textContent = '❌ Não consegui iniciar o corte.';
@@ -2205,8 +2261,9 @@ $('#btnDetectarZonas').onclick = async ()=>{
     let {job_id} = await r.json();
     if(!await acompanharJob(job_id, logEl, btnCanc)) return;
 
+    const encCorte = localStorage.getItem('futbin_render_encoder') || 'h264_nvenc';
     r = await fetch('/api/cortar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({video: ESTADO.video.caminho})});
+      body: JSON.stringify({video: ESTADO.video.caminho, encoder: encCorte})});
     if(!r.ok){
       logEl.style.display = 'block';
       logEl.textContent = '❌ Não consegui iniciar o corte.';
@@ -2614,14 +2671,35 @@ async function sincronizarGolsComBackend(){
       const assistFinal = temTime ? (c.assist || prev.assist || null) : null;
       const destaqueFinal = temTime ? (c.destaque || prev.destaque || null) : null;
 
+      const tempo_s_final = (c.tempo_s != null && !isNaN(c.tempo_s)) ? Number(c.tempo_s) :
+                            (meta.tempo_s != null && !isNaN(meta.tempo_s)) ? Number(meta.tempo_s) :
+                            (prev.tempo_s != null && !isNaN(prev.tempo_s)) ? Number(prev.tempo_s) :
+                            (c.inicio_s != null && !isNaN(c.inicio_s)) ? Number(c.inicio_s) + 20 :
+                            (prev.inicio_s != null && !isNaN(prev.inicio_s)) ? Number(prev.inicio_s) + 20 : null;
+
+      const inicio_s_final = (meta.inicio_s != null && !isNaN(meta.inicio_s)) ? Number(meta.inicio_s) :
+                             (c.inicio_s != null && !isNaN(c.inicio_s)) ? Number(c.inicio_s) :
+                             (prev.inicio_s != null && !isNaN(prev.inicio_s)) ? Number(prev.inicio_s) :
+                             (tempo_s_final != null ? Math.max(0, tempo_s_final - 20) : null);
+
+      const fim_s_final = (meta.fim_s != null && !isNaN(meta.fim_s)) ? Number(meta.fim_s) :
+                          (c.fim_s != null && !isNaN(c.fim_s)) ? Number(c.fim_s) :
+                          (prev.fim_s != null && !isNaN(prev.fim_s)) ? Number(prev.fim_s) :
+                          (tempo_s_final != null ? tempo_s_final + 4 : null);
+
+      const tempo_str_final = (c.tempo && c.tempo !== '00:00' && c.tempo !== '--:--') ? c.tempo :
+                              (meta.tempo && meta.tempo !== '00:00' && meta.tempo !== '--:--') ? meta.tempo :
+                              (prev.tempo && prev.tempo !== '00:00' && prev.tempo !== '--:--') ? prev.tempo :
+                              (tempo_s_final != null ? fmtTempo(tempo_s_final) : '');
+
       return {
         indice: c.indice,
-        tempo: c.tempo || meta.tempo || '',
-        tempo_s: c.tempo_s != null ? c.tempo_s : meta.tempo_s,
-        inicio_s: meta.inicio_s,
-        fim_s: meta.fim_s,
+        tempo: tempo_str_final,
+        tempo_s: tempo_s_final,
+        inicio_s: inicio_s_final,
+        fim_s: fim_s_final,
         duracao_s: c.duracao_s != null ? c.duracao_s : prev.duracao_s,
-        fonte: meta.fonte || 'revisado',
+        fonte: meta.fonte || prev.fonte || 'revisado',
         status: info ? info.id : (statusFinal || null),
         tipo: tipo,
         lance: ehGol ? null : (lanceFinal || (info ? info.lanceNome : null)),
@@ -3687,7 +3765,7 @@ function cameraAutomaticaDoRascunho(){
   const ehTipo = (...chaves) => chaves.some(c => nome.includes(c) || status.includes(c));
   if(rascunho.tipo === 'gol') return Number(S.times[t].camera_ataque) || 0;
   if(rascunho.tipo !== 'lance') return 0;
-  if(ehTipo('quase', 'trave')) return Number(S.times[t].camera_ataque) || 0;
+  if(ehTipo('quase', 'trave', 'gol perdido', 'gol_perdido')) return Number(S.times[t].camera_ataque) || 0;
   if(ehTipo('defesa')) return outro ? Number(outro.camera_ataque) || 0 : 0;
   return 0;
 }
@@ -4345,6 +4423,171 @@ function alternarModoTeatroMarcar(forcar = null){
     }
     localStorage.setItem('futbin_modo_teatro_marcar', '0');
   }
+}
+
+
+/* ---- Botões Cortar 15s Atrás e Cortar 15s Frente na Tela de Marcação ---- */
+const btnCortar15sFrente = document.getElementById('btnCortar15sFrenteMarcar');
+if(btnCortar15sFrente){
+  btnCortar15sFrente.onclick = async () => {
+    const g = (ESTADO.gols || []).find(x => x.indice === ESTADO.indiceAtual);
+    if(!g){ alert('Nenhum clipe selecionado na marcação.'); return; }
+
+    const tempoRef = (g.tempo_s != null && !isNaN(g.tempo_s)) ? Number(g.tempo_s) :
+                     ((g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) + 20 : 0);
+    const iniAtual = (g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) : Math.max(0, tempoRef - 20);
+    let fimAtual = (g.fim_s != null && !isNaN(g.fim_s)) ? Number(g.fim_s) : (tempoRef + 4);
+    if(fimAtual <= iniAtual) fimAtual = iniAtual + 24;
+
+    const novoIni = Math.round((iniAtual + 15) * 100) / 100;
+    const novoFim = Math.round((fimAtual + 15) * 100) / 100;
+
+    btnCortar15sFrente.disabled = true;
+    const originalHTML = btnCortar15sFrente.innerHTML;
+    btnCortar15sFrente.innerHTML = '<span>⏳</span> <span>Cortando 15s frente...</span>';
+
+    try {
+      const infoTipo = obterInfoTipo(g.status || g.tipo, g.lance);
+      const status = g.status || (infoTipo ? infoTipo.id : 'gol');
+      const lanceNome = (infoTipo && !infoTipo.isGol) ? infoTipo.lanceNome : (g.lance || null);
+      const videoCaminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : null;
+
+      const r = await fetch('/api/gols/adicionar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          video: videoCaminho,
+          inicio_s: novoIni,
+          fim_s: novoFim,
+          tempo_s: Math.max(0, novoIni + 20),
+          status: status,
+          lance: lanceNome
+        })
+      });
+      const res = await r.json();
+      if(!r.ok) throw new Error(res.detail || 'Erro ao gerar clipe');
+
+      if(g.time !== null && g.time !== undefined){
+        try {
+          await fetch('/api/gols/confirmar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              indice: res.indice,
+              status: status,
+              lance: lanceNome,
+              time: g.time,
+              autor: g.autor || null,
+              assist: g.assist || null,
+              destaque: g.destaque || null
+            })
+          });
+        } catch(e){}
+      }
+
+      await carregarClipes();
+      ESTADO.indiceAtual = res.indice;
+      renderMarcacao();
+
+      if(typeof mostrarAlertaClipePronto === 'function'){
+        mostrarAlertaClipePronto({
+          indice: res.indice,
+          inicio_s: novoIni,
+          fim_s: novoFim,
+          dur: (novoFim - novoIni),
+          tipo: status,
+          infoTipo: infoTipo
+        });
+      }
+    } catch(err) {
+      alert('Erro ao cortar clipe 15s frente: ' + (err.message || err));
+    } finally {
+      btnCortar15sFrente.disabled = false;
+      btnCortar15sFrente.innerHTML = originalHTML;
+    }
+  };
+}
+
+const btnCortar15s = document.getElementById('btnCortar15sAtrasMarcar');
+if(btnCortar15s){
+  btnCortar15s.onclick = async () => {
+    const g = (ESTADO.gols || []).find(x => x.indice === ESTADO.indiceAtual);
+    if(!g){ alert('Nenhum clipe selecionado na marcação.'); return; }
+
+    const tempoRef = (g.tempo_s != null && !isNaN(g.tempo_s)) ? Number(g.tempo_s) :
+                     ((g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) + 20 : 0);
+    const iniAtual = (g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) : Math.max(0, tempoRef - 20);
+    let fimAtual = (g.fim_s != null && !isNaN(g.fim_s)) ? Number(g.fim_s) : (tempoRef + 4);
+    if(fimAtual <= iniAtual) fimAtual = iniAtual + 24;
+
+    const novoIni = Math.max(0, Math.round((iniAtual - 15) * 100) / 100);
+    const novoFim = Math.max(novoIni + 5, Math.round(fimAtual * 100) / 100);
+
+    btnCortar15s.disabled = true;
+    const originalHTML = btnCortar15s.innerHTML;
+    btnCortar15s.innerHTML = '<span>⏳</span> <span>Cortando 15s atrás...</span>';
+
+    try {
+      const infoTipo = obterInfoTipo(g.status || g.tipo, g.lance);
+      const status = g.status || (infoTipo ? infoTipo.id : 'gol');
+      const lanceNome = (infoTipo && !infoTipo.isGol) ? infoTipo.lanceNome : (g.lance || null);
+      const videoCaminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : null;
+
+      const r = await fetch('/api/gols/adicionar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          video: videoCaminho,
+          inicio_s: novoIni,
+          fim_s: novoFim,
+          tempo_s: Math.max(0, novoIni + 20),
+          status: status,
+          lance: lanceNome
+        })
+      });
+      const res = await r.json();
+      if(!r.ok) throw new Error(res.detail || 'Erro ao gerar clipe');
+
+      // Herda time, autor e destaque caso já existam
+      if(g.time !== null && g.time !== undefined){
+        try {
+          await fetch('/api/gols/confirmar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              indice: res.indice,
+              status: status,
+              lance: lanceNome,
+              time: g.time,
+              autor: g.autor || null,
+              assist: g.assist || null,
+              destaque: g.destaque || null
+            })
+          });
+        } catch(e){}
+      }
+
+      await carregarClipes();
+      ESTADO.indiceAtual = res.indice;
+      renderMarcacao();
+
+      if(typeof mostrarAlertaClipePronto === 'function'){
+        mostrarAlertaClipePronto({
+          indice: res.indice,
+          inicio_s: novoIni,
+          fim_s: novoFim,
+          dur: (novoFim - novoIni),
+          tipo: status,
+          infoTipo: infoTipo
+        });
+      }
+    } catch(err) {
+      alert('Erro ao cortar clipe 15s atrás: ' + (err.message || err));
+    } finally {
+      btnCortar15s.disabled = false;
+      btnCortar15s.innerHTML = originalHTML;
+    }
+  };
 }
 
 $('#btnRep').onclick = ()=>{ const v=$('#vid'); v.currentTime=0; v.play(); };
@@ -5204,7 +5447,96 @@ function renderResultadosVideosFinais(){
   }
 }
 
+let _hardwareInfo = null;
+
+async function carregarInfoHardware(){
+  try {
+    const r = await fetch('/api/hardware');
+    if(!r.ok) return;
+    _hardwareInfo = await r.json();
+    atualizarLabelsHardwareUI();
+  } catch(e){}
+}
+
+function atualizarLabelsHardwareUI(){
+  if(!_hardwareInfo) return;
+  const gpuCards = document.querySelectorAll('.card-render-tipo[data-tipo="gpu"], .card-render-tipo[data-encoder!="libx264"]');
+  gpuCards.forEach(card => {
+    const tit = card.querySelector('.lbl-gpu-card') || card.querySelector('span:first-child');
+    const desc = card.querySelector('.desc-gpu-card') || card.querySelector('span:last-child');
+    if(_hardwareInfo.gpu_disponivel){
+      if(tit) tit.textContent = `⚡ Placa de Vídeo (${_hardwareInfo.gpu_nome || 'GPU'})`;
+      if(desc) desc.textContent = `Renderiza e clipa por hardware dedicado ${_hardwareInfo.gpu_tipo.toUpperCase()} (${_hardwareInfo.encoder_gpu}) — Ultra Rápido`;
+      card.dataset.encoder = _hardwareInfo.encoder_gpu || 'h264_nvenc';
+    } else {
+      if(tit) tit.textContent = `⚠️ Placa de Vídeo (Não detectada)`;
+      if(desc) desc.textContent = `Nenhuma GPU NVIDIA, AMD ou Intel compatível detectada. Usando CPU.`;
+    }
+  });
+}
+
+function salvarConfigRenderServidor(encoder){
+  try {
+    fetch('/api/config/render', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({encoder: encoder})
+    }).catch(()=>{});
+  } catch(e){}
+}
+
+function sincronizarCardsTipoRender(encoder){
+  const cards = document.querySelectorAll('.card-render-tipo');
+  cards.forEach(card => {
+    const encCard = card.dataset.encoder;
+    const ehEste = encCard === encoder || (encoder !== 'libx264' && encCard !== 'libx264');
+    if(ehEste){
+      card.classList.add('sel');
+      card.style.borderColor = 'var(--accent)';
+      card.style.background = 'rgba(0,255,135,0.09)';
+    } else {
+      card.classList.remove('sel');
+      card.style.borderColor = 'var(--line)';
+      card.style.background = 'var(--panel)';
+    }
+  });
+
+  const encoderReal = (_hardwareInfo && _hardwareInfo.gpu_disponivel && encoder !== 'libx264')
+    ? (_hardwareInfo.encoder_gpu || encoder) : encoder;
+
+  const inpFinal = document.getElementById('encoderFinal');
+  if(inpFinal) inpFinal.value = encoderReal;
+  const inpJog = document.getElementById('encoderJogador');
+  if(inpJog) inpJog.value = encoderReal;
+  const inpGols = document.getElementById('encoderGols');
+  if(inpGols) inpGols.value = encoderReal;
+
+  const gpuNomeExibir = (_hardwareInfo && _hardwareInfo.gpu_nome) ? _hardwareInfo.gpu_nome : 'Placa de Vídeo';
+  const ehGpu = encoder !== 'libx264';
+
+  const badges = ['badgeRenderGlobal', 'badgeRenderAtivo', 'badgeRenderAtivoGols', 'badgeRenderAtivoJogador'];
+  badges.forEach(id => {
+    const b = document.getElementById(id);
+    if(b){
+      b.textContent = ehGpu ? `⚡ ${gpuNomeExibir} Ativa` : '💻 Processador (CPU x264) Selecionado';
+      b.style.color = ehGpu ? 'var(--accent)' : '#38bdf8';
+    }
+  });
+}
+
 function inicializarSeletorQualidade(){
+  const savedEncoder = localStorage.getItem('futbin_render_encoder') || 'h264_nvenc';
+  sincronizarCardsTipoRender(savedEncoder);
+  salvarConfigRenderServidor(savedEncoder);
+
+  document.querySelectorAll('.card-render-tipo').forEach(card => {
+    card.onclick = () => {
+      const enc = card.dataset.encoder;
+      try { localStorage.setItem('futbin_render_encoder', enc); } catch(e){}
+      sincronizarCardsTipoRender(enc);
+      salvarConfigRenderServidor(enc);
+    };
+  });
   const savedCrf = localStorage.getItem('futbin_perfil_qualidade') || '24';
   const cards = document.querySelectorAll('.perfil-qualidade-card');
   const badge = document.getElementById('badgeTamanhoEstimado');
@@ -5535,9 +5867,10 @@ function sincronizarCoresJogadorComFundo(){
 function paramsRenderJogador(){
   const card = document.querySelector('.perfil-jogador-card.sel');
   const v = id => { const n = parseFloat($(id).value); return (Number.isFinite(n) ? n : 100) / 100; };
+  const encoderSel = $('#encoderJogador')?.value || localStorage.getItem('futbin_render_encoder') || (card?.dataset?.codec || 'h264_nvenc');
   return {
     crf: card ? parseInt(card.dataset.crf, 10) : 24,
-    codec: card?.dataset.codec || 'libx264',
+    codec: encoderSel,
     resolucao: parseInt($('#resolucaoJogador').value, 10) || 1080,
     ...(formatoJogadorVertical() ? {formato: '9:16', recorte: [recorteV.x, recorteV.y, recorteV.h]} : {}),
     brilho: v('#jgBrilho'), contraste: v('#jgContraste'), saturacao: v('#jgSaturacao'),
@@ -5728,7 +6061,8 @@ $('#btnMontar').onclick = async ()=>{
 
   const cardSel = document.querySelector('.perfil-qualidade-card.sel');
   const crf = cardSel ? parseInt(cardSel.dataset.crf, 10) : 24;
-  const codec = cardSel ? (cardSel.dataset.codec || 'libx264') : 'libx264';
+  const encoderSel = $('#encoderFinal')?.value || localStorage.getItem('futbin_render_encoder') || (cardSel?.dataset?.codec || 'h264_nvenc');
+  const codec = encoderSel;
   const temaSel = document.querySelector('.tema-card.sel');
   const tema = temaSel ? (temaSel.dataset.tema || 'atual') : 'atual';
 
@@ -5822,7 +6156,13 @@ $('#btnMontar').onclick = async ()=>{
     } else if(partida.meta && partida.meta.video){
       selecionarVideo({nome: partida.meta.video.split(/[\\/]/).pop(), caminho: partida.meta.video, duracao_s: null}, 0);
     }
-    if(partida._todosGols) ESTADO.gols = partida._todosGols;
+    if(partida._todosGols && partida._todosGols.length){
+      ESTADO.gols = partida._todosGols;
+    } else if(partida.gols || partida.lances) {
+      const gList = (partida.gols || []).map(g => ({...g, tipo: 'gol', status: 'gol'}));
+      const lList = (partida.lances || []).map(l => ({...l, tipo: 'lance', status: l.status || 'lance'}));
+      ESTADO.gols = [...gList, ...lList];
+    }
   }
   if(!ESTADO.video){
     try {
@@ -5849,6 +6189,7 @@ $('#btnMontar').onclick = async ()=>{
   try { carregarVideosJogadoresSalvos(); inicializarSeletorQualidade(); } catch(e) { console.warn('boot: listas', e); }
   try { await carregarSessoes(); } catch(e) { console.warn('boot: sessoes', e); }
   try { await carregarJogadoresCadastrados(); } catch(e) { console.warn('boot: jogadores', e); }
+  try { await carregarInfoHardware(); } catch(e) { console.warn('boot: hardware', e); }
   // Agora cada etapa (em especial Resumo e Jogador) recebe os dados salvos.
   irPara(passoInicial);
 })();
@@ -5889,20 +6230,39 @@ function renderGridJogadores(){
   if(!grid) return;
 
   grid.innerHTML = jogadoresCadastrados.map(j => {
-    const foto = j.foto || '/web/icon.png';
+    const foto1 = j.foto1 || j.foto || '/web/icon.png';
+    const foto2 = j.foto2 || null;
     const apelido = j.apelido ? `<span style="font-size:11px;color:var(--dim)">\"${j.apelido}\"</span>` : '';
-    const numero = j.numero ? `<span style="position:absolute;top:6px;right:6px;background:var(--accent);color:#000;font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px">#${j.numero}</span>` : '';
+    const numero = j.numero ? `<span style="position:absolute;top:6px;right:6px;background:var(--accent);color:#000;font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px;z-index:3">#${j.numero}</span>` : '';
     const posicao = j.posicao ? `<span style="font-size:10px;color:var(--dim);font-weight:700">${j.posicao}</span>` : '';
+
+    let fotosHtml = '';
+    if(foto2){
+      fotosHtml = `
+        <div style="display:flex;gap:6px;justify-content:center;position:relative">
+          <div style="flex:1;position:relative;text-align:center" title="Foto 1 (Time 1 / Padrão)">
+            <span style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#eab308;font-size:9px;font-weight:800;padding:1px 4px;border-radius:3px;z-index:2">T1</span>
+            <img src="${foto1}" class="jogador-foto" alt="${j.nome} Foto 1" onerror="this.src='/web/icon.png'">
+          </div>
+          <div style="flex:1;position:relative;text-align:center" title="Foto 2 (Time 2)">
+            <span style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#38bdf8;font-size:9px;font-weight:800;padding:1px 4px;border-radius:3px;z-index:2">T2</span>
+            <img src="${foto2}" class="jogador-foto" alt="${j.nome} Foto 2" onerror="this.src='/web/icon.png'">
+          </div>
+        </div>
+      `;
+    } else {
+      fotosHtml = `<img src="${foto1}" class="jogador-foto" alt="${j.nome}" onerror="this.src='/web/icon.png'">`;
+    }
 
     return `<div class="jogador-card" style="position:relative">
       ${numero}
-      <img src="${foto}" class="jogador-foto" alt="${j.nome}" onerror="this.src='/web/icon.png'">
+      ${fotosHtml}
       <div style="text-align:center">
         <div style="font-weight:700;font-size:13px;margin-bottom:2px">${j.nome}</div>
-        ${apelido}
-        ${posicao}
+        ${apelido ? `<div>${apelido}</div>` : ''}
+        ${posicao ? `<div>${posicao}</div>` : ''}
       </div>
-      <div class="row" style="gap:4px;margin-top:4px">
+      <div class="row" style="gap:4px;margin-top:auto">
         <button type="button" class="ghost btnPequeno" style="flex:1" onclick="editarJogador('${j.id}')">✏️ Editar</button>
         <button type="button" class="ghost btnPequeno" style="flex:1" onclick="removerJogador('${j.id}')">🗑️ Remover</button>
       </div>
@@ -5910,10 +6270,19 @@ function renderGridJogadores(){
   }).join('');
 }
 
+let foto1Removida = false;
+let foto2Removida = false;
+
 function abrirFormJogador(jogadorId = null){
   jogadorEmEdicao = jogadorId;
+  foto1Removida = false;
+  foto2Removida = false;
   const form = $('#formJogadorCard');
   const titulo = $('#formJogadorTitulo');
+  const btnRemover1 = $('#btnRemoverFoto1');
+  const btnRemover2 = $('#btnRemoverFoto2');
+  if($('#inputFotoJogador')) $('#inputFotoJogador').value = '';
+  if($('#inputFotoJogador2')) $('#inputFotoJogador2').value = '';
 
   if(jogadorId){
     const j = jogadoresCadastrados.find(jog => jog.id === jogadorId);
@@ -5924,7 +6293,13 @@ function abrirFormJogador(jogadorId = null){
     $('#inputApelidoJogador').value = j.apelido || '';
     $('#inputPosicaoJogador').value = j.posicao || '';
     $('#inputNumeroJogador').value = j.numero || '';
-    $('#previewFotoJogador').src = j.foto || '/web/icon.png';
+    
+    const f1 = j.foto1 || j.foto;
+    const f2 = j.foto2;
+    $('#previewFotoJogador').src = f1 || '/web/icon.png';
+    if($('#previewFotoJogador2')) $('#previewFotoJogador2').src = f2 || '/web/icon.png';
+    if(btnRemover1) btnRemover1.style.display = f1 ? 'inline-block' : 'none';
+    if(btnRemover2) btnRemover2.style.display = f2 ? 'inline-block' : 'none';
   }else{
     if(titulo) titulo.textContent = 'Adicionar Novo Jogador';
     $('#inputNomeJogador').value = '';
@@ -5932,6 +6307,9 @@ function abrirFormJogador(jogadorId = null){
     $('#inputPosicaoJogador').value = '';
     $('#inputNumeroJogador').value = '';
     $('#previewFotoJogador').src = '/web/icon.png';
+    if($('#previewFotoJogador2')) $('#previewFotoJogador2').src = '/web/icon.png';
+    if(btnRemover1) btnRemover1.style.display = 'none';
+    if(btnRemover2) btnRemover2.style.display = 'none';
   }
 
   if(form){
@@ -5944,13 +6322,37 @@ function cancelarFormJogador(){
   const form = $('#formJogadorCard');
   if(form) form.style.display = 'none';
   jogadorEmEdicao = null;
+  foto1Removida = false;
+  foto2Removida = false;
 }
 
-function carregarPreviewFoto(input){
+function limparFotoJogador(slot = 1){
+  if(slot === 2){
+    foto2Removida = true;
+    if($('#inputFotoJogador2')) $('#inputFotoJogador2').value = '';
+    if($('#previewFotoJogador2')) $('#previewFotoJogador2').src = '/web/icon.png';
+    if($('#btnRemoverFoto2')) $('#btnRemoverFoto2').style.display = 'none';
+  } else {
+    foto1Removida = true;
+    if($('#inputFotoJogador')) $('#inputFotoJogador').value = '';
+    if($('#previewFotoJogador')) $('#previewFotoJogador').src = '/web/icon.png';
+    if($('#btnRemoverFoto1')) $('#btnRemoverFoto1').style.display = 'none';
+  }
+}
+
+function carregarPreviewFoto(input, slot = 1){
   if(!input.files || !input.files[0]) return;
   const reader = new FileReader();
   reader.onload = e => {
-    $('#previewFotoJogador').src = e.target.result;
+    if(slot === 2){
+      foto2Removida = false;
+      if($('#previewFotoJogador2')) $('#previewFotoJogador2').src = e.target.result;
+      if($('#btnRemoverFoto2')) $('#btnRemoverFoto2').style.display = 'inline-block';
+    } else {
+      foto1Removida = false;
+      $('#previewFotoJogador').src = e.target.result;
+      if($('#btnRemoverFoto1')) $('#btnRemoverFoto1').style.display = 'inline-block';
+    }
   };
   reader.readAsDataURL(input.files[0]);
 }
@@ -5965,6 +6367,8 @@ async function salvarJogador(){
     posicao: $('#inputPosicaoJogador').value || null,
     numero: parseInt($('#inputNumeroJogador').value) || null,
   };
+  if(foto1Removida){ dados.foto = null; dados.foto1 = null; }
+  if(foto2Removida){ dados.foto2 = null; }
 
   try{
     let jogadorId = jogadorEmEdicao;
@@ -5989,17 +6393,24 @@ async function salvarJogador(){
       jogadorId = resultado.jogador.id;
     }
 
-    // Upload de foto se houver
-    const inputFoto = $('#inputFotoJogador');
-    if(inputFoto.files && inputFoto.files[0]){
-      const formData = new FormData();
-      formData.append('foto', inputFoto.files[0]);
-
-      const r2 = await fetch(`/api/jogadores/${jogadorId}/foto`, {
+    // Upload de Foto 1 se houver arquivo novo
+    const inputFoto1 = $('#inputFotoJogador');
+    if(inputFoto1 && inputFoto1.files && inputFoto1.files[0]){
+      const r1 = await fetch(`/api/jogadores/${jogadorId}/foto?slot=1`, {
         method:'POST',
-        body: await inputFoto.files[0].arrayBuffer()
+        body: await inputFoto1.files[0].arrayBuffer()
       });
-      if(!r2.ok) console.warn('Erro ao fazer upload da foto');
+      if(!r1.ok) console.warn('Erro ao fazer upload da Foto 1');
+    }
+
+    // Upload de Foto 2 se houver arquivo novo
+    const inputFoto2 = $('#inputFotoJogador2');
+    if(inputFoto2 && inputFoto2.files && inputFoto2.files[0]){
+      const r2 = await fetch(`/api/jogadores/${jogadorId}/foto?slot=2`, {
+        method:'POST',
+        body: await inputFoto2.files[0].arrayBuffer()
+      });
+      if(!r2.ok) console.warn('Erro ao fazer upload da Foto 2');
     }
 
     await carregarJogadoresCadastrados();
@@ -6145,14 +6556,18 @@ function abrirSeletorJogadores(timeIdx){
     if(msg) msg.style.display = 'none';
     if(grid){
       grid.innerHTML = jogadoresCadastrados.map(j => {
-        const foto = j.foto || '/web/icon.png';
+        const foto = (timeIdx === 1 && j.foto2) ? j.foto2 : (j.foto1 || j.foto || '/web/icon.png');
         const apelido = j.apelido ? `<span style="font-size:11px;color:var(--dim)">"${j.apelido}"</span>` : '';
         const numero = j.numero ? `<span style="position:absolute;top:6px;right:6px;background:var(--accent);color:#000;font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px">#${j.numero}</span>` : '';
         const posicao = j.posicao ? `<span style="font-size:10px;color:var(--dim);font-weight:700">${j.posicao}</span>` : '';
+        const badgeTime2 = (timeIdx === 1 && j.foto2) ? `<span style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.75);color:#38bdf8;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">Foto 2</span>` : '';
 
         return `<div class="jogador-card" style="position:relative;cursor:pointer" onclick="toggleSelecionarJogadorElenco('${j.id}')" data-jogador-id="${j.id}">
           ${numero}
-          <img src="${foto}" class="jogador-foto" alt="${j.nome}" onerror="this.src='/web/icon.png'">
+          <div style="position:relative">
+            <img src="${foto}" class="jogador-foto" alt="${j.nome}" onerror="this.src='/web/icon.png'">
+            ${badgeTime2}
+          </div>
           <div style="text-align:center">
             <div style="font-weight:700;font-size:13px;margin-bottom:2px">${j.nome}</div>
             ${apelido}
@@ -6222,9 +6637,12 @@ function confirmarSelecaoJogadores(){
       const posId = mapaPosicao[jogador.posicao.toUpperCase().trim()] || 'meio';
       posParaAplicar[nomeExibir] = posId;
     }
-    // Coleta foto
-    if(jogador.foto){
-      fotosParaAplicar[nomeExibir] = jogador.foto;
+    // Coleta foto (Time 2 SEMPRE usa foto 2 se cadastrada)
+    const fotoParaUsar = (timeParaAdicionar === 1 && jogador.foto2)
+      ? jogador.foto2
+      : (jogador.foto1 || jogador.foto);
+    if(fotoParaUsar){
+      fotosParaAplicar[nomeExibir] = fotoParaUsar;
     }
   });
 
