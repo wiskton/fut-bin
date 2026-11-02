@@ -18,7 +18,7 @@ let ESTADO = {
   indiceAtual: null,     // Indice do clipe atualmente selecionado (evita desalinhamento)
 };
 let S = { meta:{data:'',comp:'',local:'',pelada:'Will Cup'},
-  times:[{nome:'Time Amarelo',cor:'#eab308',jogadores:[]},{nome:'Time Azul',cor:'#2563eb',jogadores:[]}] };
+  times:[{nome:'Time Amarelo',cor:'#eab308',jogadores:[],reservas:[]},{nome:'Time Azul',cor:'#2563eb',jogadores:[],reservas:[]}] };
 let rascunho = {tipo:null,time:null,autor:null,assist:null,lance:null,destaque:null};
 const TIPOS_LANCE = ['Defesaça', 'Chute na trave', 'Quase gol', 'Gol perdido', 'Falta', 'Bizarro', 'Drible', 'Bola perdida', 'Confusão', 'Engraçado'];
 const TIPOS_CLIPE = [
@@ -36,26 +36,99 @@ const POSICOES_JOGADORES = [
   { id: 'atacante', rotulo: 'Atacante', sigla: 'ATA', icon: '⚽', cor: '#f43f5e' },
 ];
 
+function _conjuntoReservasNorm(timeObj){
+  const set = new Set();
+  if(!timeObj) return set;
+  const raw = timeObj.reservas;
+  if(Array.isArray(raw)){
+    raw.forEach(n => { const s = String(n || '').trim().toLowerCase(); if(s) set.add(s); });
+  } else if(raw && typeof raw === 'object'){
+    Object.entries(raw).forEach(([k, v]) => { const s = String(k || '').trim().toLowerCase(); if(v && s) set.add(s); });
+  }
+  const posMap = timeObj.posicoes || {};
+  Object.entries(posMap).forEach(([k, v]) => {
+    const pv = String(v || '').trim().toLowerCase();
+    if(['reserva', 'res', 'banco', 'sub', 'suplente'].includes(pv)){
+      const s = String(k || '').trim().toLowerCase();
+      if(s) set.add(s);
+    }
+  });
+  return set;
+}
+
+function listarReservasTime(timeIdx){
+  const t = S.times[timeIdx];
+  if(!t) return [];
+  const set = _conjuntoReservasNorm(t);
+  return (t.jogadores || []).filter(nome => set.has(String(nome || '').trim().toLowerCase()));
+}
+
+function ehJogadorReserva(timeIdx, nome){
+  const t = S.times[timeIdx];
+  if(!t || !nome) return false;
+  return _conjuntoReservasNorm(t).has(String(nome).trim().toLowerCase());
+}
+
+function definirReservaJogador(timeIdx, nome, ehReserva){
+  const t = S.times[timeIdx];
+  if(!t || !nome) return;
+  const alvoNorm = String(nome).trim().toLowerCase();
+  const atuais = listarReservasTime(timeIdx).filter(n => n.trim().toLowerCase() !== alvoNorm);
+  if(ehReserva) atuais.push(nome);
+  t.reservas = atuais;
+  if(t.posicoes && ['reserva', 'res', 'banco', 'sub', 'suplente'].includes(String(t.posicoes[nome] || '').trim().toLowerCase())){
+    delete t.posicoes[nome];
+  }
+  renderPosicoesElenco(timeIdx);
+  agendarSalvar();
+}
+
+function alternarReservaJogador(timeIdx, nome){
+  definirReservaJogador(timeIdx, nome, !ehJogadorReserva(timeIdx, nome));
+}
+
 function obterPosicaoJogador(timeIdx, nome){
-  if(!S.times[timeIdx]) return 'meio';
-  const posicoes = S.times[timeIdx].posicoes || {};
-  if(posicoes[nome]) return posicoes[nome];
-  const jgs = S.times[timeIdx].jogadores || [];
-  const idx = jgs.indexOf(nome);
+  const t = S.times[timeIdx];
+  if(!t) return 'meio';
+  const posicoes = t.posicoes || {};
+  const posSalva = posicoes[nome];
+  if(posSalva && !['reserva', 'res', 'banco', 'sub', 'suplente'].includes(String(posSalva).trim().toLowerCase())){
+    return posSalva;
+  }
+  const titulares = (t.jogadores || []).filter(n => !ehJogadorReserva(timeIdx, n));
+  const idx = titulares.indexOf(nome);
   if(idx === 0) return 'goleiro';
   if(idx === 1 || idx === 2) return 'zagueiro';
   if(idx === 3 || idx === 4) return 'meio';
-  return 'atacante';
+  if(idx >= 5) return 'atacante';
+  return 'meio';
 }
 
-// A tela marca o primeiro do elenco como goleiro mesmo sem escolha manual,
+function obterSiglaElencoJogador(timeIdx, nome){
+  if(ehJogadorReserva(timeIdx, nome)) return 'RES';
+  const pos = obterPosicaoJogador(timeIdx, nome);
+  const pInfo = POSICOES_JOGADORES.find(p => p.id === pos) || { sigla: 'MEI' };
+  return pInfo.sigla;
+}
+
+// A tela marca o primeiro titular como goleiro mesmo sem escolha manual,
 // mas `posicoes` só guardava quem foi clicado. Salvar a escalação completa
-// evita que o vídeo trate esse goleiro como meio-campo.
+// dos titulares evita que o vídeo trate esse goleiro como meio-campo.
 function escalacaoCompleta(timeIdx){
   const t = S.times[timeIdx];
   if(!t) return {};
-  const out = Object.assign({}, t.posicoes || {});
-  (t.jogadores || []).forEach(nome => { out[nome] = obterPosicaoJogador(timeIdx, nome); });
+  const out = {};
+  const posicoes = t.posicoes || {};
+  (t.jogadores || []).forEach(nome => {
+    if(ehJogadorReserva(timeIdx, nome)){
+      const p = posicoes[nome];
+      if(p && !['reserva', 'res', 'banco', 'sub', 'suplente'].includes(String(p).trim().toLowerCase())){
+        out[nome] = p;
+      }
+    } else {
+      out[nome] = obterPosicaoJogador(timeIdx, nome);
+    }
+  });
   return out;
 }
 
@@ -63,6 +136,10 @@ function definirPosicaoJogador(timeIdx, nome, pos){
   if(!S.times[timeIdx]) return;
   if(!S.times[timeIdx].posicoes) S.times[timeIdx].posicoes = {};
   S.times[timeIdx].posicoes[nome] = pos;
+  if(ehJogadorReserva(timeIdx, nome)){
+    const alvoNorm = String(nome).trim().toLowerCase();
+    S.times[timeIdx].reservas = listarReservasTime(timeIdx).filter(n => n.trim().toLowerCase() !== alvoNorm);
+  }
   renderPosicoesElenco(timeIdx);
   agendarSalvar();
 }
@@ -70,9 +147,9 @@ function definirPosicaoJogador(timeIdx, nome, pos){
 function autoDefinirPosicoes(){
   [0, 1].forEach(timeIdx => {
     if(!S.times[timeIdx]) return;
-    const jgs = S.times[timeIdx].jogadores || [];
+    const titulares = (S.times[timeIdx].jogadores || []).filter(nome => !ehJogadorReserva(timeIdx, nome));
     if(!S.times[timeIdx].posicoes) S.times[timeIdx].posicoes = {};
-    jgs.forEach((nome, idx) => {
+    titulares.forEach((nome, idx) => {
       if(idx === 0) S.times[timeIdx].posicoes[nome] = 'goleiro';
       else if(idx === 1 || idx === 2) S.times[timeIdx].posicoes[nome] = 'zagueiro';
       else if(idx === 3 || idx === 4) S.times[timeIdx].posicoes[nome] = 'meio';
@@ -116,20 +193,26 @@ function renderPosicoesElenco(timeIdx){
   if(!el) return;
   const t = S.times[timeIdx];
   if(!t || !t.jogadores || !t.jogadores.length){
-    el.innerHTML = '<div class="hint" style="font-size:12px">Digite os nomes acima para definir as posições e fotos.</div>';
+    el.innerHTML = '<div class="hint" style="font-size:12px">Digite os nomes acima para definir as posições, reservas e fotos.</div>';
     return;
   }
+  const qtdReservas = listarReservasTime(timeIdx).length;
+  const qtdTitulares = Math.max(0, t.jogadores.length - qtdReservas);
+  const textoContagem = qtdReservas > 0
+    ? `${qtdTitulares} TITULAR${qtdTitulares !== 1 ? 'ES' : ''} · ${qtdReservas} RESERVA${qtdReservas !== 1 ? 'S' : ''}`
+    : `${t.jogadores.length} ATLETAS`;
   let html = '<div class="fut-roster-box">';
-  html += `<div class="fut-roster-header"><span class="fut-roster-title">DISPOSIÇÃO TÁTICA & FOTOS · ${(t.nome||'TIME').toUpperCase()}</span><span class="fut-roster-count">${t.jogadores.length} ATLETAS</span></div>`;
+  html += `<div class="fut-roster-header"><span class="fut-roster-title">DISPOSIÇÃO TÁTICA & FOTOS · ${(t.nome||'TIME').toUpperCase()}</span><span class="fut-roster-count">${textoContagem}</span></div>`;
   html += '<div class="fut-roster-list">';
   const fotosMap = t.fotos || {};
   t.jogadores.forEach(nome => {
+    const isReserva = ehJogadorReserva(timeIdx, nome);
     const posAtual = obterPosicaoJogador(timeIdx, nome);
     const posObj = POSICOES_JOGADORES.find(p => p.id === posAtual) || POSICOES_JOGADORES[2];
     const fotoUrl = fotosMap[nome] || null;
-    const nomeEsc = nome.replace(/'/g, "\\'");
+    const nomeEsc = nome.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
-    html += `<div class="fut-player-row">`;
+    html += `<div class="fut-player-row${isReserva ? ' is-reserva' : ''}">`;
     html += `  <div class="fut-player-info">`;
     if(fotoUrl){
       html += `    <div class="fut-avatar-wrap" title="Clique para trocar foto de ${nome}" onclick="acionarUploadFoto(${timeIdx}, '${nomeEsc}')">`;
@@ -141,15 +224,24 @@ function renderPosicoesElenco(timeIdx){
       html += `      <span class="fut-avatar-icon">📷</span>`;
       html += `    </div>`;
     }
-    html += `    <div class="fut-player-badge pos-${posAtual}">${posObj.sigla}</div>`;
+    if(isReserva){
+      html += `    <div class="fut-player-badge pos-reserva" title="Reserva: não entra no campo tático, aparece nos jogadores ao lado">RES</div>`;
+    } else {
+      html += `    <div class="fut-player-badge pos-${posAtual}">${posObj.sigla}</div>`;
+    }
     html += `    <span class="fut-player-name" title="${nome}">${nome}</span>`;
+    if(isReserva){
+      html += `    <span class="fut-reserva-pill" title="Fica fora do campo tático e aparece na lista lateral de elenco">Reserva</span>`;
+    }
     html += `  </div>`;
     html += `  <div class="fut-pos-buttons">`;
     POSICOES_JOGADORES.forEach(p => {
-      const ativa = (posAtual === p.id);
+      const ativa = (!isReserva && posAtual === p.id);
       const cls = ativa ? `fut-btn-pos sel pos-${p.id}` : 'fut-btn-pos';
-      html += `<button type="button" class="${cls}" onclick="definirPosicaoJogador(${timeIdx}, '${nomeEsc}', '${p.id}')" title="${p.rotulo}">${p.sigla}</button>`;
+      html += `<button type="button" class="${cls}" onclick="definirPosicaoJogador(${timeIdx}, '${nomeEsc}', '${p.id}')" title="${p.rotulo} (titular no campo)">${p.sigla}</button>`;
     });
+    const clsRes = isReserva ? 'fut-btn-pos fut-btn-res sel pos-reserva' : 'fut-btn-pos fut-btn-res';
+    html += `<button type="button" class="${clsRes}" onclick="alternarReservaJogador(${timeIdx}, '${nomeEsc}')" title="Marcar como reserva (não aparece na escalação do campo, apenas nos jogadores ao lado)">RES</button>`;
     html += `  </div>`;
     html += `</div>`;
   });
@@ -839,7 +931,7 @@ function irPara(id){
 let salvarTimer = null;
 function agendarSalvar(){
   clearTimeout(salvarTimer);
-  salvarTimer = setTimeout(salvarPartida, 400);
+  salvarTimer = setTimeout(()=>{ salvarTimer = null; salvarPartida(); }, 400);
 }
 const CACHE_PARTIDA_KEY = 'futbin_partida_cache_v1';
 function guardarCachePartida(dados){
@@ -883,6 +975,7 @@ function estadoParaPartida(){
       cor: t.cor,
       jogadores: t.jogadores || [],
       posicoes: escalacaoCompleta(idx),
+      reservas: listarReservasTime(idx),
       fotos: t.fotos || {},
       camera_ataque: t.camera_ataque || 0,
     })),
@@ -1441,13 +1534,17 @@ function lerSetup(){
   const posB = filtrarPorElenco(S.times[1]?.posicoes, jB);
   const fotosA = filtrarPorElenco(S.times[0]?.fotos, jA);
   const fotosB = filtrarPorElenco(S.times[1]?.fotos, jB);
+  const resNormA = _conjuntoReservasNorm(S.times[0]);
+  const resNormB = _conjuntoReservasNorm(S.times[1]);
+  const resA = jA.filter(n => resNormA.has(n.trim().toLowerCase()));
+  const resB = jB.filter(n => resNormB.has(n.trim().toLowerCase()));
 
   // Sincroniza fotos e posições de jogadores cadastrados
   sincronizarJogadoresCadastrados(0, jA, posA, fotosA);
   sincronizarJogadoresCadastrados(1, jB, posB, fotosB);
 
-  S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA, fotos:fotosA, camera_ataque:parseInt($('#camAtaqueA').value,10)||0};
-  S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB, fotos:fotosB, camera_ataque:parseInt($('#camAtaqueB').value,10)||0};
+  S.times[0] = {nome:$('#tA').value.trim()||'Time Amarelo', cor:$('#cA').value||'#eab308', jogadores:jA, posicoes:posA, reservas:resA, fotos:fotosA, camera_ataque:parseInt($('#camAtaqueA').value,10)||0};
+  S.times[1] = {nome:$('#tB').value.trim()||'Time Azul', cor:$('#cB').value||'#2563eb', jogadores:jB, posicoes:posB, reservas:resB, fotos:fotosB, camera_ataque:parseInt($('#camAtaqueB').value,10)||0};
   atualizarEstilosTimes();
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
@@ -1562,6 +1659,8 @@ function escreverSetup(){
   $('#camAtaqueB').value = String(S.times[1].camera_ataque || 0);
   if(!S.times[0].posicoes) S.times[0].posicoes = {};
   if(!S.times[1].posicoes) S.times[1].posicoes = {};
+  S.times[0].reservas = listarReservasTime(0);
+  S.times[1].reservas = listarReservasTime(1);
   if(!S.times[0].fotos) S.times[0].fotos = {};
   if(!S.times[1].fotos) S.times[1].fotos = {};
   if(S.meta && S.meta.logo){
@@ -3880,9 +3979,8 @@ function pickDestaqueLance(){
     jogadores.forEach(nome => {
       const b = document.createElement('button');
       b.type = 'button';
-      const pos = obterPosicaoJogador(rascunho.time, nome);
-      const pInfo = POSICOES_JOGADORES.find(p => p.id === pos) || { sigla: 'MEI' };
-      b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${pInfo.sigla}]</span>`;
+      const sigla = obterSiglaElencoJogador(rascunho.time, nome);
+      b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${sigla}]</span>`;
       const isSel = rascunho.destaque === nome;
       b.className = isSel ? 'sel' : '';
       b.onclick = () => {
@@ -3974,10 +4072,9 @@ function pickJogadores(){
 
   ea.innerHTML='';
   jogadores.forEach(nome=>{
-    const pos = obterPosicaoJogador(rascunho.time, nome);
-    const pInfo = POSICOES_JOGADORES.find(p => p.id === pos) || { sigla: 'MEI' };
+    const sigla = obterSiglaElencoJogador(rascunho.time, nome);
     const b=document.createElement('button'); b.type='button';
-    b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${pInfo.sigla}]</span>`;
+    b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${sigla}]</span>`;
     b.className = rascunho.autor===nome ? 'sel' : '';
     b.onclick=()=>{ rascunho.autor = nome; pickJogadores(); };
     ea.appendChild(b);
@@ -4017,10 +4114,9 @@ function pickJogadores(){
   es.innerHTML='';
   const semAssist = rascunho.assist === '—';
   jogadores.forEach(nome=>{
-    const pos = obterPosicaoJogador(rascunho.time, nome);
-    const pInfo = POSICOES_JOGADORES.find(p => p.id === pos) || { sigla: 'MEI' };
+    const sigla = obterSiglaElencoJogador(rascunho.time, nome);
     const b=document.createElement('button'); b.type='button';
-    b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${pInfo.sigla}]</span>`;
+    b.innerHTML = `${nome} <span style="font-size:10px; opacity:0.75; font-weight:700; margin-left:3px">[${sigla}]</span>`;
     b.className = (!semAssist && rascunho.assist===nome) ? 'sel' : '';
     b.onclick=()=>{ rascunho.assist = nome; pickJogadores(); };
     es.appendChild(b);
@@ -4426,7 +4522,99 @@ function alternarModoTeatroMarcar(forcar = null){
 }
 
 
-/* ---- Botões Cortar 15s Atrás e Cortar 15s Frente na Tela de Marcação ---- */
+/* ---- Botões Voltar 5s (15s), Avançar 5s (15s), Cortar 15s Atrás e Cortar 15s Frente na Tela de Marcação ---- */
+async function cortarDeslocando5sManter15s(btnEl, deltaSegundos, textoAguarde, rotuloErro){
+  const g = (ESTADO.gols || []).find(x => x.indice === ESTADO.indiceAtual);
+  if(!g){ alert('Nenhum clipe selecionado na marcação.'); return; }
+
+  const tempoRef = (g.tempo_s != null && !isNaN(g.tempo_s)) ? Number(g.tempo_s) :
+                   ((g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) + 15 : 0);
+  const iniAtual = (g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) : Math.max(0, tempoRef - 15);
+
+  const novoIni = Math.max(0, Math.round((iniAtual + deltaSegundos) * 100) / 100);
+  const novoFim = Math.round((novoIni + 15) * 100) / 100;
+
+  btnEl.disabled = true;
+  const originalHTML = btnEl.innerHTML;
+  btnEl.innerHTML = `<span>⏳</span> <span>${textoAguarde}</span>`;
+
+  try {
+    const infoTipo = obterInfoTipo(g.status || g.tipo, g.lance);
+    const status = infoTipo ? (g.status || infoTipo.id) : 'pendente';
+    const lanceNome = (infoTipo && !infoTipo.isGol) ? (g.lance || infoTipo.lanceNome) : (g.lance || null);
+    const videoCaminho = (ESTADO.video && ESTADO.video.caminho) ? ESTADO.video.caminho : null;
+
+    const r = await fetch('/api/gols/adicionar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        video: videoCaminho,
+        inicio_s: novoIni,
+        fim_s: novoFim,
+        tempo_s: novoFim,
+        status: status,
+        lance: lanceNome
+      })
+    });
+    const res = await r.json();
+    if(!r.ok) throw new Error(res.detail || 'Erro ao gerar clipe');
+
+    if(infoTipo && g.time !== null && g.time !== undefined){
+      try {
+        await fetch('/api/gols/confirmar', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            indice: res.indice,
+            status: status,
+            lance: lanceNome,
+            time: g.time,
+            autor: g.autor || null,
+            assist: g.assist || null,
+            destaque: g.destaque || null,
+            camera: g.camera || 1,
+            cameras: g.cameras_clipe || [g.camera || 1]
+          })
+        });
+      } catch(e){}
+    }
+
+    await carregarClipes();
+    ESTADO.indiceAtual = res.indice;
+    renderMarcacao();
+
+    if(typeof mostrarAlertaClipePronto === 'function'){
+      mostrarAlertaClipePronto({
+        indice: res.indice,
+        inicio_s: novoIni,
+        fim_s: novoFim,
+        dur: (novoFim - novoIni),
+        tipo: status,
+        infoTipo: infoTipo
+      });
+    }
+  } catch(err) {
+    alert(`Erro ao cortar clipe ${rotuloErro}: ` + (err.message || err));
+  } finally {
+    btnEl.disabled = false;
+    btnEl.innerHTML = originalHTML;
+  }
+}
+
+const btnVoltar5sManter15s = document.getElementById('btnVoltar5sManter15sMarcar');
+if(btnVoltar5sManter15s){
+  btnVoltar5sManter15s.onclick = () => cortarDeslocando5sManter15s(
+    btnVoltar5sManter15s, -5, 'Voltando 5s (15s)...', 'voltando 5s (15s)'
+  );
+}
+
+const btnAvancar5sManter15s = document.getElementById('btnAvancar5sManter15sMarcar');
+if(btnAvancar5sManter15s){
+  btnAvancar5sManter15s.onclick = () => cortarDeslocando5sManter15s(
+    btnAvancar5sManter15s, 5, 'Avançando 5s (15s)...', 'avançando 5s (15s)'
+  );
+}
+
 const btnCortar15sFrente = document.getElementById('btnCortar15sFrenteMarcar');
 if(btnCortar15sFrente){
   btnCortar15sFrente.onclick = async () => {
@@ -4986,6 +5174,11 @@ async function renderizarPreviewCartela(tipo){
   const loadEl = $('#loadingFundoPreview');
   if(loadEl) loadEl.style.display = 'flex';
   try {
+    if(salvarTimer){
+      clearTimeout(salvarTimer);
+      salvarTimer = null;
+      await salvarPartida();
+    }
     const temaSel = document.querySelector('.tema-card.sel');
     const tema = temaSel ? (temaSel.dataset.tema || 'atual') : 'atual';
     const prevImg = $('#imgCartelaRenderPreview');

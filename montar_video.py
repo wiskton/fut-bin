@@ -666,6 +666,40 @@ def classificar_posicao(pos):
     return "meio"
 
 
+ROTULOS_RESERVA = {"reserva", "res", "banco", "sub", "suplente"}
+
+
+def _eh_rotulo_reserva(pos):
+    return str(pos or "").strip().lower() in ROTULOS_RESERVA
+
+
+def obter_nomes_reservas(time_obj):
+    """Retorna conjunto de nomes normalizados (lower/strip) marcados como reserva."""
+    if not isinstance(time_obj, dict):
+        return set()
+    nomes = set()
+    raw_res = time_obj.get("reservas")
+    if isinstance(raw_res, dict):
+        for k, v in raw_res.items():
+            if v and str(k).strip():
+                nomes.add(str(k).strip().lower())
+    elif isinstance(raw_res, (list, tuple, set)):
+        for item in raw_res:
+            if item and str(item).strip():
+                nomes.add(str(item).strip().lower())
+    pos_map = time_obj.get("posicoes", {}) or {}
+    if isinstance(pos_map, dict):
+        for k, v in pos_map.items():
+            if _eh_rotulo_reserva(v) and str(k).strip():
+                nomes.add(str(k).strip().lower())
+    for j in time_obj.get("jogadores", []) or []:
+        if isinstance(j, dict):
+            nm = (j.get("nome") or "").strip()
+            if nm and (j.get("reserva") or _eh_rotulo_reserva(j.get("posicao"))):
+                nomes.add(nm.lower())
+    return nomes
+
+
 def normalizar_jogadores(time_obj):
     raw = time_obj.get("jogadores", [])
     pos_map = time_obj.get("posicoes", {}) or {}
@@ -680,6 +714,37 @@ def normalizar_jogadores(time_obj):
         if nome:
             resultado.append((nome, classificar_posicao(pos)))
     return resultado
+
+
+def separar_titulares_e_reservas(time_obj):
+    """Separa o elenco em `(titulares_completos, reservas)` para a abertura.
+
+    - `titulares_completos`: lista `(nome, pos)` que entra no campo tático, com
+      posições padrão e goleiro completados apenas entre os titulares.
+    - `reservas`: lista `(nome, "reserva")` que não entra no campo tático, mas
+      aparece na lista de jogadores ao lado.
+    """
+    if not isinstance(time_obj, dict):
+        return [], []
+    reservas_norm = obter_nomes_reservas(time_obj)
+    raw = time_obj.get("jogadores", []) or []
+    pos_map = time_obj.get("posicoes", {}) or {}
+    titulares_raw = []
+    reservas = []
+    for j in raw:
+        if isinstance(j, dict):
+            nome = (j.get("nome") or "").strip()
+            pos = j.get("posicao") or pos_map.get(nome)
+        else:
+            nome = str(j).strip()
+            pos = pos_map.get(nome)
+        if not nome:
+            continue
+        if nome.lower() in reservas_norm or _eh_rotulo_reserva(pos):
+            reservas.append((nome, "reserva"))
+        else:
+            titulares_raw.append((nome, classificar_posicao(pos)))
+    return completar_escalacao(titulares_raw), reservas
 
 
 def _limpar_nome_pillow(nome):
@@ -929,10 +994,12 @@ def _cartela_abertura_tema(d_, visiveis_a=None, visiveis_b=None):
     d.text((L//2, y_vs+h_pill//2), "VS", font=fonte(20, True), fill=(160,168,190), anchor="mm")
     d.text((L//2, y_vs+h_pill+14), "ESCALACAO E DISPOSICAO TATICA",
            font=fonte(14, True), fill=(55,64,82), anchor="mm")
-    j_a_todos = completar_escalacao(normalizar_jogadores(times[0]))
-    j_b_todos = completar_escalacao(normalizar_jogadores(times[1]))
-    j_a = [(nm,pos) for nm,pos in j_a_todos if visiveis_a is None or nm in visiveis_a]
-    j_b = [(nm,pos) for nm,pos in j_b_todos if visiveis_b is None or nm in visiveis_b]
+    titulares_a, reservas_a = separar_titulares_e_reservas(times[0])
+    titulares_b, reservas_b = separar_titulares_e_reservas(times[1])
+    j_a_todos = titulares_a + reservas_a
+    j_b_todos = titulares_b + reservas_b
+    j_a = [(nm, pos) for nm, pos in titulares_a if visiveis_a is None or nm in visiveis_a]
+    j_b = [(nm, pos) for nm, pos in titulares_b if visiveis_b is None or nm in visiveis_b]
     campo_y0 = y_vs + h_pill + 36
     campo_w = 1240; campo_h = A - campo_y0 - 10
     campo_x0 = (L - campo_w) // 2
@@ -943,26 +1010,34 @@ def _cartela_abertura_tema(d_, visiveis_a=None, visiveis_b=None):
         d.rectangle([x0, campo_y0, x0+w_p, campo_y0+4], fill=cor)
         d.text((x0+12, campo_y0+14), time_obj["nome"], font=fonte(19, True), fill=cor)
         d.text((x0+12, campo_y0+38), "ELENCO", font=fonte(11, False), fill=(50,60,80))
-        tags = {"goleiro":"G","zagueiro":"D","meio":"M","atacante":"A"}
+        tags = {"goleiro":"G","zagueiro":"D","meio":"M","atacante":"A","reserva":"RES"}
         y_item = campo_y0 + 58
-        for nm, pos in jgs_todos[:12]:
+        max_rows = min(len(jgs_todos), 22)
+        passo_item = min(36, max(28, (campo_h - 68) // max(max_rows, 1)))
+        av_sz = min(24, max(20, passo_item - 8))
+        for nm, pos in jgs_todos[:max_rows]:
+            if y_item + passo_item > campo_y0 + campo_h - 6:
+                break
             visivel = visiveis_set is None or nm in visiveis_set
             nm_l = _limpar_nome_pillow(nm)
+            eh_res = (pos == "reserva")
             if visivel:
-                av = obter_avatar_jogador(nm, time_obj, tamanho=(24,24), cor_time=cor, pos=pos)
+                av = obter_avatar_jogador(nm, time_obj, tamanho=(av_sz, av_sz), cor_time=cor, pos=pos)
+                cor_nome = (175, 186, 206) if eh_res else (205, 212, 228)
+                cor_tag = (148, 163, 184) if eh_res else (55, 65, 85)
                 if av:
                     img.paste(av, (x0+10, y_item), av)
-                    d.text((x0+40, y_item+4), nm_l, font=fonte(15, False), fill=(205,212,228))
+                    d.text((x0+16+av_sz, y_item+3), nm_l, font=fonte(15, False), fill=cor_nome)
                 else:
-                    d.text((x0+10, y_item+4), nm_l, font=fonte(15, False), fill=(205,212,228))
-                d.text((x0+w_p-10, y_item+5), tags.get(pos,"M"), font=fonte(11, True), fill=(55,65,85), anchor="ra")
+                    d.text((x0+10, y_item+3), nm_l, font=fonte(15, False), fill=cor_nome)
+                d.text((x0+w_p-10, y_item+5), tags.get(pos,"M"), font=fonte(11, True), fill=cor_tag, anchor="ra")
             else:
                 d.rectangle([x0+10, y_item+9, x0+w_p-10, y_item+16], fill=(20,26,38))
-            y_item += 36
-    vset_a = set(nm for nm,_ in (j_a if visiveis_a is not None else j_a_todos))
-    vset_b = set(nm for nm,_ in (j_b if visiveis_b is not None else j_b_todos))
-    painel(35, times[0], j_a_todos, vset_a if visiveis_a is not None else None, ca)
-    painel(L-300, times[1], j_b_todos, vset_b if visiveis_b is not None else None, cb)
+            y_item += passo_item
+    vset_a = None if visiveis_a is None else set(visiveis_a)
+    vset_b = None if visiveis_b is None else set(visiveis_b)
+    painel(35, times[0], j_a_todos, vset_a, ca)
+    painel(L-300, times[1], j_b_todos, vset_b, cb)
     return img
 
 def _cartela_abertura_premium(d_, visiveis_a=None, visiveis_b=None):
@@ -976,6 +1051,18 @@ def _cartela_abertura_premium(d_, visiveis_a=None, visiveis_b=None):
     _cabecalho_premium(img, draw, d_, "PRÉ-JOGO", "ESCALAÇÕES", subtitle,
                        etiqueta="APRESENTAÇÃO")
 
+    titulares_a, reservas_a = separar_titulares_e_reservas(times[0])
+    titulares_b, reservas_b = separar_titulares_e_reservas(times[1])
+    jogadores_a = titulares_a + reservas_a
+    jogadores_b = titulares_b + reservas_b
+
+    def _resumo_atletas(titulares, reservas):
+        if reservas:
+            suf = "RESERVA" if len(reservas) == 1 else "RESERVAS"
+            tit_suf = "TITULAR" if len(titulares) == 1 else "TITULARES"
+            return f"{len(titulares)} {tit_suf} · {len(reservas)} {suf}"
+        return f"{len(titulares)} ATLETAS"
+
     # Confronto no centro, com as cores dos times como acentos.
     mx0, my0, mx1, my1 = 50, 176, L - 50, 300
     _painel_premium(draw, (mx0, my0, mx1, my1), fill=PREMIUM_PANEL_ALT, radius=20)
@@ -988,19 +1075,17 @@ def _cartela_abertura_premium(d_, visiveis_a=None, visiveis_b=None):
     nome_b = _texto_ajustado(draw, times[1]["nome"].upper(), f_time, 600)
     draw.text((mx0 + 40, my0 + 43), "TIME 01", font=f_label, fill=ca)
     draw.text((mx0 + 40, my0 + 65), nome_a, font=f_time, fill=PREMIUM_TEXT)
-    draw.text((mx0 + 40, my0 + 106), f"{len(times[0].get('jogadores', []))} ATLETAS",
+    draw.text((mx0 + 40, my0 + 106), _resumo_atletas(titulares_a, reservas_a),
               font=f_aux, fill=PREMIUM_MUTED)
     draw.text((mx1 - 40, my0 + 43), "TIME 02", font=f_label, fill=cb, anchor="ra")
     draw.text((mx1 - 40, my0 + 65), nome_b, font=f_time, fill=PREMIUM_TEXT, anchor="ra")
-    draw.text((mx1 - 40, my0 + 106), f"{len(times[1].get('jogadores', []))} ATLETAS",
+    draw.text((mx1 - 40, my0 + 106), _resumo_atletas(titulares_b, reservas_b),
               font=f_aux, fill=PREMIUM_MUTED, anchor="ra")
     draw.ellipse([L // 2 - 34, my0 + 29, L // 2 + 34, my0 + 97],
                  fill=PREMIUM_BG, outline=PREMIUM_LINE, width=2)
     draw.text((L // 2, my0 + 63), "VS", font=fonte(20, True),
               fill=PREMIUM_TEXT, anchor="mm")
 
-    jogadores_a = completar_escalacao(normalizar_jogadores(times[0]))
-    jogadores_b = completar_escalacao(normalizar_jogadores(times[1]))
     vis_a = set(n for n, _ in jogadores_a) if visiveis_a is None else set(visiveis_a)
     vis_b = set(n for n, _ in jogadores_b) if visiveis_b is None else set(visiveis_b)
 
@@ -1016,33 +1101,43 @@ def _cartela_abertura_premium(d_, visiveis_a=None, visiveis_b=None):
         draw.text((x0 + w_side - 22, y + 23), f"{len(jogadores):02d}",
                   font=fonte(17, True), fill=cor, anchor="ra")
         draw.line([x0 + 20, y + 72, x0 + w_side - 20, y + 72], fill=PREMIUM_LINE, width=1)
-        tags = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA"}
-        row_y = y + 88
-        row_h = 43
-        for idx, (nome, pos) in enumerate(jogadores[:12]):
+        tags = {"goleiro": "GOL", "zagueiro": "ZAG", "meio": "MEI", "atacante": "ATA", "reserva": "RES"}
+        row_y = y + 86
+        max_rows = 13 if len(jogadores) <= 13 else min(len(jogadores), 18)
+        row_h = 43 if len(jogadores) <= 13 else max(32, (h - 106) // max(max_rows, 1))
+        av_sz = 32 if row_h >= 40 else max(24, row_h - 8)
+        f_sz = 16 if row_h >= 38 else (15 if row_h >= 35 else 14)
+        for idx, (nome, pos) in enumerate(jogadores[:max_rows]):
             yy = row_y + idx * row_h
-            if yy + row_h > y + h - 28:
+            if yy + row_h > y + h - 22:
                 break
+            eh_res = (pos == "reserva")
             if nome in visiveis:
-                avatar = obter_avatar_jogador(nome, time_obj, tamanho=(32, 32), cor_time=cor, pos=pos)
+                avatar = obter_avatar_jogador(nome, time_obj, tamanho=(av_sz, av_sz), cor_time=cor, pos=pos)
                 if avatar:
-                    img.paste(avatar, (x0 + 20, yy + 3), avatar)
-                nome_x = x0 + 64
-                f_nome = fonte(16, True)
+                    img.paste(avatar, (x0 + 20, yy + max(1, (row_h - av_sz) // 2 - 2)), avatar)
+                nome_x = x0 + 20 + av_sz + 12
+                f_nome = fonte(f_sz, True)
                 nome_fit = _texto_ajustado(draw, nome, f_nome, 158)
-                draw.text((nome_x, yy + 8), nome_fit, font=f_nome, fill=PREMIUM_TEXT)
+                cor_txt = (186, 198, 216) if eh_res else PREMIUM_TEXT
+                draw.text((nome_x, yy + max(4, (row_h - f_sz) // 2 - 4)), nome_fit, font=f_nome, fill=cor_txt)
                 tag = tags.get(pos, "MEI")
-                draw.rounded_rectangle([x0 + w_side - 57, yy + 7, x0 + w_side - 19, yy + 30],
-                                       radius=10, fill=(24, 38, 57), outline=cor, width=1)
-                draw.text((x0 + w_side - 38, yy + 18), tag, font=fonte(9, True),
-                          fill=PREMIUM_TEXT, anchor="mm")
+                tag_y0 = yy + max(4, (row_h - 23) // 2 - 2)
+                tag_fill = (30, 39, 54) if eh_res else (24, 38, 57)
+                tag_borda = (120, 138, 165) if eh_res else cor
+                tag_txt_cor = (203, 213, 225) if eh_res else PREMIUM_TEXT
+                draw.rounded_rectangle([x0 + w_side - 57, tag_y0, x0 + w_side - 19, tag_y0 + 23],
+                                       radius=10, fill=tag_fill, outline=tag_borda, width=1)
+                draw.text((x0 + w_side - 38, tag_y0 + 11), tag, font=fonte(9, True),
+                          fill=tag_txt_cor, anchor="mm")
             else:
-                draw.rounded_rectangle([x0 + 20, yy + 9, x0 + w_side - 20, yy + 26],
+                bar_y0 = yy + max(6, (row_h - 17) // 2)
+                draw.rounded_rectangle([x0 + 20, bar_y0, x0 + w_side - 20, bar_y0 + 17],
                                        radius=7, fill=(22, 33, 49))
-                draw.rounded_rectangle([x0 + 20, yy + 9, x0 + 24, yy + 26],
+                draw.rounded_rectangle([x0 + 20, bar_y0, x0 + 24, bar_y0 + 17],
                                        radius=2, fill=cor)
-        if len(jogadores) > 12:
-            draw.text((x0 + 20, y + h - 30), f"+ {len(jogadores) - 12} reservas",
+        if len(jogadores) > max_rows:
+            draw.text((x0 + 20, y + h - 26), f"+ {len(jogadores) - max_rows} atletas",
                       font=fonte(12, False), fill=PREMIUM_MUTED)
 
     desenhar_elenco(x_left, times[0], jogadores_a, vis_a, ca)
@@ -1053,8 +1148,8 @@ def _cartela_abertura_premium(d_, visiveis_a=None, visiveis_b=None):
                            radius=12, fill=(8, 35, 27), outline=(48, 86, 69), width=1)
     desenhar_campo_tatico(
         draw, x_field + 18, y + 18, w_field - 36, h - 36,
-        [(n, p) for n, p in jogadores_a if n in vis_a],
-        [(n, p) for n, p in jogadores_b if n in vis_b],
+        [(n, p) for n, p in titulares_a if n in vis_a],
+        [(n, p) for n, p in titulares_b if n in vis_b],
         ca, cb, img_base=img, times=times,
     )
     return img
@@ -1066,38 +1161,58 @@ def cartela_abertura(d_, visiveis_a=None, visiveis_b=None):
         return _cartela_abertura_tema(d_, visiveis_a, visiveis_b)
     return _cartela_abertura_premium(d_, visiveis_a, visiveis_b)
 
+
+def _montar_sequencia_abertura(d_):
+    """Monta a sequência `(visiveis_a, visiveis_b, duracao_s)` da abertura animada.
+
+    Apenas titulares entram um a um no campo tático; os reservas são revelados
+    na listagem lateral junto com o fechamento da escalação de cada time (ou em
+    passo único caso o time só tenha reservas).
+    """
+    titulares_a, reservas_a = separar_titulares_e_reservas(d_["times"][0])
+    titulares_b, reservas_b = separar_titulares_e_reservas(d_["times"][1])
+    nomes_tit_a = [nm for nm, _ in titulares_a]
+    nomes_res_a = [nm for nm, _ in reservas_a]
+    nomes_tit_b = [nm for nm, _ in titulares_b]
+    nomes_res_b = [nm for nm, _ in reservas_b]
+
+    sequencia = [(frozenset(), frozenset(), 1.0)]
+
+    va = set()
+    if nomes_tit_a:
+        for i, nm in enumerate(nomes_tit_a):
+            va = va | {nm}
+            ultimo = (i == len(nomes_tit_a) - 1)
+            if ultimo and nomes_res_a:
+                va = va | set(nomes_res_a)
+            dur = 1.2 if not ultimo else 1.5
+            sequencia.append((frozenset(va), frozenset(), dur))
+    elif nomes_res_a:
+        va = set(nomes_res_a)
+        sequencia.append((frozenset(va), frozenset(), 1.5))
+
+    vb = set()
+    if nomes_tit_b:
+        for i, nm in enumerate(nomes_tit_b):
+            vb = vb | {nm}
+            ultimo = (i == len(nomes_tit_b) - 1)
+            if ultimo and nomes_res_b:
+                vb = vb | set(nomes_res_b)
+            dur = 1.2 if not ultimo else 3.0
+            sequencia.append((frozenset(va), frozenset(vb), dur))
+    elif nomes_res_b:
+        vb = set(nomes_res_b)
+        sequencia.append((frozenset(va), frozenset(vb), 3.0))
+
+    return sequencia
+
+
 def gerar_abertura_animada(d_, tmp_dir, dur_total, crf=24, preset="medium", codec="libx264"):
     """
-    Gera a abertura animada: revela um jogador de cada time por vez (alternando),
-    no estilo broadcast. Retorna o caminho do .mp4 gerado.
-
-    Cada jogador fica visível por ~0.9s antes do próximo aparecer.
-    O frame final (todos visíveis) fica por 2s.
+    Gera a abertura animada: revela os titulares de cada time no campo por vez,
+    exibindo os reservas apenas nos painéis laterais. Retorna o caminho do .mp4 gerado.
     """
-    j_a_todos = completar_escalacao(normalizar_jogadores(d_["times"][0]))
-    j_b_todos = completar_escalacao(normalizar_jogadores(d_["times"][1]))
-    nomes_a = [nm for nm, _ in j_a_todos]
-    nomes_b = [nm for nm, _ in j_b_todos]
-
-    # Sequência: campo vazio → revela Time A completo → revela Time B completo
-    sequencia = []  # (set_visiveis_a, set_visiveis_b, dur_frame_s)
-
-    # 1. Campo vazio
-    sequencia.append((frozenset(), frozenset(), 1.0))
-
-    # 2. Revela Time A um por um (Time B ainda vazio)
-    va = set()
-    for i, nm in enumerate(nomes_a):
-        va = va | {nm}
-        dur = 1.2 if i < len(nomes_a) - 1 else 1.5
-        sequencia.append((frozenset(va), frozenset(), dur))
-
-    # 3. Revela Time B um por um (Time A já completo)
-    vb = set()
-    for i, nm in enumerate(nomes_b):
-        vb = vb | {nm}
-        dur = 1.2 if i < len(nomes_b) - 1 else 3.0
-        sequencia.append((frozenset(va), frozenset(vb), dur))
+    sequencia = _montar_sequencia_abertura(d_)
 
     # Gera cada frame PNG e concatena com ffmpeg
     encoder_args = args_encoder_video(codec, crf, preset)

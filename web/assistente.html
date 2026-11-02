@@ -3,7 +3,7 @@
 <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
 <link rel="icon" type="image/png" sizes="64x64" href="/web/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/web/assistente.css">
+<link rel="stylesheet" href="/web/assistente.css?v=20261101_v3">
 
 <header>
   <div class="fut-brand">
@@ -630,7 +630,7 @@
     <div class="row" style="margin-top:12px; gap:8px; flex-wrap:wrap">
       <button class="ghost" id="btnElenco">Colar elenco do site</button>
       <button type="button" class="ghost" id="btnAutoPosicoes">⚡ Auto-definir posições padrão</button>
-      <span class="hint">Escolha a posição de cada jogador (Goleiro, Zagueiro, Meio, Atacante) para o campo tático na abertura.</span>
+      <span class="hint">Escolha a posição de cada titular (GOL, ZAG, MEI, ATA) no campo tático ou marque <b>RES</b> (reserva) para exibir apenas nos jogadores ao lado na abertura.</span>
     </div>
   </div>
   <div class="row">
@@ -651,6 +651,12 @@
             <span>📺</span> <span>Clipe do Lance</span>
           </div>
           <div class="row" style="gap:6px; align-items:center; flex-wrap:wrap">
+            <button type="button" id="btnVoltar5sManter15sMarcar" class="ghost" title="Voltar 5 segundos para trás do início do lance atual e manter 15 segundos de jogada" style="font-size:12px; padding:4px 10px; font-weight:700; color:#fbbf24; border-color:rgba(251,191,36,0.45)">
+              <span>⏪</span> <span>Voltar 5s (15s)</span>
+            </button>
+            <button type="button" id="btnAvancar5sManter15sMarcar" class="ghost" title="Avançar 5 segundos para frente do início do lance atual e manter 15 segundos de jogada" style="font-size:12px; padding:4px 10px; font-weight:700; color:#c084fc; border-color:rgba(192,132,252,0.45)">
+              <span>⏩</span> <span>Avançar 5s (15s)</span>
+            </button>
             <button type="button" id="btnCortar15sAtrasMarcar" class="ghost" title="Gerar clipe pegando 15 segundos mais para trás do lance atual" style="font-size:12px; padding:4px 10px; font-weight:700; color:var(--accent); border-color:rgba(0,255,135,0.4)">
               <span>✂️</span> <span>Cortar 15s Atrás</span>
             </button>
@@ -1348,4 +1354,4 @@
   </div>
 </div>
 
-<script src="/web/assistente.js" defer></script>
+<script src="/web/assistente.js?v=20261101_v3" defer></script>
