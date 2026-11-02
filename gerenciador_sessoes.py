@@ -600,24 +600,179 @@ def duplicar_sessao(sessao_id: str, novo_nome: Optional[str] = None) -> dict:
     return nova_meta
 
 
+def limpar_cache_disco():
+    """Limpa a pasta .preview_cache e arquivos temporários de preview."""
+    preview_dir = os.path.join(PROJECT_DIR, ".preview_cache")
+    if os.path.isdir(preview_dir):
+        try:
+            for item in os.listdir(preview_dir):
+                caminho_item = os.path.join(preview_dir, item)
+                try:
+                    if os.path.isfile(caminho_item) or os.path.islink(caminho_item):
+                        os.remove(caminho_item)
+                    elif os.path.isdir(caminho_item):
+                        shutil.rmtree(caminho_item, ignore_errors=True)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+
 def excluir_sessao(sessao_id: str) -> dict:
-    """Exclui uma sessão e seus clipes/dados salvos."""
+    """Exclui uma sessão e seus clipes/dados salvos, permitindo excluir mesmo a sessão ativa."""
     inicializar()
     id_ativa = obter_id_sessao_ativa()
-
-    if id_ativa == sessao_id:
-        raise ValueError("Não é possível excluir a sessão ativa diretamente. Alterne para outra sessão antes de excluir.")
 
     sessoes = _carregar_indice_sessoes()
     if not re.fullmatch(r"sessao_[A-Za-z0-9_-]+", sessao_id):
         raise ValueError("Identificador de sessão inválido.")
     if not any(s.get("id") == sessao_id for s in sessoes):
         raise ValueError(f"Sessão não encontrada: {sessao_id}")
-    sessoes_novas = [s for s in sessoes if s.get("id") != sessao_id]
-    _salvar_indice_sessoes(sessoes_novas)
 
+    era_ativa = (id_ativa == sessao_id)
+    nova_ativa_id = None
+    criou_nova = False
+
+    # 1. Se era a sessão ativa, apaga os dados pesados e JSONs da raiz
+    if era_ativa:
+        if os.path.isdir(GOLS_DIR):
+            shutil.rmtree(GOLS_DIR, ignore_errors=True)
+        if os.path.isdir(FINAL_DIR):
+            shutil.rmtree(FINAL_DIR, ignore_errors=True)
+        if os.path.isdir(PLAYER_VIDEOS_DIR):
+            shutil.rmtree(PLAYER_VIDEOS_DIR, ignore_errors=True)
+        for arq in (PARTIDA_JSON, PLACAR_FILE, ZONAS_FILE):
+            if os.path.isfile(arq):
+                try:
+                    os.remove(arq)
+                except OSError:
+                    pass
+        for f in ("fundo_cartela.png", "fundo_raw.png"):
+            for cand in [os.path.join(PROJECT_DIR, f), os.path.join(PROJECT_DIR, "web", f)]:
+                if os.path.exists(cand):
+                    try:
+                        os.remove(cand)
+                    except OSError:
+                        pass
+
+    # 2. Exclui a pasta da sessão em sessoes/<id>
     pasta_sessao = os.path.join(SESSOES_DIR, sessao_id)
     if os.path.isdir(pasta_sessao):
         shutil.rmtree(pasta_sessao, ignore_errors=True)
 
-    return {"ok": True, "excluido_id": sessao_id}
+    # 3. Limpa cache em disco (.preview_cache)
+    limpar_cache_disco()
+
+    # 4. Atualiza o índice de sessões
+    sessoes_restantes = [s for s in sessoes if s.get("id") != sessao_id]
+
+    if era_ativa:
+        if sessoes_restantes:
+            # Alterna para a primeira sessão restante do histórico
+            nova_ativa = sessoes_restantes[0]
+            nova_ativa_id = nova_ativa["id"]
+            pasta_entrando = os.path.join(SESSOES_DIR, nova_ativa_id)
+
+            # Move ou cria gols/
+            src_gols = os.path.join(pasta_entrando, "gols")
+            if os.path.isdir(src_gols):
+                try:
+                    os.rename(src_gols, GOLS_DIR)
+                except Exception:
+                    shutil.copytree(src_gols, GOLS_DIR, dirs_exist_ok=True)
+            else:
+                os.makedirs(CLIPES_DIR, exist_ok=True)
+
+            # Move ou cria final/
+            src_final = os.path.join(pasta_entrando, "final")
+            if os.path.isdir(src_final):
+                try:
+                    os.rename(src_final, FINAL_DIR)
+                except Exception:
+                    shutil.copytree(src_final, FINAL_DIR, dirs_exist_ok=True)
+            else:
+                os.makedirs(FINAL_DIR, exist_ok=True)
+
+            # Move ou cria videos_jogadores/
+            src_jogadores = os.path.join(pasta_entrando, "videos_jogadores")
+            if os.path.isdir(src_jogadores):
+                try:
+                    os.rename(src_jogadores, PLAYER_VIDEOS_DIR)
+                except Exception:
+                    shutil.copytree(src_jogadores, PLAYER_VIDEOS_DIR, dirs_exist_ok=True)
+            else:
+                os.makedirs(PLAYER_VIDEOS_DIR, exist_ok=True)
+
+            # Restaura JSONs
+            src_partida = os.path.join(pasta_entrando, "partida.json")
+            if os.path.isfile(src_partida):
+                _copiar_json_atomico(src_partida, PARTIDA_JSON)
+
+            src_placar = os.path.join(pasta_entrando, "placar.json")
+            if os.path.isfile(src_placar):
+                _copiar_json_atomico(src_placar, PLACAR_FILE)
+
+            src_zonas = os.path.join(pasta_entrando, "zonas.json")
+            if os.path.isfile(src_zonas):
+                _copiar_json_atomico(src_zonas, ZONAS_FILE)
+
+            definir_id_sessao_ativa(nova_ativa_id)
+            nova_ativa["atualizado_em"] = _agora_iso()
+            _salvar_indice_sessoes(sessoes_restantes)
+        else:
+            # Nenhuma sessão restante: cria uma nova sessão padrão zerada
+            data_hoje = datetime.date.today().strftime("%d/%m")
+            nova_ativa_id = f"sessao_{int(time.time())}"
+            nova_meta = {
+                "id": nova_ativa_id,
+                "nome": f"Nova Partida ({data_hoje})",
+                "video": "",
+                "video_nome": "",
+                "pelada": "",
+                "comp": "",
+                "data": datetime.date.today().isoformat(),
+                "n_gols": 0,
+                "n_clipes": 0,
+                "placar_ok": False,
+                "final_ok": False,
+                "criado_em": _agora_iso(),
+                "atualizado_em": _agora_iso(),
+                "status": "em_andamento",
+            }
+            pasta_nova = os.path.join(SESSOES_DIR, nova_ativa_id)
+            os.makedirs(pasta_nova, exist_ok=True)
+            _gravar_json_atomico(os.path.join(pasta_nova, "sessao.json"), nova_meta)
+
+            partida_inicial = {
+                "meta": {
+                    "data": datetime.date.today().isoformat(),
+                    "video": "",
+                    "placar_jogo": [0, 0],
+                    "cameras": [],
+                    "camera_placar": 0,
+                },
+                "times": [],
+                "lances": [],
+                "gols": [],
+                "roteiro": [],
+            }
+            _gravar_json_atomico(os.path.join(pasta_nova, "partida.json"), partida_inicial)
+            _copiar_json_atomico(os.path.join(pasta_nova, "partida.json"), PARTIDA_JSON)
+
+            os.makedirs(CLIPES_DIR, exist_ok=True)
+            os.makedirs(FINAL_DIR, exist_ok=True)
+            os.makedirs(PLAYER_VIDEOS_DIR, exist_ok=True)
+
+            definir_id_sessao_ativa(nova_ativa_id)
+            _salvar_indice_sessoes([nova_meta])
+            criou_nova = True
+    else:
+        _salvar_indice_sessoes(sessoes_restantes)
+
+    return {
+        "ok": True,
+        "excluido_id": sessao_id,
+        "era_ativa": era_ativa,
+        "nova_ativa_id": nova_ativa_id,
+        "criou_nova": criou_nova
+    }

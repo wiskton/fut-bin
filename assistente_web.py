@@ -1484,28 +1484,55 @@ class DescartarGol(BaseModel):
     indice: int
 
 
+def _remover_arquivo_seguro(caminho: str, max_tentativas: int = 3) -> bool:
+    if not os.path.isfile(caminho):
+        return True
+    for _ in range(max_tentativas):
+        try:
+            os.remove(caminho)
+            return True
+        except PermissionError:
+            time.sleep(0.06)
+        except OSError:
+            pass
+    try:
+        pasta, nome = os.path.split(caminho)
+        lixeira_temp = os.path.join(pasta, f".trash_{uuid.uuid4().hex[:6]}_{nome}")
+        os.replace(caminho, lixeira_temp)
+        try:
+            os.remove(lixeira_temp)
+        except OSError:
+            pass
+        return True
+    except Exception:
+        return False
+
+
 @app.post("/api/gols/descartar")
 def api_descartar_gol(body: DescartarGol):
     """Usado na tela de revisao dos cortes: apaga o arquivo do clipe selecionado e remove de gols.json e partida.json.
     Nao falha se o arquivo ja tiver sido apagado ou for orfao. Exclusivamente apaga o clipe do indice informado."""
     with GOLS_LOCK:
-        # Apaga o clipe correspondente ao índice no diretório de clipes
+        # Apaga o clipe correspondente ao índice no diretório de clipes da câmera 1
         if os.path.isdir(CLIPES_DIR):
             for nome_arq in os.listdir(CLIPES_DIR):
                 m = re.match(r"^gol_0*(\d+)\.mp4$", nome_arq, re.IGNORECASE)
                 if m and int(m.group(1)) == body.indice:
                     caminho_clipe = os.path.join(CLIPES_DIR, nome_arq)
-                    try:
-                        os.remove(caminho_clipe)
-                    except Exception:
-                        pass
+                    _remover_arquivo_seguro(caminho_clipe)
 
+        # Apaga o clipe em todas as outras câmeras se existirem
         for cam_extra in (2, 3):
-            for ext in ("", ".corte"):
-                try:
-                    os.remove(os.path.join(_pasta_clipes_camera(cam_extra), f"gol_{body.indice:02d}.mp4{ext}"))
-                except OSError:
-                    pass
+            pasta_cam = _pasta_clipes_camera(cam_extra)
+            if os.path.isdir(pasta_cam):
+                for ext in ("", ".corte", ".part.mp4"):
+                    caminho_cam = os.path.join(pasta_cam, f"gol_{body.indice:02d}.mp4{ext}")
+                    _remover_arquivo_seguro(caminho_cam)
+
+        # Limpa duração do cache para o clipe
+        for k in list(_DURACAO_CACHE.keys()):
+            if f"gol_{body.indice:02d}" in str(k) or f"gol_{body.indice}." in str(k):
+                _DURACAO_CACHE.pop(k, None)
 
         restantes = []
         if os.path.exists(GOLS_JSON):

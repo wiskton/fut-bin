@@ -79,9 +79,12 @@ def api_sessoes_duplicar(sessao_id: str, body: DuplicarSessaoBody = Body(default
 
 
 @router.delete("/api/sessoes/{sessao_id}")
-def api_sessoes_excluir(sessao_id: str):
+def api_sessoes_excluir(sessao_id: str, request: Request):
     try:
-        return gerenciador_sessoes.excluir_sessao(sessao_id)
+        res = gerenciador_sessoes.excluir_sessao(sessao_id)
+        if hasattr(request.app.state, "duracao_cache"):
+            request.app.state.duracao_cache.clear()
+        return res
     except Exception as e:
         raise HTTPException(400, str(e))
 

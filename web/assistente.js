@@ -4,7 +4,7 @@ const $$ = s => [...document.querySelectorAll(s)];
 const PASSOS = [
   ['s-inicio','Início'], ['s-jogadores','⚽ Jogadores'], ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
   ['s-revisar','4 · Revisar cortes'], ['s-dados','5 · Dados da partida'], ['s-marcar','6 · Marcação'],
-  ['s-resumo','7 · Resumo'], ['s-final','8 · Vídeo final'], ['s-jogador','9 · Jogador'],
+  ['s-resumo','7 · Resumo'], ['s-final','8 · Vídeo final'], ['s-jogador','9 · Meus Melhores Momentos'],
 ];
 let passoAtual = 's-video';
 
@@ -658,7 +658,7 @@ function renderCardsSessoesInicio(){
           <div style="display:flex; gap:4px;">
             <button type="button" class="btnPequeno ghost" title="Renomear sessão" onclick="promptRenomearSessao('${s.id}', '${encodeURIComponent(s.nome || '')}')">✏</button>
             <button type="button" class="btnPequeno ghost" title="Duplicar sessão" onclick="duplicarSessao('${s.id}')">📋</button>
-            ${!isAtiva ? `<button type="button" class="btnPequeno ghost" style="color:#ef4444;" title="Excluir sessão" onclick="excluirSessao('${s.id}', '${encodeURIComponent(s.nome || '')}')">🗑</button>` : ''}
+            <button type="button" class="btnPequeno ghost" style="color:#ef4444;" title="${isAtiva ? 'Excluir sessão atual (ativa)' : 'Excluir sessão'}" onclick="excluirSessao('${s.id}', '${encodeURIComponent(s.nome || '')}')">🗑</button>
           </div>
         </div>
       </div>
@@ -695,7 +695,7 @@ function renderListaSessoesModal(){
           }
           <button type="button" class="ghost btnPequeno" title="Renomear" onclick="promptRenomearSessao('${s.id}', '${encodeURIComponent(s.nome || '')}')">✏</button>
           <button type="button" class="ghost btnPequeno" title="Duplicar" onclick="duplicarSessao('${s.id}')">📋</button>
-          ${!isAtiva ? `<button type="button" class="ghost btnPequeno" style="color:#ef4444;" title="Excluir" onclick="excluirSessao('${s.id}', '${encodeURIComponent(s.nome || '')}')">🗑</button>` : ''}
+          <button type="button" class="ghost btnPequeno" style="color:#ef4444;" title="${isAtiva ? 'Excluir sessão atual (ativa)' : 'Excluir'}" onclick="excluirSessao('${s.id}', '${encodeURIComponent(s.nome || '')}')">🗑</button>
         </div>
       </div>
     `;
@@ -825,15 +825,37 @@ async function duplicarSessao(sessaoId){
 
 async function excluirSessao(sessaoId, nomeEnc){
   const nome = decodeURIComponent(nomeEnc || '');
-  if(!confirm(`Tem certeza que deseja excluir permanentemente a sessão "${nome}"?\n\nTodos os clipes e gols salvos nesta sessão serão excluídos.`)) return;
+  const ehAtiva = (sessaoId === sessaoAtivaId);
+  const msg = ehAtiva
+    ? `ATENÇÃO: Você está prestes a excluir permanentemente a SESSÃO ATUAL ("${nome}")!\n\nTodos os clipes, gols, dados e arquivos temporários desta sessão serão apagados do computador e o cache será totalmente limpo.\n\nDeseja realmente excluir a sessão ativa agora?`
+    : `Tem certeza que deseja excluir permanentemente a sessão "${nome}"?\n\nTodos os clipes e gols salvos nesta sessão serão excluídos.`;
+  if(!confirm(msg)) return;
+
+  const aviso = document.createElement('div');
+  aviso.className = 'modal-overlay';
+  aviso.innerHTML = '<div class="modal-box" style="max-width:380px; text-align:center;"><span class="spinner" style="width:24px; height:24px; margin-bottom:10px;"></span><h3>Excluindo sessão...</h3><p class="hint">Removendo arquivos, clipes e limpando cache.</p></div>';
+  document.body.appendChild(aviso);
 
   try {
     const res = await fetch(`/api/sessoes/${sessaoId}`, {method: 'DELETE'});
     const dados = await res.json();
     if(!res.ok) throw new Error(dados.detail || 'Falha ao excluir sessão.');
+
+    // Limpa cache no navegador
+    ['futbin_partida_cache_v1', 'futbin_ultimo_passo', 'futbin_camera_ver'].forEach(k => {
+      try { localStorage.removeItem(k); } catch(e){}
+    });
+
+    if(ehAtiva || dados.era_ativa){
+      location.href = location.pathname + '?passo=s-inicio&t=' + Date.now();
+      return;
+    }
+
     await carregarSessoes();
     if(passoAtual === 's-inicio') renderInicio();
+    aviso.remove();
   } catch(err) {
+    aviso.remove();
     alert('Erro ao excluir: ' + err.message);
   }
 }
@@ -2699,7 +2721,13 @@ async function descartarClipe(indice, avancarModal = true){
   const idxAtual = clipesAtuais.findIndex(x => x.indice === indice);
   try {
     const v = $('#modalVideo');
-    if(v && modalAberto) v.pause();
+    if(v) {
+      try { v.pause(); v.removeAttribute('src'); v.load(); } catch(e){}
+    }
+    const vid = $('#vid');
+    if(vid) {
+      try { vid.pause(); vid.removeAttribute('src'); vid.load(); } catch(e){}
+    }
 
     const r = await fetch('/api/gols/descartar', {
       method: 'POST',
@@ -3738,7 +3766,14 @@ function renderMarcacao(){
       chk.onchange = () => {
         if(chk.checked) marcadas = [...marcadas, cam];
         else if(marcadas.length > 1) marcadas = marcadas.filter(c => c !== cam);
-        else { chk.checked = true; return; }   // ao menos uma câmera
+        else {
+          if(confirm(`Este clipe possui apenas a Câmera ${cam} selecionada.\n\nDeseja EXCLUIR DEFINITIVAMENTE este clipe do computador e da lista de gols?`)){
+            descartarClipe(g.indice);
+            return;
+          }
+          chk.checked = true;
+          return;
+        }
         g.camera_manual = true;   // escolha do usuário vale mais que a câmera de ataque do time
         marcadas.sort((x, y) => x - y);
         g.cameras_clipe = marcadas; g.camera = marcadas[0];
@@ -5458,6 +5493,14 @@ function duracaoDoClipeFinal(clipe){
   return 24;
 }
 
+function obterTituloJogadorCompleto(jog){
+  const partes = [jog];
+  if(S.meta && S.meta.pelada && String(S.meta.pelada).trim()) partes.push(String(S.meta.pelada).trim());
+  if(S.meta && S.meta.comp && String(S.meta.comp).trim()) partes.push(String(S.meta.comp).trim());
+  partes.push('Meus melhores momentos');
+  return partes.join(' - ');
+}
+
 function gerarComentarioYoutube(apenasGols=false, jogador=null){
   const todos = [...validos(), ...lances()];
   const porIndice = new Map(todos.map(c => [Number(c.indice), c]));
@@ -5474,7 +5517,7 @@ function gerarComentarioYoutube(apenasGols=false, jogador=null){
   const temAbertura = opcoes.sem_abertura !== undefined ? !opcoes.sem_abertura : !$('#semAbertura').checked;
   const durAbertura = temAbertura ? (Number(opcoes.abertura ?? $('#abertura').value) || 7) : 0;
   const nomeJogo = `${S.times[0].nome} × ${S.times[1].nome}`;
-  const titulo = jogador ? `Melhores Momentos · ${jogador}` : (apenasGols ? 'Apenas Gols' : 'Melhores Momentos');
+  const titulo = jogador ? obterTituloJogadorCompleto(jogador) : (apenasGols ? 'Apenas Gols' : 'Melhores Momentos');
   const linhas = [`${nomeJogo} — ${titulo}`, '', '⏱️ CAPÍTULOS DO VÍDEO'];
   let tempoVideo = 0;
   if(temAbertura){
@@ -5935,7 +5978,7 @@ function mostrarAlertaVideoJogadorGerado(jogador, url){
   toast.className = 'hud-toast';
   toast.style.borderColor = '#00f0ff';
   toast.style.boxShadow = '0 16px 40px rgba(0,0,0,.85), 0 0 28px rgba(0,240,255,.45)';
-  toast.innerHTML = `<div class="hud-toast-icon-wrap" style="border-color:#00f0ff; background:radial-gradient(circle, rgba(0,240,255,.25) 0%, transparent 70%)"><span>⭐</span><div class="hud-toast-check" style="background:#00f0ff;color:#041416">✓</div></div><div class="hud-toast-body"><div class="hud-toast-tag" style="color:#00f0ff">Vídeo individual pronto</div><div class="hud-toast-title">Melhores momentos de ${jogador}</div><div class="hud-toast-time">🎬 Prévia e descrição já estão disponíveis</div></div><div class="hud-toast-actions"><button type="button" class="hud-toast-btn-ver">👁️ Ver</button><button type="button" class="hud-toast-btn-close">✕</button></div><div class="hud-toast-timer-bar" style="background:linear-gradient(90deg,#00f0ff,var(--accent));animation-duration:10s"></div>`;
+  toast.innerHTML = `<div class="hud-toast-icon-wrap" style="border-color:#00f0ff; background:radial-gradient(circle, rgba(0,240,255,.25) 0%, transparent 70%)"><span>⭐</span><div class="hud-toast-check" style="background:#00f0ff;color:#041416">✓</div></div><div class="hud-toast-body"><div class="hud-toast-tag" style="color:#00f0ff">Vídeo individual pronto</div><div class="hud-toast-title">${(typeof obterTituloJogadorCompleto === "function" ? obterTituloJogadorCompleto(jogador) : `${jogador} - Meus melhores momentos`)}</div><div class="hud-toast-time">🎬 Prévia e descrição já estão disponíveis</div></div><div class="hud-toast-actions"><button type="button" class="hud-toast-btn-ver">👁️ Ver</button><button type="button" class="hud-toast-btn-close">✕</button></div><div class="hud-toast-timer-bar" style="background:linear-gradient(90deg,#00f0ff,var(--accent));animation-duration:10s"></div>`;
   const fechar = () => { if(!toast.classList.contains('saindo')){ toast.classList.add('saindo'); setTimeout(()=>toast.remove(),350); } };
   toast.querySelector('.hud-toast-btn-close').onclick = fechar;
   toast.querySelector('.hud-toast-btn-ver').onclick = () => { fechar(); $('#resultadoJogador').scrollIntoView({behavior:'smooth', block:'start'}); };
@@ -5953,7 +5996,7 @@ function mostrarResultadoVideoJogador(jogador, url){
   const texto = gerarComentarioYoutube(false, jogador);
   resultado.innerHTML = `
     <div class="card" style="margin:10px 0 0; padding:12px; border-color:rgba(0,240,255,.6); background:rgba(0,240,255,.035)">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap"><div><b style="color:#00f0ff">⭐ Melhores momentos · ${jogador}</b><div class="hint" style="font-size:12px">Vídeo individual com todos os gols e lances marcados dele.</div></div><a class="act" style="padding:8px 14px; font-size:12px" href="${encodeURI(decodeURI(url))}" download>⬇ Baixar vídeo</a></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap"><div><b style="color:#00f0ff">⭐ ${typeof obterTituloJogadorCompleto === 'function' ? obterTituloJogadorCompleto(jogador) : `${jogador} - Meus melhores momentos`}</b><div class="hint" style="font-size:12px">Vídeo individual com todos os gols e lances marcados dele.</div></div><a class="act" style="padding:8px 14px; font-size:12px" href="${encodeURI(decodeURI(url))}" download>⬇ Baixar vídeo</a></div>
       <video controls preload="metadata" poster="/video/jogador/capa/${encodeURIComponent(decodeURI(url).split('/').pop())}?t=${Date.now()}" src="${encodeURI(decodeURI(url))}" style="display:block; width:100%; max-width:960px; aspect-ratio:16/9; height:auto; max-height:none; margin:0 auto; border-radius:8px; background:#000"></video>
     </div>
     <div class="card" style="margin:10px 0 0; padding:10px; border-color:rgba(0,255,135,.45)">
@@ -6199,7 +6242,7 @@ $('#btnMontarJogador').onclick = async ()=>{
       abertura: parseFloat($('#abertura').value)||7, fechamento: parseFloat($('#fechamento').value)||8,
       sem_audio: $('#semAudio').checked, sem_abertura: $('#semAbertura').checked, sem_fechamento: $('#semFechamento').checked,
       roteiro: itens.map(c=>c.indice), ...paramsRenderJogador(), video_jogador: true,
-      nome_saida: `${jogador} - Gols e Melhores Momentos.mp4`
+      nome_saida: `${(typeof obterTituloJogadorCompleto === 'function' ? obterTituloJogadorCompleto(jogador) : `${jogador} - Meus melhores momentos`)}.mp4`
     })});
     if(!r.ok){
       const erro = await r.json().catch(()=>({}));
