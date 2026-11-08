@@ -415,10 +415,17 @@
     <h2>Assista cada corte <span id="contagemClipes" class="hint"></span></h2>
     <p class="hint">Se não foi gol (ou o corte saiu ruim), descarte - remove da lista e apaga o
       clipe.</p>
-    <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px">
-      <span style="font-size:12px; font-weight:700">📹 Ver clipes da câmera:</span>
-      <span id="pickCameraVer" class="row" style="gap:6px"></span>
-      <span id="dicaCameraVer" class="hint" style="margin:0; font-size:11px"></span>
+    <div class="row" style="gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:10px">
+      <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap">
+        <span style="font-size:12px; font-weight:700">📹 Ver clipes da câmera:</span>
+        <span id="pickCameraVer" class="row" style="gap:6px"></span>
+        <span id="dicaCameraVer" class="hint" style="margin:0; font-size:11px"></span>
+      </div>
+      <div class="row" id="barraFiltroRevisar" style="gap:6px; align-items:center; flex-wrap:wrap">
+        <span style="font-size:12px; font-weight:700; color:var(--dim)">🔎 Filtrar:</span>
+        <button type="button" class="ghost sel" data-filtro-revisar="todos" style="font-size:12px; padding:4px 10px">📋 Todos</button>
+        <button type="button" class="ghost" data-filtro-revisar="faltam" style="font-size:12px; padding:4px 10px; border-color:rgba(251,191,36,0.5); color:#fde047">⏳ Só os que faltam marcar</button>
+      </div>
     </div>
     <div class="grade" id="gradeClipes"></div>
   </div>
@@ -655,6 +662,14 @@
 <!-- ================= 6. MARCACAO ================= -->
 <section id="s-marcar">
   <div id="placarMarcacaoTopo"></div>
+  <div class="row" id="barraFiltroMarcacao" style="gap:6px; align-items:center; flex-wrap:wrap; margin:10px 0 8px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:7px 12px">
+    <span style="font-size:12px; font-weight:700; color:var(--dim); margin-right:4px">🔎 Filtrar clipes:</span>
+    <button type="button" class="ghost sel" data-filtro-marcar="todos" style="font-size:12px; padding:4px 10px">📋 Todos</button>
+    <button type="button" class="ghost" data-filtro-marcar="faltam" style="font-size:12px; padding:4px 10px; border-color:rgba(251,191,36,0.5); color:#fde047">⏳ Faltam marcar</button>
+    <button type="button" class="ghost" data-filtro-marcar="sem_jogador" style="font-size:12px; padding:4px 10px; border-color:rgba(56,189,248,0.5); color:#38bdf8">👤 Sem jogador / time</button>
+    <button type="button" class="ghost" data-filtro-marcar="gols" style="font-size:12px; padding:4px 10px">⚽ Só Gols</button>
+    <button type="button" class="ghost" data-filtro-marcar="lances" style="font-size:12px; padding:4px 10px">🎬 Só Lances</button>
+  </div>
   <div class="golnav" id="golnav"></div>
   <div class="work" id="workMarcar">
     <div class="coluna-video-marcar">
@@ -1384,4 +1399,4 @@
   </div>
 </div>
 
-<script src="/web/assistente.js?v=20261108_v5" defer></script>
+<script src="/web/assistente.js?v=20261108_v7" defer></script>

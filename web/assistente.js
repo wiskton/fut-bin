@@ -2646,22 +2646,6 @@ $('#btnVoltar10sSobreVideo').onclick = () => {
   vc.currentTime = Math.max(0, (vc.currentTime || 0) - 10);
   atualizarTempoVideoCompleto();
 };
-document.addEventListener('keydown', e => {
-  const cheia = document.fullscreenElement === $('#playerVideoCompleto');
-  if(!cheia) return;
-  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
-  if(e.key === 'ArrowLeft'){
-    e.preventDefault();
-    $('#btnVoltar10sSobreVideo')?.click();
-  } else if(['1','2','3','4','5','6'].includes(e.key)){
-    e.preventDefault();
-    const btnVel = document.querySelector(`.btnVel[data-vel="${e.key}"]`);
-    if(btnVel) btnVel.click();
-  } else if(e.key === ' '){
-    e.preventDefault();
-    alternarPlayPauseVideoCompleto();
-  }
-});
 $('#btnCortar15sSobreVideo').onclick = () => {
   const vc = $('#videoCompleto');
   if(!ESTADO.video || !vc.readyState || vc.currentTime <= 0 || tempoJogoDoVideoCompleto() <= 0){
@@ -3049,6 +3033,16 @@ function obterTempoSegundosClipe(c){
 }
 
 let clipesAtuais = [];
+let filtroRevisarAtual = 'todos';
+
+$$('#barraFiltroRevisar [data-filtro-revisar]').forEach(btn => {
+  btn.onclick = () => {
+    filtroRevisarAtual = btn.dataset.filtroRevisar || 'todos';
+    $$('#barraFiltroRevisar [data-filtro-revisar]').forEach(b => b.classList.toggle('sel', b === btn));
+    renderGradeClipes(clipesAtuais);
+  };
+});
+
 function renderGradeClipes(clipes){
   // Ordena os clipes da tela 4 por horário crescente (do início para o final do jogo)
   clipesAtuais = [...(clipes || [])].sort((a, b) => {
@@ -3060,11 +3054,22 @@ function renderGradeClipes(clipes){
     return (a.indice || 0) - (b.indice || 0);
   });
 
+  const clipesVisiveis = filtroRevisarAtual === 'faltam'
+    ? clipesAtuais.filter(c => {
+        const gItem = (ESTADO.gols || []).find(x => x.indice === c.indice);
+        const statusAtual = c.status || (gItem && gItem.status);
+        const lanceAtual = c.lance || (gItem && gItem.lance);
+        return !obterInfoTipo(statusAtual, lanceAtual);
+      })
+    : clipesAtuais;
+
   const grade = $('#gradeClipes'); grade.innerHTML='';
-  if(!clipesAtuais.length){
-    grade.innerHTML = '<span class="hint">Nenhum clipe ainda - volte ao passo 3 e rode a detecção ou gere clipes no player do vídeo completo abaixo.</span>';
+  if(!clipesVisiveis.length){
+    grade.innerHTML = clipesAtuais.length
+      ? '<span class="hint">🎉 Nenhum clipe pendente! Todos os cortes já foram classificados.</span>'
+      : '<span class="hint">Nenhum clipe ainda - volte ao passo 3 e rode a detecção ou gere clipes no player do vídeo completo abaixo.</span>';
   }
-  clipesAtuais.forEach(c=>{
+  clipesVisiveis.forEach(c=>{
     const gItem = (ESTADO.gols || []).find(x => x.indice === c.indice);
     const autorAtual = c.autor || (gItem && gItem.autor);
     const timeAtual = (c.time !== undefined && c.time !== null) ? c.time : (gItem && gItem.time);
@@ -3164,6 +3169,10 @@ function renderGradeClipes(clipes){
   }).length;
   const faltam = clipesAtuais.filter(c => !obterInfoTipo(c.status, c.lance)).length;
   $('#contagemClipes').textContent = `(${contagemGols} gols · ${contagemLances} lances · ${faltam} sem marcação · ordem cronológica ⏱️)`;
+  const btnRevTodos = $('#barraFiltroRevisar [data-filtro-revisar="todos"]');
+  const btnRevFaltam = $('#barraFiltroRevisar [data-filtro-revisar="faltam"]');
+  if(btnRevTodos) btnRevTodos.textContent = `📋 Todos (${clipesAtuais.length})`;
+  if(btnRevFaltam) btnRevFaltam.textContent = `⏳ Só os que faltam marcar (${faltam})`;
 }
 
 // Cada câmera filma o jogo de um ângulo/distância diferente, então o zoom marcado
@@ -3842,22 +3851,96 @@ function configurarZoomMarcacao(g, cam = 1){
   }
 }
 
+let filtroMarcacaoAtual = 'todos';
+
+function clipePassaFiltroMarcacao(item, filtro = filtroMarcacaoAtual){
+  if(filtro === 'todos') return true;
+  if(item.descartado) return false;
+  const inf = obterInfoTipo(item.status || item.tipo, item.lance);
+  const temTipo = Boolean(inf || item.status || (item.tipo && item.tipo !== 'revisar'));
+  const ehGol = inf ? inf.isGol : (item.tipo === 'gol');
+  const temTime = (item.time !== null && item.time !== undefined && S.times[item.time]);
+  if(filtro === 'faltam'){
+    if(!temTipo) return true;
+    if(ehGol) return !(item.autor && temTime);
+    return false;
+  }
+  if(filtro === 'sem_jogador'){
+    if(!temTipo) return true;
+    if(ehGol) return !(item.autor && temTime);
+    return !(temTime && item.destaque);
+  }
+  if(filtro === 'gols') return temTipo && ehGol;
+  if(filtro === 'lances') return temTipo && !ehGol;
+  return true;
+}
+
+function atualizarBotoesFiltroMarcacao(){
+  const todos = ESTADO.gols || [];
+  const contagens = {
+    todos: todos.length,
+    faltam: todos.filter(it => clipePassaFiltroMarcacao(it, 'faltam')).length,
+    sem_jogador: todos.filter(it => clipePassaFiltroMarcacao(it, 'sem_jogador')).length,
+    gols: todos.filter(it => clipePassaFiltroMarcacao(it, 'gols')).length,
+    lances: todos.filter(it => clipePassaFiltroMarcacao(it, 'lances')).length,
+  };
+  const rotulos = {
+    todos: `📋 Todos (${contagens.todos})`,
+    faltam: `⏳ Faltam marcar (${contagens.faltam})`,
+    sem_jogador: `👤 Sem jogador / time (${contagens.sem_jogador})`,
+    gols: `⚽ Só Gols (${contagens.gols})`,
+    lances: `🎬 Só Lances (${contagens.lances})`,
+  };
+  $$('#barraFiltroMarcacao [data-filtro-marcar]').forEach(btn => {
+    const f = btn.dataset.filtroMarcar || 'todos';
+    btn.classList.toggle('sel', f === filtroMarcacaoAtual);
+    if(rotulos[f]) btn.textContent = rotulos[f];
+  });
+  const btnRevisarFaltam = document.querySelector('#barraFiltroRevisar [data-filtro-revisar="faltam"]');
+  const btnRevisarTodos = document.querySelector('#barraFiltroRevisar [data-filtro-revisar="todos"]');
+  if(btnRevisarTodos) btnRevisarTodos.textContent = `📋 Todos (${clipesAtuais.length})`;
+  if(btnRevisarFaltam){
+    const qtdSem = clipesAtuais.filter(c => {
+      const gItem = (ESTADO.gols || []).find(x => x.indice === c.indice);
+      return !obterInfoTipo(c.status || (gItem && gItem.status), c.lance || (gItem && gItem.lance));
+    }).length;
+    btnRevisarFaltam.textContent = `⏳ Só os que faltam marcar (${qtdSem})`;
+  }
+}
+
+$$('#barraFiltroMarcacao [data-filtro-marcar]').forEach(btn => {
+  btn.onclick = () => {
+    filtroMarcacaoAtual = btn.dataset.filtroMarcar || 'todos';
+    const visiveis = (ESTADO.gols || []).filter(it => clipePassaFiltroMarcacao(it, filtroMarcacaoAtual));
+    if(visiveis.length && !visiveis.some(x => x.indice === ESTADO.indiceAtual)){
+      ESTADO.indiceAtual = visiveis[0].indice;
+    }
+    renderMarcacao();
+  };
+});
+
 function renderMarcacao(){
+  atualizarBotoesFiltroMarcacao();
   if(!ESTADO.gols.length){ $('#golnav').innerHTML='<span class="hint">Detecte e corte os gols nos passos 3/4 primeiro.</span>'; return; }
   $('#golnav').innerHTML='';
 
+  const listaVisivel = ESTADO.gols.filter(it => clipePassaFiltroMarcacao(it, filtroMarcacaoAtual));
+  if(!listaVisivel.length){
+    $('#golnav').innerHTML = `<span class="hint">🎉 Nenhum clipe encontrado neste filtro (<a href="javascript:void(0)" onclick="document.querySelector('#barraFiltroMarcacao [data-filtro-marcar=todos]')?.click()" style="color:var(--accent);font-weight:700">mostrar todos</a>).</span>`;
+  }
+
   if(ESTADO.indiceAtual == null && ESTADO.gols.length > 0){
-    ESTADO.indiceAtual = ESTADO.gols[0].indice;
+    ESTADO.indiceAtual = (listaVisivel[0] || ESTADO.gols[0]).indice;
   }
   let g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual);
   if(!g && ESTADO.gols.length > 0){
-    g = ESTADO.gols[0];
+    g = listaVisivel[0] || ESTADO.gols[0];
     ESTADO.indiceAtual = g.indice;
   }
   if(!g) return;
   ESTADO.atual = ESTADO.gols.findIndex(x => x.indice === ESTADO.indiceAtual);
 
-  ESTADO.gols.forEach((item, i)=>{
+  listaVisivel.forEach((item, i)=>{
     const b = document.createElement('button');
     const inf = obterInfoTipo(item.status || item.tipo, item.lance);
     const temTipo = Boolean(inf || item.status || (item.tipo && item.tipo !== 'revisar'));
@@ -4596,7 +4679,11 @@ $('#btnSalvar').onclick = ()=>{
 
   agendarSalvar();
   const currIdx = ESTADO.gols.findIndex(x => x.indice === g.indice);
-  if(currIdx >= 0 && currIdx < ESTADO.gols.length - 1){
+  const proxVisivel = ESTADO.gols.slice(currIdx + 1).find(it => clipePassaFiltroMarcacao(it, filtroMarcacaoAtual))
+    || ESTADO.gols.find(it => it.indice !== g.indice && clipePassaFiltroMarcacao(it, filtroMarcacaoAtual));
+  if(filtroMarcacaoAtual !== 'todos' && proxVisivel){
+    ESTADO.indiceAtual = proxVisivel.indice;
+  } else if(currIdx >= 0 && currIdx < ESTADO.gols.length - 1){
     ESTADO.indiceAtual = ESTADO.gols[currIdx + 1].indice;
   }
   renderMarcacao();
@@ -4682,16 +4769,20 @@ $('#btnDescartar').onclick = ()=>{
   renderMarcacao();
 };
 $('#btnPrev').onclick = ()=>{
-  const currIdx = ESTADO.gols.findIndex(x => x.indice === ESTADO.indiceAtual);
+  const lista = ESTADO.gols.filter(it => clipePassaFiltroMarcacao(it, filtroMarcacaoAtual));
+  const listaNav = lista.length ? lista : ESTADO.gols;
+  const currIdx = listaNav.findIndex(x => x.indice === ESTADO.indiceAtual);
   if(currIdx > 0){
-    ESTADO.indiceAtual = ESTADO.gols[currIdx - 1].indice;
+    ESTADO.indiceAtual = listaNav[currIdx - 1].indice;
     renderMarcacao();
   }
 };
 $('#btnNext').onclick = ()=>{
-  const currIdx = ESTADO.gols.findIndex(x => x.indice === ESTADO.indiceAtual);
-  if(currIdx >= 0 && currIdx < ESTADO.gols.length - 1){
-    ESTADO.indiceAtual = ESTADO.gols[currIdx + 1].indice;
+  const lista = ESTADO.gols.filter(it => clipePassaFiltroMarcacao(it, filtroMarcacaoAtual));
+  const listaNav = lista.length ? lista : ESTADO.gols;
+  const currIdx = listaNav.findIndex(x => x.indice === ESTADO.indiceAtual);
+  if(currIdx >= 0 && currIdx < listaNav.length - 1){
+    ESTADO.indiceAtual = listaNav[currIdx + 1].indice;
     renderMarcacao();
   }
 };
@@ -4997,7 +5088,6 @@ document.addEventListener('keydown', e=>{
   else if(e.key==='Enter') $('#btnSalvar').click();
   else if(k==='r') $('#btnRep').click();
   else if(k==='t') alternarModoTeatroMarcar();
-  else if(e.key==='Delete' || (e.ctrlKey && e.key==='Backspace')){ e.preventDefault(); excluirClipeAtualStep6(); }
   else {
     let match = TIPOS_CLIPE.find(t => t.hotkey === k);
     if(!match && (k === 'l' || k === 'o')){
