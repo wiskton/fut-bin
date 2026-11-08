@@ -3,7 +3,7 @@
 <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
 <link rel="icon" type="image/png" sizes="64x64" href="/web/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/web/assistente.css?v=20261101_v3">
+<link rel="stylesheet" href="/web/assistente.css?v=20261108_v2">
 
 <header>
   <div class="fut-brand">
@@ -440,6 +440,12 @@
       <select id="tipoCorteCompleto" style="max-width:235px">
         <option value="pendente" selected>⏳ Sem marcação (ver depois)</option>
         <option value="gol">⚽ Gol</option>
+        <option value="trave">🥅 Chute na trave</option>
+        <option value="defesaca">🧤 Defesaça</option>
+        <option value="quase_gol">🔥 Quase gol</option>
+        <option value="falta">⚠️ Falta</option>
+        <option value="gol_perdido">😱 Gol perdido</option>
+        <option value="bizarro">🤪 Bizarro</option>
         <option value="lance">🎬 Outro lance</option>
       </select>
       <div class="row" style="gap:8px; margin-left:auto; align-items:center">
@@ -452,7 +458,19 @@
       <video id="videoCompleto" controls controlsList="nofullscreen" preload="metadata"></video>
       <div id="cliquePlayVideoCompleto" class="clique-play-video-completo" title="Clique para pausar ou reproduzir"></div>
       <div class="acoes-video-completo">
-        <button type="button" class="ghost" id="btnVoltar10sSobreVideo" title="Voltar 10 segundos na reprodução">⏪ −10s</button>
+        <div id="tempoSobreVideo" class="tempo-sobre-video" aria-live="off" title="Tempo atual do vídeo e quanto falta para terminar">
+          ⏱ <span id="tempoSobreVideoAtual">00:00</span> / <span id="tempoSobreVideoTotal">00:00</span>
+          <span class="tempo-sobre-video-sep">·</span>
+          <span class="tempo-sobre-video-falta">Faltam <b id="tempoSobreVideoRestante">00:00</b></span>
+        </div>
+        <div id="velSobreVideo" class="vel-sobre-video" role="group" aria-label="Voltar 10s e velocidade do vídeo">
+          <button type="button" class="ghost" id="btnVoltar10sSobreVideo" title="Voltar 10 segundos na reprodução">⏪ −10s</button>
+          <button type="button" class="btnVel ghost" data-vel="2">2x</button>
+          <button type="button" class="btnVel ghost" data-vel="3">3x</button>
+          <button type="button" class="btnVel ghost" data-vel="4">4x</button>
+          <button type="button" class="btnVel ghost" data-vel="5">5x</button>
+          <button type="button" class="btnVel ghost" data-vel="6">6x</button>
+        </div>
         <button type="button" class="act" id="btnCortar15sSobreVideo" title="Gerar os 15 segundos anteriores ao tempo atual sem sair da tela cheia">✂ Cortar últimos 15s</button>
         <button type="button" class="ghost" id="btnTelaCheiaCompleto" aria-label="Entrar em tela cheia" aria-pressed="false">⛶ Tela cheia</button>
       </div>
@@ -492,6 +510,7 @@
         <button type="button" class="btnVel ghost" data-vel="3">3x</button>
         <button type="button" class="btnVel ghost" data-vel="4">4x</button>
         <button type="button" class="btnVel ghost" data-vel="5">5x</button>
+        <button type="button" class="btnVel ghost" data-vel="6">6x</button>
       </div>
       <div class="row" style="gap:8px; align-items:center">
         <label for="tempoPularVideo" style="margin:0; font-weight:600; color:var(--dim)">⏱ Ir para o tempo:</label>
@@ -651,6 +670,9 @@
             <span>📺</span> <span>Clipe do Lance</span>
           </div>
           <div class="row" style="gap:6px; align-items:center; flex-wrap:wrap">
+            <button type="button" id="btnExcluirClipeTopoMarcar" class="warnb" title="Apaga permanentemente o clipe/lance selecionado do computador" style="font-size:12px; padding:4px 10px; font-weight:700; display:inline-flex; align-items:center; gap:5px">
+              <span>🗑</span> <span>Excluir lance</span>
+            </button>
             <button type="button" id="btnVoltar5sManter15sMarcar" class="ghost" title="Voltar 5 segundos para trás do início do lance atual e manter 15 segundos de jogada" style="font-size:12px; padding:4px 10px; font-weight:700; color:#fbbf24; border-color:rgba(251,191,36,0.45)">
               <span>⏪</span> <span>Voltar 5s (15s)</span>
             </button>
@@ -1354,4 +1376,4 @@
   </div>
 </div>
 
-<script src="/web/assistente.js?v=20261101_v3" defer></script>
+<script src="/web/assistente.js?v=20261108_v3" defer></script>

@@ -992,7 +992,7 @@ def api_confirmar_gols(body: ConfirmarGols):
         except Exception:
             existentes = []
     usados = [False] * len(existentes)
-    indice_base = max([ev.get("indice", 0) for ev in existentes], default=0)
+    indice_base = max([ev.get("indice", 0) for ev in existentes] + list(_ler_excluidos()), default=0)
 
     finais = []
     for gol in body.eventos:
@@ -1137,7 +1137,7 @@ def api_adicionar_gol(body: AdicionarGol):
         if m:
             indices_usados.add(int(m.group(1)))
 
-    novo_indice = max(indices_usados, default=0) + 1
+    novo_indice = max(indices_usados | _ler_excluidos(), default=0) + 1
     while os.path.exists(os.path.join(CLIPES_DIR, f"gol_{novo_indice:02d}.mp4")):
         novo_indice += 1
 
@@ -1484,6 +1484,68 @@ class DescartarGol(BaseModel):
     indice: int
 
 
+EXCLUIDOS_JSON = os.path.join(GOLS_DIR, "clipes_excluidos.json")
+
+
+def _ler_excluidos() -> set:
+    """Índices de clipes que o usuário excluiu, mas cujo arquivo estava travado no Windows."""
+    try:
+        with open(EXCLUIDOS_JSON, encoding="utf-8-sig") as f:
+            return {int(i) for i in (json.load(f).get("indices") or [])}
+    except Exception:
+        return set()
+
+
+def _gravar_excluidos(indices: set) -> None:
+    try:
+        if indices:
+            os.makedirs(GOLS_DIR, exist_ok=True)
+            _salvar_json(EXCLUIDOS_JSON, {"indices": sorted(indices)})
+        elif os.path.exists(EXCLUIDOS_JSON):
+            os.remove(EXCLUIDOS_JSON)
+    except Exception:
+        pass
+
+
+def _arquivos_do_clipe(indice: int) -> list:
+    """Todos os arquivos (todas as câmeras) que pertencem ao clipe `indice`."""
+    caminhos = []
+    pastas = {CLIPES_DIR}
+    if os.path.isdir(GOLS_DIR):
+        pastas.update(
+            os.path.join(GOLS_DIR, nome)
+            for nome in os.listdir(GOLS_DIR)
+            if re.fullmatch(r"clipes_cam\d+", nome, re.IGNORECASE)
+        )
+
+    padrao = re.compile(
+        rf"^gol_0*{re.escape(str(indice))}\.mp4(?:\.corte|\.part\.mp4)?$",
+        re.IGNORECASE,
+    )
+    for pasta in pastas:
+        if not os.path.isdir(pasta):
+            continue
+        for nome_arq in os.listdir(pasta):
+            if padrao.fullmatch(nome_arq):
+                caminhos.append(os.path.join(pasta, nome_arq))
+    return caminhos
+
+
+def _limpar_clipes_excluidos_pendentes(indices_validos: Optional[set] = None) -> set:
+    """Tenta apagar arquivos de clipes excluídos e mantém seus índices reservados.
+
+    Um processo de corte já iniciado pode gravar o arquivo depois da exclusão;
+    o tombstone precisa continuar ativo para ocultar e remover essa gravação tardia.
+    """
+    original = _ler_excluidos()
+    if not original:
+        return original
+    for indice in original:
+        for caminho in _arquivos_do_clipe(indice):
+            _remover_arquivo_seguro(caminho, max_tentativas=1)
+    return original
+
+
 def _remover_arquivo_seguro(caminho: str, max_tentativas: int = 3) -> bool:
     if not os.path.isfile(caminho):
         return True
@@ -1513,21 +1575,18 @@ def api_descartar_gol(body: DescartarGol):
     """Usado na tela de revisao dos cortes: apaga o arquivo do clipe selecionado e remove de gols.json e partida.json.
     Nao falha se o arquivo ja tiver sido apagado ou for orfao. Exclusivamente apaga o clipe do indice informado."""
     with GOLS_LOCK:
-        # Apaga o clipe correspondente ao índice no diretório de clipes da câmera 1
-        if os.path.isdir(CLIPES_DIR):
-            for nome_arq in os.listdir(CLIPES_DIR):
-                m = re.match(r"^gol_0*(\d+)\.mp4$", nome_arq, re.IGNORECASE)
-                if m and int(m.group(1)) == body.indice:
-                    caminho_clipe = os.path.join(CLIPES_DIR, nome_arq)
-                    _remover_arquivo_seguro(caminho_clipe)
+        # Apaga o clipe em todas as câmeras. No Windows o arquivo pode ficar travado
+        # por alguns instantes (player do navegador ainda lendo); tenta por ~3 s.
+        arquivo_travado = False
+        for caminho in _arquivos_do_clipe(body.indice):
+            if not _remover_arquivo_seguro(caminho, max_tentativas=50):
+                arquivo_travado = True
 
-        # Apaga o clipe em todas as outras câmeras se existirem
-        for cam_extra in (2, 3):
-            pasta_cam = _pasta_clipes_camera(cam_extra)
-            if os.path.isdir(pasta_cam):
-                for ext in ("", ".corte", ".part.mp4"):
-                    caminho_cam = os.path.join(pasta_cam, f"gol_{body.indice:02d}.mp4{ext}")
-                    _remover_arquivo_seguro(caminho_cam)
+        # Mantém o índice excluído reservado mesmo quando o arquivo sumiu: um job
+        # de corte já iniciado ainda pode gravá-lo novamente depois desta resposta.
+        excluidos = _ler_excluidos()
+        excluidos.add(body.indice)
+        _gravar_excluidos(excluidos)
 
         # Limpa duração do cache para o clipe
         for k in list(_DURACAO_CACHE.keys()):
@@ -1561,7 +1620,8 @@ def api_descartar_gol(body: DescartarGol):
             except Exception:
                 pass
 
-        return {"ok": True, "indice": body.indice, "restantes": len(restantes)}
+        return {"ok": True, "indice": body.indice, "restantes": len(restantes),
+                "arquivo_pendente": arquivo_travado}
 
 
 @app.get("/api/clipes")
@@ -1589,13 +1649,16 @@ def api_clipes():
             pass
 
     clipes = []
+    excluidos = _limpar_clipes_excluidos_pendentes(set(eventos.keys()))
     for nome in sorted(os.listdir(CLIPES_DIR)):
-        if not nome.lower().endswith(".mp4"):
+        if not nome.lower().endswith(".mp4") or nome.startswith(".trash_"):
             continue
         m = re.search(r"gol_(\d+)", nome)
         if not m:
             continue
         indice = int(m.group(1))
+        if indice in excluidos:
+            continue
         caminho_clipe = os.path.join(CLIPES_DIR, nome)
         ev = eventos.get(indice, {})
         p_ev = partida_meta.get(indice, {})

@@ -26,10 +26,26 @@ import json
 import os
 import re
 import shutil
+import threading
 import time
 import uuid
 from typing import Any, Dict, List, Optional
 from persistencia import gravar_json_atomico
+
+# Os endpoints do FastAPI rodam em threads; operações concorrentes não podem
+# alterar as pastas e o índice de sessões ao mesmo tempo.
+SESSOES_LOCK = threading.RLock()
+
+
+def _com_trava(func):
+    """Serializa operações que mexem nas pastas/índice de sessões."""
+    import functools
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with SESSOES_LOCK:
+            return func(*args, **kwargs)
+    return wrapper
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 SESSOES_DIR = os.path.join(PROJECT_DIR, "sessoes")
@@ -163,6 +179,7 @@ def _salvar_indice_sessoes(sessoes: List[dict]):
     _gravar_json_atomico(INDEX_FILE, {"sessoes": sessoes, "atualizado_em": _agora_iso()})
 
 
+@_com_trava
 def inicializar() -> dict:
     """Inicializa o sistema de sessões.
     Se nenhuma sessão existir ainda, cria a Sessão #1 espelhando os arquivos atuais
@@ -231,6 +248,7 @@ def inicializar() -> dict:
     return {"sessao_ativa_id": id_ativa, "total_sessoes": len(sessoes)}
 
 
+@_com_trava
 def salvar_sessao_atual():
     """Salva / sincroniza os dados da sessão ativa para sua pasta em sessoes/<id>/
     e atualiza as métricas no sessoes.json.
@@ -415,12 +433,61 @@ def obter_sessao(sessao_id: str) -> Optional[dict]:
     return None
 
 
+def _desfazer_troca(sessao_saindo_id: str, sessao_entrando_id: str):
+    """Tenta devolver para a raiz os dados da sessão que estava saindo quando
+    _trocar_pastas_sessao falhou no meio (ex.: arquivo em uso no Windows)."""
+    pasta_saindo = os.path.join(SESSOES_DIR, sessao_saindo_id)
+    pasta_entrando = os.path.join(SESSOES_DIR, sessao_entrando_id)
+    for raiz, nome in ((GOLS_DIR, "gols"), (FINAL_DIR, "final"), (PLAYER_VIDEOS_DIR, "videos_jogadores")):
+        guardado = os.path.join(pasta_saindo, nome)
+        if not os.path.isdir(guardado):
+            continue
+        try:
+            if os.path.isdir(raiz):
+                destino_entrando = os.path.join(pasta_entrando, nome)
+                if not os.path.exists(destino_entrando):
+                    os.rename(raiz, destino_entrando)
+                else:
+                    shutil.rmtree(raiz, ignore_errors=True)
+            os.rename(guardado, raiz)
+        except OSError:
+            pass
+    for raiz_arq, nome_arq in ((PARTIDA_JSON, "partida.json"),
+                               (PLACAR_FILE, "placar.json"),
+                               (ZONAS_FILE, "zonas.json")):
+        guardado = os.path.join(pasta_saindo, nome_arq)
+        if os.path.isfile(guardado):
+            try:
+                _copiar_json_atomico(guardado, raiz_arq)
+            except Exception:
+                pass
+
+
+def _trocar_pastas_com_seguranca(sessao_saindo_id: str, sessao_entrando_id: str):
+    try:
+        _trocar_pastas_sessao(sessao_saindo_id, sessao_entrando_id)
+    except PermissionError as e:
+        _desfazer_troca(sessao_saindo_id, sessao_entrando_id)
+        raise RuntimeError(
+            "Não foi possível trocar de sessão porque algum arquivo da sessão atual está em uso "
+            "(vídeo aberto em outro programa ou ainda tocando). Feche-o e tente de novo. "
+            f"Detalhe: {e}") from e
+    except Exception:
+        _desfazer_troca(sessao_saindo_id, sessao_entrando_id)
+        raise
+
+
 def criar_nova_sessao(nome: Optional[str] = None, reaproveitar_times: bool = True) -> dict:
     """Cria uma nova sessão de vídeo.
     1. Salva a sessão atual completamente para não perder nada.
     2. Gera nova sessão limpa (ou com times/campeonato reaproveitados se solicitado).
     3. Ativa a nova sessão imediatamente.
     """
+    with SESSOES_LOCK:
+        return _criar_nova_sessao(nome, reaproveitar_times)
+
+
+def _criar_nova_sessao(nome: Optional[str], reaproveitar_times: bool) -> dict:
     inicializar()
     id_anterior = obter_id_sessao_ativa()
 
@@ -485,18 +552,23 @@ def criar_nova_sessao(nome: Optional[str] = None, reaproveitar_times: bool = Tru
     }
     _gravar_json_atomico(os.path.join(pasta_nova, "partida.json"), partida_inicial)
 
-    # Adiciona ao índice
+    # Executa a troca ANTES de registrar no índice: se falhar (arquivo em uso),
+    # nenhuma sessão fantasma fica para trás a cada nova tentativa.
+    try:
+        _trocar_pastas_com_seguranca(id_anterior, novo_id)
+    except Exception:
+        shutil.rmtree(pasta_nova, ignore_errors=True)
+        raise
+
     sessoes = _carregar_indice_sessoes()
     sessoes.append(nova_meta)
     _salvar_indice_sessoes(sessoes)
-
-    # Executa a troca para a nova sessão
-    _trocar_pastas_sessao(id_anterior, novo_id)
     definir_id_sessao_ativa(novo_id)
 
     return nova_meta
 
 
+@_com_trava
 def ativar_sessao(sessao_id: str) -> dict:
     """Alterna para uma sessão existente.
     Salva a sessão atual e restaura a sessão de destino instantaneamente.
@@ -515,8 +587,8 @@ def ativar_sessao(sessao_id: str) -> dict:
     # Salva a atual
     salvar_sessao_atual()
 
-    # Troca as pastas
-    _trocar_pastas_sessao(id_atual, sessao_id)
+    # Troca as pastas (desfaz se algum arquivo estiver em uso)
+    _trocar_pastas_com_seguranca(id_atual, sessao_id)
     definir_id_sessao_ativa(sessao_id)
 
     # Atualiza timestamp
@@ -526,6 +598,7 @@ def ativar_sessao(sessao_id: str) -> dict:
     return obter_sessao(sessao_id) or alvo
 
 
+@_com_trava
 def renomear_sessao(sessao_id: str, novo_nome: str) -> dict:
     inicializar()
     novo_nome = str(novo_nome).strip()
@@ -548,6 +621,7 @@ def renomear_sessao(sessao_id: str, novo_nome: str) -> dict:
     return obter_sessao(sessao_id) or alvo
 
 
+@_com_trava
 def duplicar_sessao(sessao_id: str, novo_nome: Optional[str] = None) -> dict:
     """Duplica uma sessão para permitir testes ou cortes alternativos."""
     inicializar()
@@ -618,6 +692,7 @@ def limpar_cache_disco():
             pass
 
 
+@_com_trava
 def excluir_sessao(sessao_id: str) -> dict:
     """Exclui uma sessão e seus clipes/dados salvos, permitindo excluir mesmo a sessão ativa."""
     inicializar()

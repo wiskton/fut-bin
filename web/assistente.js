@@ -26,6 +26,9 @@ const TIPOS_CLIPE = [
   { id: 'falta', rotulo: 'Falta', icon: '⚠️', cor: '#ef4444', bg: 'rgba(239,68,68,0.18)', border: '#ef4444', lanceNome: 'Falta', isGol: false, hotkey: 'f' },
   { id: 'gol_perdido', rotulo: 'Gol perdido', icon: '😱', cor: '#f97316', bg: 'rgba(249,115,22,0.18)', border: '#f97316', lanceNome: 'Gol perdido', isGol: false, hotkey: 'p' },
   { id: 'bizarro', rotulo: 'Bizarro', icon: '🤪', cor: '#ec4899', bg: 'rgba(236,72,153,0.18)', border: '#ec4899', lanceNome: 'Bizarro', isGol: false, hotkey: 'b' },
+  { id: 'trave', rotulo: 'Chute na trave', icon: '🥅', cor: '#fbbf24', bg: 'rgba(251,191,36,0.18)', border: '#fbbf24', lanceNome: 'Chute na trave', isGol: false, hotkey: 'c' },
+  { id: 'defesaca', rotulo: 'Defesaça', icon: '🧤', cor: '#38bdf8', bg: 'rgba(56,189,248,0.18)', border: '#38bdf8', lanceNome: 'Defesaça', isGol: false, hotkey: 'd' },
+  { id: 'quase_gol', rotulo: 'Quase gol', icon: '🔥', cor: '#fb923c', bg: 'rgba(251,146,60,0.18)', border: '#fb923c', lanceNome: 'Quase gol', isGol: false, hotkey: 'q' },
   { id: 'lance', rotulo: 'Outro lance', icon: '🎬', cor: '#00f0ff', bg: 'rgba(0,240,255,0.18)', border: '#00f0ff', lanceNome: 'Outro lance', isGol: false, hotkey: 'o' },
 ];
 
@@ -270,6 +273,18 @@ function obterInfoTipo(status, lance){
   if(s === 'revisar' || s === 'pendente' || s === 'null' || s === 'none' || s === 'undefined') return null;
 
   if(s === 'gol' || (!s && l === 'gol')) return TIPOS_CLIPE[0];
+  if(s === 'trave' || s === 'chute na trave' || s === 'chutenatrave' || (s !== 'gol' && (l === 'trave' || l === 'chute na trave' || l === 'chutenatrave'))){
+    return TIPOS_CLIPE.find(t => t.id === 'trave') || { id: 'trave', rotulo: 'Chute na trave', icon: '🥅', cor: '#fbbf24',
+             bg: 'rgba(251,191,36,0.18)', border: '#fbbf24', lanceNome: 'Chute na trave', isGol: false, hotkey: 'c' };
+  }
+  if(s === 'defesaca' || s === 'defesa' || (s !== 'gol' && (l === 'defesaca' || l === 'defesa'))){
+    return TIPOS_CLIPE.find(t => t.id === 'defesaca') || { id: 'defesaca', rotulo: 'Defesaça', icon: '🧤', cor: '#38bdf8',
+             bg: 'rgba(56,189,248,0.18)', border: '#38bdf8', lanceNome: 'Defesaça', isGol: false, hotkey: 'd' };
+  }
+  if(s === 'quase_gol' || s === 'quase gol' || s === 'quasegol' || (s !== 'gol' && (l === 'quase_gol' || l === 'quase gol' || l === 'quasegol'))){
+    return TIPOS_CLIPE.find(t => t.id === 'quase_gol') || { id: 'quase_gol', rotulo: 'Quase gol', icon: '🔥', cor: '#fb923c',
+             bg: 'rgba(251,146,60,0.18)', border: '#fb923c', lanceNome: 'Quase gol', isGol: false, hotkey: 'q' };
+  }
   if(s === 'falta' || (s !== 'gol' && l === 'falta')){
     return TIPOS_CLIPE.find(t => t.id === 'falta') || { id: 'falta', rotulo: 'Falta', icon: '⚠️', cor: '#ef4444',
              bg: 'rgba(239,68,68,0.18)', border: '#ef4444', lanceNome: 'Falta', isGol: false, hotkey: 'f' };
@@ -713,7 +728,9 @@ function fecharModalSessoes(){
   if(m) m.hidden = true;
 }
 
+let solicitacaoCriarSessaoId = null;
 function abrirModalNovaSessao(){
+  solicitacaoCriarSessaoId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   fecharModalSessoes();
   const inp = $('#inputNovaSessaoNome');
   if(inp){
@@ -741,6 +758,9 @@ async function confirmarCriarSessao(){
 
   const nome = (inp ? inp.value.trim() : '');
   const reaproveitar = (chk ? chk.checked : true);
+  if(!solicitacaoCriarSessaoId){
+    solicitacaoCriarSessaoId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
 
   if(btn) btn.disabled = true;
   if(st) st.innerHTML = '<span class="spinner"></span> Salvando sessão atual e criando nova...';
@@ -749,12 +769,13 @@ async function confirmarCriarSessao(){
     const res = await fetch('/api/sessoes/criar', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({nome: nome, reaproveitar_times: reaproveitar})
+      body: JSON.stringify({nome: nome, reaproveitar_times: reaproveitar, request_id: solicitacaoCriarSessaoId})
     });
     const dados = await res.json();
     if(!res.ok) throw new Error(dados.detail || 'Não foi possível criar a sessão.');
 
     ['futbin_partida_cache_v1', 'futbin_ultimo_passo'].forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+    solicitacaoCriarSessaoId = null;
     fecharModalNovaSessao();
     location.href = location.pathname + '?passo=s-video';
   } catch(err) {
@@ -2113,11 +2134,35 @@ function tempoJogoDoVideoCompleto(){
   const vc = $('#videoCompleto');
   return (vc ? (vc.currentTime || 0) : 0) + offsetCameraS(cameraVerValida());
 }
+function atualizarTempoVideoCompleto(){
+  const vc = $('#videoCompleto');
+  const tempoJogo = tempoJogoDoVideoCompleto();
+  const tempoTxt = $('#tempoCompletoTxt');
+  if(tempoTxt) tempoTxt.textContent = fmtTempo(tempoJogo);
+  const elAtual = $('#tempoSobreVideoAtual');
+  const elTotal = $('#tempoSobreVideoTotal');
+  const elRestante = $('#tempoSobreVideoRestante');
+  if(elAtual) elAtual.textContent = fmtTempo(tempoJogo);
+  const durArquivo = (vc && Number.isFinite(vc.duration) && vc.duration > 0)
+    ? vc.duration
+    : (ESTADO.video && Number(ESTADO.video.duracao_s) > 0 ? Number(ESTADO.video.duracao_s) : 0);
+  if(durArquivo > 0){
+    const offset = offsetCameraS(cameraVerValida());
+    const durTotalJogo = Math.max(0, durArquivo + offset);
+    const tempoArquivo = vc ? (vc.currentTime || 0) : 0;
+    const faltamS = Math.max(0, durArquivo - tempoArquivo);
+    if(elTotal) elTotal.textContent = fmtTempo(durTotalJogo);
+    if(elRestante) elRestante.textContent = fmtTempo(faltamS);
+  } else {
+    if(elTotal) elTotal.textContent = '--:--';
+    if(elRestante) elRestante.textContent = '--:--';
+  }
+}
 function irParaTempoJogo(t){
   const vc = $('#videoCompleto');
   if(!vc) return;
   vc.currentTime = Math.max(0, t - offsetCameraS(cameraVerValida()));
-  $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
+  atualizarTempoVideoCompleto();
 }
 function rotuloCameraVideoCompleto(){
   const el = $('#rotCameraCompleto');
@@ -2415,20 +2460,21 @@ $$('.btnVel').forEach(btn => {
     const vel = parseFloat(btn.dataset.vel);
     const vc = $('#videoCompleto');
     if(vc) { vc.defaultPlaybackRate = vel; vc.playbackRate = vel; }
-    $$('.btnVel').forEach(b => b.classList.remove('sel'));
-    btn.classList.add('sel');
+    $$('.btnVel').forEach(b => b.classList.toggle('sel', b.dataset.vel === btn.dataset.vel));
   };
 });
 
 $('#videoCompleto').addEventListener('timeupdate', () => {
-  $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
+  atualizarTempoVideoCompleto();
 });
 
 $('#videoCompleto').addEventListener('loadedmetadata', () => {
   const st = $('#statusVideoCompleto');
   const vc = $('#videoCompleto');
   if(st && vc) st.innerHTML = `<span class="ok">✓ Vídeo pronto (${fmtTempo(vc.duration)})</span>`;
+  atualizarTempoVideoCompleto();
 });
+$('#videoCompleto').addEventListener('durationchange', atualizarTempoVideoCompleto);
 
 $('#videoCompleto').addEventListener('error', () => {
   const st = $('#statusVideoCompleto');
@@ -2470,7 +2516,7 @@ if(btnMenos15){
     const vc = $('#videoCompleto');
     if(vc){
       vc.currentTime = Math.max(0, (vc.currentTime || 0) - 15);
-      $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
+      atualizarTempoVideoCompleto();
     }
   };
 }
@@ -2480,7 +2526,7 @@ if(btnMais15){
     const vc = $('#videoCompleto');
     if(vc){
       vc.currentTime = Math.min(vc.duration || 999999, (vc.currentTime || 0) + 15);
-      $('#tempoCompletoTxt').textContent = fmtTempo(tempoJogoDoVideoCompleto());
+      atualizarTempoVideoCompleto();
     }
   };
 }
@@ -2498,6 +2544,26 @@ function informarCorteSobreVideo(mensagem){
   const status = $('#statusCorteSobreVideo');
   status.textContent = mensagem;
   status.hidden = !mensagem;
+}
+const ROTULO_CORTE_SOBRE_VIDEO = '✂ Cortar últimos 15s';
+let timerRestaurarBotaoCorteSobreVideo = null;
+let corteSobreVideoSolicitado = false;
+function atualizarBotaoCorteSobreVideo(texto, estado, restaurarEmMs = 0){
+  const btn = $('#btnCortar15sSobreVideo');
+  if(!btn) return;
+  clearTimeout(timerRestaurarBotaoCorteSobreVideo);
+  timerRestaurarBotaoCorteSobreVideo = null;
+  btn.textContent = texto;
+  btn.dataset.estadoCorte = estado;
+  btn.setAttribute('aria-busy', String(estado === 'processando'));
+  if(restaurarEmMs){
+    timerRestaurarBotaoCorteSobreVideo = setTimeout(() => {
+      btn.textContent = ROTULO_CORTE_SOBRE_VIDEO;
+      btn.dataset.estadoCorte = '';
+      btn.setAttribute('aria-busy', 'false');
+      timerRestaurarBotaoCorteSobreVideo = null;
+    }, restaurarEmMs);
+  }
 }
 async function alternarTelaCheiaCompleto(){
   const player = $('#playerVideoCompleto');
@@ -2530,13 +2596,13 @@ document.addEventListener('fullscreenchange', () => {
   btn.textContent = cheia ? '⛶ Sair da tela cheia' : '⛶ Tela cheia';
   btn.setAttribute('aria-label', cheia ? 'Sair da tela cheia' : 'Entrar em tela cheia');
   btn.setAttribute('aria-pressed', String(cheia));
+  if(cheia) atualizarTempoVideoCompleto();
 });
 $('#btnVoltar10sSobreVideo').onclick = () => {
   const vc = $('#videoCompleto');
   if(!vc) return;
   vc.currentTime = Math.max(0, (vc.currentTime || 0) - 10);
-  const tempoTxt = $('#tempoCompletoTxt');
-  if(tempoTxt) tempoTxt.textContent = fmtTempo(tempoJogoDoVideoCompleto());
+  atualizarTempoVideoCompleto();
 };
 $('#btnCortar15sSobreVideo').onclick = () => {
   const vc = $('#videoCompleto');
@@ -2544,7 +2610,12 @@ $('#btnCortar15sSobreVideo').onclick = () => {
     informarCorteSobreVideo('Reproduza o vídeo até o fim do lance para cortar os segundos anteriores.');
     return;
   }
-  $('#btnGerarClipeCompletoMaisTras').click();
+  corteSobreVideoSolicitado = true;
+  try {
+    $('#btnGerarClipeCompletoMaisTras').click();
+  } finally {
+    corteSobreVideoSolicitado = false;
+  }
 };
 
 /* Fila de processamento de cortes do vídeo completo */
@@ -2579,6 +2650,9 @@ async function processarFilaCortes(){
     const job = filaCortes.shift();
     atualizarIndicadorFila();
     informarCorteSobreVideo(`Cortando ${fmtTempo(job.inicio_s)} a ${fmtTempo(job.fim_s)}…`);
+    if(job.origemSobreVideo){
+      atualizarBotaoCorteSobreVideo('⏳ Cortando últimos 15s…', 'processando');
+    }
 
     if(logEl){
       logEl.style.display = 'block';
@@ -2602,6 +2676,9 @@ async function processarFilaCortes(){
       const res = await r.json();
       if(!r.ok){
         informarCorteSobreVideo('Erro ao gerar o corte. Confira o registro de cortes.');
+        if(job.origemSobreVideo){
+          atualizarBotaoCorteSobreVideo('✕ Falha ao iniciar corte', 'erro', 3500);
+        }
         if(logEl) logEl.innerHTML = `<span class="bad">❌ Erro ao cortar (${fmtTempo(job.inicio_s)}): ${res.detail || 'falha no servidor'}</span>`;
         continue;
       }
@@ -2609,6 +2686,14 @@ async function processarFilaCortes(){
       await carregarClipes();
 
       informarCorteSobreVideo(`✓ Clipe #${res.indice} pronto: ${fmtTempo(job.inicio_s)} a ${fmtTempo(job.fim_s)}.`);
+      if(job.origemSobreVideo){
+        const maisNaFila = filaCortes.some(item => item.origemSobreVideo);
+        atualizarBotaoCorteSobreVideo(
+          maisNaFila ? '⏳ Próximo na fila' : `✓ Clipe #${res.indice} pronto`,
+          maisNaFila ? 'processando' : 'sucesso',
+          maisNaFila ? 0 : 3500
+        );
+      }
       const novoClipe = clipesAtuais.find(c => c.indice === res.indice);
       mostrarAlertaClipePronto({
         indice: res.indice,
@@ -2627,6 +2712,9 @@ async function processarFilaCortes(){
       }
     } catch(e) {
       informarCorteSobreVideo('Erro ao comunicar com o servidor para gerar o corte.');
+      if(job.origemSobreVideo){
+        atualizarBotaoCorteSobreVideo('✕ Erro ao enviar corte', 'erro', 3500);
+      }
       if(logEl) logEl.innerHTML = `<span class="bad">❌ Erro ao comunicar com o servidor: ${e}</span>`;
     }
   }
@@ -2691,11 +2779,18 @@ $('#btnGerarClipeCompleto').onclick = () => {
     lanceNome,
     rotuloClipe,
     infoTipo,
-    criadoEm: agora
+    criadoEm: agora,
+    origemSobreVideo: corteSobreVideoSolicitado
   };
 
   const jaEstaProcessando = processandoFilaCortes;
   filaCortes.push(job);
+  if(job.origemSobreVideo){
+    atualizarBotaoCorteSobreVideo(
+      jaEstaProcessando ? '⏳ Na fila' : '⏳ Iniciando corte…',
+      'processando'
+    );
+  }
   informarCorteSobreVideo(`Corte adicionado: ${fmtTempo(inicio_s)} a ${fmtTempo(fim_s)}${jaEstaProcessando ? " · aguardando na fila" : ""}.`);
   atualizarIndicadorFila();
 
@@ -2728,6 +2823,11 @@ async function descartarClipe(indice, avancarModal = true){
     if(vid) {
       try { vid.pause(); vid.removeAttribute('src'); vid.load(); } catch(e){}
     }
+    const grade = $('#gradeClipes');
+    const cartoes = grade ? grade.querySelectorAll(`.evcard[data-indice="${Number(indice)}"]`) : [];
+    cartoes.forEach(cartao => cartao.querySelectorAll('video').forEach(video => {
+      try { video.pause(); video.removeAttribute('src'); video.load(); } catch(e){}
+    }));
 
     const r = await fetch('/api/gols/descartar', {
       method: 'POST',
@@ -2738,6 +2838,13 @@ async function descartarClipe(indice, avancarModal = true){
       alert('Não consegui descartar o clipe #' + indice);
       return false;
     }
+
+    // Tira o clipe do estado local já, para que o autosave (partida.json/_todosGols)
+    // não o grave de volta antes da lista ser recarregada.
+    ESTADO.gols = (ESTADO.gols || []).filter(g => g.indice !== indice);
+    if(ESTADO.clipes) delete ESTADO.clipes[String(indice).padStart(2,'0')];
+    if(ESTADO.indiceAtual === indice) ESTADO.indiceAtual = ESTADO.gols.length ? ESTADO.gols[0].indice : null;
+    await salvarPartida();
 
     await carregarClipes();
 
@@ -2763,7 +2870,7 @@ async function descartarClipe(indice, avancarModal = true){
 
 async function sincronizarGolsComBackend(){
   try {
-    const rc = await fetch('/api/clipes');
+    const rc = await fetch(`/api/clipes?_=${Date.now()}`, {cache:'no-store'});
     if(!rc.ok) return;
     const {clipes} = await rc.json();
     if(!clipes || !clipes.length) return;
@@ -2850,7 +2957,7 @@ async function sincronizarGolsComBackend(){
 
 let _recarregandoClipes = false;
 async function carregarClipes(){
-  const r = await fetch('/api/clipes');
+  const r = await fetch(`/api/clipes?_=${Date.now()}`, {cache:'no-store'});
   const {clipes} = await r.json();
   ESTADO.clipes = {};
   clipes.forEach(c=> ESTADO.clipes[String(c.indice).padStart(2,'0')] = c.url);
@@ -2911,6 +3018,7 @@ function renderGradeClipes(clipes){
     const info = obterInfoTipo(statusAtual, lanceAtual);
     const div = document.createElement('div');
     div.className = 'evcard' + (info ? ' status-' + info.id : '');
+    div.dataset.indice = String(c.indice);
     if(info) div.style.borderColor = info.border;
 
     const ehGol = info ? info.isGol : (statusAtual === 'gol');
@@ -3479,14 +3587,15 @@ function abrirModalClipe(c){
     container.innerHTML = '';
 
     const infoSel = obterInfoTipo(c.status, c.lance);
-    const idSel = infoSel ? infoSel.id : (c.status === 'gol' ? 'gol' : null);
+    const idBruto = infoSel ? infoSel.id : (c.status === 'gol' ? 'gol' : null);
+    const idSel = idBruto ? (TIPOS_CLIPE.some(t => t.id === idBruto) ? idBruto : 'lance') : null;
 
     TIPOS_CLIPE.forEach(tipo => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btnTipoClipe';
       btn.dataset.tipoId = tipo.id;
-      const isSel = Boolean(idSel && ((idSel === tipo.id) || (tipo.isGol && c.status === 'gol') || (!tipo.isGol && c.status !== 'gol' && (c.status || c.lance))));
+      const isSel = Boolean(idSel && idSel === tipo.id);
       if(isSel){
         btn.classList.add('sel');
         btn.style.background = tipo.bg;
@@ -3863,13 +3972,14 @@ function pickTipos(){
   el.innerHTML = '';
 
   const infoAtual = obterInfoTipo(rascunho.status || rascunho.tipo, rascunho.lance);
-  const idAtual = infoAtual ? infoAtual.id : (rascunho.tipo === 'gol' ? 'gol' : (rascunho.tipo === 'lance' ? 'lance' : null));
+  const idBruto = infoAtual ? infoAtual.id : (rascunho.tipo === 'gol' ? 'gol' : (rascunho.tipo === 'lance' ? 'lance' : null));
+  const idAtual = idBruto ? (TIPOS_CLIPE.some(t => t.id === idBruto) ? idBruto : 'lance') : null;
 
   TIPOS_CLIPE.forEach(tipo => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'btnTipoClipe';
-    const isSel = Boolean(idAtual && ((idAtual === tipo.id) || (tipo.isGol && rascunho.tipo === 'gol') || (!tipo.isGol && rascunho.status === tipo.id)));
+    const isSel = Boolean(idAtual && idAtual === tipo.id);
     if(isSel){
       b.classList.add('sel');
       b.style.background = tipo.bg;
@@ -4464,26 +4574,28 @@ if(btnMaisTrasStep6){
   };
 }
 
-const btnExcluirStep6 = $('#btnExcluirClipeStep6');
-if(btnExcluirStep6){
-  btnExcluirStep6.onclick = async ()=>{
-    const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];
-    if(!g) return;
-    if(!confirm(`ATENÇÃO: Deseja EXCLUIR DEFINITIVAMENTE o clipe selecionado #${String(g.indice).padStart(2,'0')} (${g.tempo || ''}) do computador?\n\nO arquivo de vídeo será apagado e o lance será removido da lista.`)) return;
+async function excluirClipeAtualStep6(){
+  const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];
+  if(!g) return;
+  if(!confirm(`ATENÇÃO: Deseja EXCLUIR DEFINITIVAMENTE o clipe selecionado #${String(g.indice).padStart(2,'0')} (${g.tempo || ''}) do computador?\n\nO arquivo de vídeo será apagado e o lance será removido da lista.`)) return;
 
-    const currIdx = ESTADO.gols.findIndex(x => x.indice === g.indice);
-    const proximoIndice = (currIdx >= 0 && currIdx < ESTADO.gols.length - 1)
-      ? ESTADO.gols[currIdx + 1].indice
-      : (currIdx > 0 ? ESTADO.gols[currIdx - 1].indice : null);
+  const currIdx = ESTADO.gols.findIndex(x => x.indice === g.indice);
+  const proximoIndice = (currIdx >= 0 && currIdx < ESTADO.gols.length - 1)
+    ? ESTADO.gols[currIdx + 1].indice
+    : (currIdx > 0 ? ESTADO.gols[currIdx - 1].indice : null);
 
-    const ok = await descartarClipe(g.indice);
-    if(ok){
-      ESTADO.indiceAtual = proximoIndice;
-      await sincronizarGolsComBackend();
-      renderMarcacao();
-    }
-  };
+  const ok = await descartarClipe(g.indice);
+  if(ok){
+    ESTADO.indiceAtual = proximoIndice;
+    await sincronizarGolsComBackend();
+    renderMarcacao();
+  }
 }
+
+const btnExcluirStep6 = $('#btnExcluirClipeStep6');
+if(btnExcluirStep6) btnExcluirStep6.onclick = excluirClipeAtualStep6;
+const btnExcluirTopoMarcar = $('#btnExcluirClipeTopoMarcar');
+if(btnExcluirTopoMarcar) btnExcluirTopoMarcar.onclick = excluirClipeAtualStep6;
 
 $('#btnDescartar').onclick = ()=>{
   const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];

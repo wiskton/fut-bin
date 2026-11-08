@@ -1,5 +1,6 @@
 """Rotas HTTP para criar e administrar as sessões do fut-bin."""
 
+import threading
 from typing import Optional
 
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -8,11 +9,14 @@ from pydantic import BaseModel
 import gerenciador_sessoes
 
 router = APIRouter()
+_CRIAR_SESSAO_LOCK = threading.Lock()
+_CRIAR_SESSAO_RESULTADOS = {}
 
 
 class CriarSessaoBody(BaseModel):
     nome: Optional[str] = None
     reaproveitar_times: bool = True
+    request_id: Optional[str] = None
 
 
 class RenomearSessaoBody(BaseModel):
@@ -42,7 +46,16 @@ def api_sessoes_listar():
 def api_sessoes_criar(request: Request, body: CriarSessaoBody = Body(default_factory=CriarSessaoBody)):
     _verificar_sem_processamento(request, "criar outra sessão")
     try:
-        sessao = gerenciador_sessoes.criar_nova_sessao(nome=body.nome, reaproveitar_times=body.reaproveitar_times)
+        request_id = (body.request_id or "").strip()
+        with _CRIAR_SESSAO_LOCK:
+            sessao = _CRIAR_SESSAO_RESULTADOS.get(request_id) if request_id else None
+            if sessao is None:
+                sessao = gerenciador_sessoes.criar_nova_sessao(
+                    nome=body.nome, reaproveitar_times=body.reaproveitar_times)
+                if request_id:
+                    _CRIAR_SESSAO_RESULTADOS[request_id] = sessao
+                    while len(_CRIAR_SESSAO_RESULTADOS) > 256:
+                        _CRIAR_SESSAO_RESULTADOS.pop(next(iter(_CRIAR_SESSAO_RESULTADOS)))
         request.app.state.duracao_cache.clear()
         return {"ok": True, "sessao": sessao}
     except Exception as e:
