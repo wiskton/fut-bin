@@ -1634,8 +1634,10 @@ function lerSetup(){
 function sincronizarJogadoresCadastrados(timeIdx, jogadores, posicoes, fotos){
   // Para cada jogador no elenco, verifica se há correspondente no cadastro
   jogadores.forEach(nomeElenco => {
+    const nomeBusca = String(nomeElenco || '').trim().toLowerCase();
     const jogadorCadastrado = jogadoresCadastrados.find(j =>
-      (j.apelido && j.apelido === nomeElenco) || j.nome === nomeElenco
+      (j.apelido && j.apelido.trim().toLowerCase() === nomeBusca) ||
+      (j.nome && j.nome.trim().toLowerCase() === nomeBusca)
     );
 
     if(jogadorCadastrado){
@@ -1652,21 +1654,13 @@ function sincronizarJogadoresCadastrados(timeIdx, jogadores, posicoes, fotos){
         posicoes[nomeElenco] = posId;
       }
 
-      // Aplica foto: a foto 2 será usada para time 2 sempre
+      // Aplica foto automaticamente: Foto 1 para Time 1 e Foto 2 para Time 2
       if(timeIdx === 1){
         const fotoT2 = jogadorCadastrado.foto2 || jogadorCadastrado.foto1 || jogadorCadastrado.foto;
-        if(fotoT2){
-          if(jogadorCadastrado.foto2 || !fotos[nomeElenco]){
-            fotos[nomeElenco] = fotoT2;
-          }
-        }
+        if(fotoT2) fotos[nomeElenco] = fotoT2;
       } else {
-        const fotoT1 = jogadorCadastrado.foto1 || jogadorCadastrado.foto;
-        if(fotoT1){
-          if(!fotos[nomeElenco] || (jogadorCadastrado.foto2 && fotos[nomeElenco] === jogadorCadastrado.foto2)){
-            fotos[nomeElenco] = fotoT1;
-          }
-        }
+        const fotoT1 = jogadorCadastrado.foto1 || jogadorCadastrado.foto || jogadorCadastrado.foto2;
+        if(fotoT1) fotos[nomeElenco] = fotoT1;
       }
     }
   });
@@ -2314,7 +2308,7 @@ function renderCameraVer(){
     pick.appendChild(b);
   });
   const dica = $('#dicaCameraVer');
-  if(dica) dica.textContent = atual > 1 ? 'Clipes ainda não cortados nessa câmera são gerados ao abrir; para gerar todos de uma vez use o passo 3 › Câmeras dos clipes.' : '';
+  if(dica) dica.textContent = '';
 }
 function renderOpcoesCamerasCorte(){
   const box = $('#opcoesCamerasCorte'); if(!box) return;
@@ -2336,7 +2330,7 @@ function renderOpcoesCamerasCorte(){
   $('#btnCortarCameras').disabled = !camerasCarregadas().some(n => n > 1);
 }
 function camerasParaCortar(){
-  return [...$('#opcoesCamerasCorte').querySelectorAll('input:checked')].map(i => Number(i.value));
+  return camerasCarregadas().filter(n => n > 1);
 }
 async function cortarCamerasExtras(logEl, btnCanc){
   const cams = camerasParaCortar();
@@ -2421,7 +2415,8 @@ $('#btnDetectar').onclick = async ()=>{
     await carregarClipes();
     $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
     if(camerasParaCortar().length){
-      logEl.textContent += '\n\nCortando as outras câmeras...';
+      await salvarPartida();
+      logEl.textContent += '\n\nCortando automaticamente as outras câmeras sincronizadas...';
       await cortarCamerasExtras(logEl, btnCanc);
     }
   }catch(e){
@@ -2481,6 +2476,11 @@ $('#btnDetectarZonas').onclick = async ()=>{
     if(!await acompanharJob(job_id, logEl, btnCanc)) return;
     await carregarClipes();
     $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
+    if(camerasParaCortar().length){
+      await salvarPartida();
+      logEl.textContent += '\n\nCortando automaticamente as outras câmeras sincronizadas...';
+      await cortarCamerasExtras(logEl, btnCanc);
+    }
   }catch(e){
     logEl.style.display = 'block';
     logEl.textContent = '❌ Erro: ' + e;
@@ -6730,6 +6730,15 @@ async function carregarJogadoresCadastrados(){
     if(!r.ok) return;
     const data = await r.json();
     jogadoresCadastrados = data.jogadores || [];
+    if(S.times && S.times.length >= 2){
+      [0, 1].forEach(idx => {
+        if(!S.times[idx].posicoes) S.times[idx].posicoes = {};
+        if(!S.times[idx].fotos) S.times[idx].fotos = {};
+        sincronizarJogadoresCadastrados(idx, S.times[idx].jogadores || [], S.times[idx].posicoes, S.times[idx].fotos);
+      });
+      renderPosicoesElenco(0);
+      renderPosicoesElenco(1);
+    }
     renderGridJogadores();
   }catch(e){
     console.error('Erro ao carregar jogadores:', e);

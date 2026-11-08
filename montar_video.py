@@ -267,57 +267,68 @@ def obter_logo_campeonato(d_=None, tamanho=None):
     return None
 
 
-def obter_foto_jogador(nome, time_obj=None, tamanho=(50, 50), borda_cor=None, borda_largura=2):
+def _jogador_no_elenco(nome_str, lista_jogadores):
+    alvo = str(nome_str or "").strip().lower()
+    return any(str(j or "").strip().lower() == alvo for j in (lista_jogadores or []))
+
+
+def obter_foto_jogador(nome, time_obj=None, tamanho=(50, 50), borda_cor=None, borda_largura=2, time_idx=None):
     """
     Carrega e formata a foto do jogador com recorte circular transparente e anti-aliasing.
-    Procura em time_obj['fotos'][nome], ou em web/fotos/{slug}.png, ou fotos/{slug}.png.
+    Usa automaticamente Foto 1 para Time 1 (time_idx=0) e Foto 2 para Time 2 (time_idx=1).
     """
     if not nome or not str(nome).strip():
         return None
     nome_str = str(nome).strip()
+    nome_lower = nome_str.lower()
     candidatos = []
 
-    # Verifica se time_obj indica Time 2
-    is_time_2 = False
+    # Determina automaticamente se o jogador pertence ao Time 2 (índice 1)
+    is_time_2 = None
+    if time_idx in (0, 1):
+        is_time_2 = (int(time_idx) == 1)
+    elif isinstance(time_obj, dict) and time_obj.get("_time_idx") in (0, 1):
+        is_time_2 = (int(time_obj["_time_idx"]) == 1)
+
+    fotos_time_map = []
     if isinstance(time_obj, dict) and "times" in time_obj:
         times_list = time_obj.get("times", [])
-        if len(times_list) > 1 and nome_str in times_list[1].get("jogadores", []):
-            is_time_2 = True
-        # Prioriza o time onde o jogador realmente está no elenco
-        for t in times_list:
-            if isinstance(t, dict) and nome_str in t.get("jogadores", []):
-                fmap = t.get("fotos", {})
-                if isinstance(fmap, dict) and fmap.get(nome_str):
-                    candidatos.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
-        for t in times_list:
-            fmap = t.get("fotos", {})
+        if is_time_2 is None and len(times_list) > 1:
+            if _jogador_no_elenco(nome_str, times_list[1].get("jogadores", [])):
+                is_time_2 = True
+            elif _jogador_no_elenco(nome_str, times_list[0].get("jogadores", [])):
+                is_time_2 = False
+        alvo_t = times_list[1] if (is_time_2 and len(times_list) > 1) else (times_list[0] if times_list else None)
+        if isinstance(alvo_t, dict):
+            fmap = alvo_t.get("fotos", {})
             if isinstance(fmap, dict) and fmap.get(nome_str):
-                candidatos.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
+                fotos_time_map.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
     elif isinstance(time_obj, list):
-        if len(time_obj) > 1 and isinstance(time_obj[1], dict) and nome_str in time_obj[1].get("jogadores", []):
-            is_time_2 = True
-        # Prioriza o time onde o jogador realmente está no elenco
-        for t in time_obj:
-            if isinstance(t, dict) and nome_str in t.get("jogadores", []):
-                fmap = t.get("fotos", {})
-                if isinstance(fmap, dict) and fmap.get(nome_str):
-                    candidatos.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
-        for t in time_obj:
-            if isinstance(t, dict):
-                fmap = t.get("fotos", {})
-                if isinstance(fmap, dict) and fmap.get(nome_str):
-                    candidatos.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
+        if is_time_2 is None and len(time_obj) > 1:
+            if isinstance(time_obj[1], dict) and _jogador_no_elenco(nome_str, time_obj[1].get("jogadores", [])):
+                is_time_2 = True
+            elif isinstance(time_obj[0], dict) and _jogador_no_elenco(nome_str, time_obj[0].get("jogadores", [])):
+                is_time_2 = False
+        alvo_t = time_obj[1] if (is_time_2 and len(time_obj) > 1) else (time_obj[0] if time_obj else None)
+        if isinstance(alvo_t, dict):
+            fmap = alvo_t.get("fotos", {})
+            if isinstance(fmap, dict) and fmap.get(nome_str):
+                fotos_time_map.append(os.path.join(SCRIPT_DIR, fmap[nome_str].lstrip("/")))
     elif isinstance(time_obj, dict):
         fmap = time_obj.get("fotos", {})
         if isinstance(fmap, dict) and fmap.get(nome_str):
             p = fmap[nome_str]
-            candidatos.append(os.path.join(SCRIPT_DIR, p.lstrip("/")))
+            fotos_time_map.append(os.path.join(SCRIPT_DIR, p.lstrip("/")))
+            if is_time_2 is None and ("_t2." in p or "_foto2_" in p):
+                is_time_2 = True
 
-    slug = re.sub(r'[^a-zA-Z0-9_-]', '_', nome_str.lower())
-    if is_time_2:
-        candidatos.append(os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}_t2.png"))
+    if is_time_2 is None:
+        is_time_2 = False
 
-    # Fallback no banco de jogadores cadastrados
+    slug = re.sub(r'[^a-zA-Z0-9_-]', '_', nome_lower)
+    j_foto1, j_foto2 = None, None
+
+    # Busca no banco de jogadores cadastrados (Foto 1 = Time 1, Foto 2 = Time 2)
     try:
         j_path = os.path.join(SCRIPT_DIR, "jogadores.json")
         if os.path.isfile(j_path):
@@ -325,24 +336,43 @@ def obter_foto_jogador(nome, time_obj=None, tamanho=(50, 50), borda_cor=None, bo
                 banco = json.load(jf)
                 j_list = banco.get("jogadores", []) if isinstance(banco, dict) else (banco if isinstance(banco, list) else [])
                 for j_item in j_list:
-                    if j_item.get("nome") == nome_str or j_item.get("apelido") == nome_str:
-                        if is_time_2 and j_item.get("foto2"):
-                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto2"].lstrip("/")))
-                        elif j_item.get("foto"):
-                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto"].lstrip("/")))
-                        elif j_item.get("foto1"):
-                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto1"].lstrip("/")))
-                        if j_item.get("foto2"):
-                            candidatos.append(os.path.join(SCRIPT_DIR, j_item["foto2"].lstrip("/")))
+                    jn = str(j_item.get("nome") or "").strip().lower()
+                    ja = str(j_item.get("apelido") or "").strip().lower()
+                    if jn == nome_lower or (ja and ja == nome_lower):
+                        f1 = j_item.get("foto1") or j_item.get("foto")
+                        f2 = j_item.get("foto2")
+                        if f1:
+                            j_foto1 = os.path.join(SCRIPT_DIR, str(f1).lstrip("/"))
+                        if f2:
+                            j_foto2 = os.path.join(SCRIPT_DIR, str(f2).lstrip("/"))
                         break
     except Exception:
         pass
 
-    candidatos.extend([
+    arq_t1 = [
         os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}.png"),
         os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}.jpg"),
         os.path.join(SCRIPT_DIR, "fotos", f"{slug}.png"),
-    ])
+    ]
+    arq_t2 = [os.path.join(SCRIPT_DIR, "web", "fotos", f"{slug}_t2.png")]
+
+    if is_time_2:
+        if j_foto2:
+            candidatos.append(j_foto2)
+        candidatos.extend(arq_t2)
+        candidatos.extend(fotos_time_map)
+        if j_foto1:
+            candidatos.append(j_foto1)
+        candidatos.extend(arq_t1)
+    else:
+        if j_foto1:
+            candidatos.append(j_foto1)
+        candidatos.extend(arq_t1)
+        candidatos.extend([p for p in fotos_time_map if "_t2." not in p and "_foto2_" not in p])
+        candidatos.extend(fotos_time_map)
+        if j_foto2:
+            candidatos.append(j_foto2)
+        candidatos.extend(arq_t2)
 
     for c in candidatos:
         if c and os.path.isfile(c):
@@ -373,7 +403,15 @@ def obter_foto_jogador(nome, time_obj=None, tamanho=(50, 50), borda_cor=None, bo
     return None
 
 
-def obter_avatar_jogador(nome, time_obj=None, tamanho=(50, 50), cor_time=None, pos="MEI"):
+def _anotar_indice_times(times):
+    if isinstance(times, list):
+        for idx, t in enumerate(times):
+            if isinstance(t, dict):
+                t["_time_idx"] = idx
+    return times
+
+
+def obter_avatar_jogador(nome, time_obj=None, tamanho=(50, 50), cor_time=None, pos="MEI", time_idx=None):
     """
     Retorna o avatar visual do atleta: sua foto real em alta qualidade ou um
     emblema esportivo moderno com as iniciais e borda na cor do time.
@@ -384,7 +422,7 @@ def obter_avatar_jogador(nome, time_obj=None, tamanho=(50, 50), cor_time=None, p
     cor_borda = cor_time or (34, 197, 94)
     bw = max(2, int(tamanho[0] * 0.04))
 
-    foto = obter_foto_jogador(nome_str, time_obj, tamanho=tamanho, borda_cor=cor_borda, borda_largura=bw)
+    foto = obter_foto_jogador(nome_str, time_obj, tamanho=tamanho, borda_cor=cor_borda, borda_largura=bw, time_idx=time_idx)
     if foto:
         return foto
 
@@ -1157,6 +1195,7 @@ def _cartela_abertura_premium(d_, visiveis_a=None, visiveis_b=None):
 
 def cartela_abertura(d_, visiveis_a=None, visiveis_b=None):
     """Cartela pré-jogo com confronto, escalações e desenho tático."""
+    _anotar_indice_times(d_.get("times"))
     if TEMA != "atual":
         return _cartela_abertura_tema(d_, visiveis_a, visiveis_b)
     return _cartela_abertura_premium(d_, visiveis_a, visiveis_b)
@@ -1302,12 +1341,23 @@ def _cartela_lance_fifa(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fal
     d.rectangle([0, barra_y, L, barra_y+3], fill=cor_l+(220,))
     d.rectangle([0, barra_y+3, L, A], fill=(0,0,0,185))
     f_nome = fonte(30, True); f_sub = fonte(15, False)
-    d.text((60, barra_y+16), jogador, font=f_nome, fill=(255,255,255,255))
+    t_idx_f = ev.get("time") if (ev.get("time") in (0, 1)) else (1 if (len(times) > 1 and _jogador_no_elenco(jogador, times[1].get("jogadores", []))) else 0)
+    av_j = obter_avatar_jogador(jogador, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(60, 60), cor_time=cor_l, time_idx=t_idx_f)
+    tx_j = 60
+    if av_j:
+        img.paste(av_j, (46, barra_y + 15), av_j)
+        tx_j = 120
+    d.text((tx_j, barra_y+16), jogador, font=f_nome, fill=(255,255,255,255))
     if assist:
         bb = d.textbbox((0,0), jogador, font=f_nome)
-        d.text((60+bb[2]-bb[0]+20, barra_y+22), f"assist: {assist}", font=f_sub, fill=(200,200,200,200))
+        ax_f = tx_j + bb[2] - bb[0] + 24
+        av_a = obter_avatar_jogador(assist, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(28, 28), cor_time=cor_l, time_idx=t_idx_f)
+        if av_a:
+            img.paste(av_a, (ax_f, barra_y + 18), av_a)
+            ax_f += 34
+        d.text((ax_f, barra_y+22), f"assist: {assist}", font=f_sub, fill=(200,200,200,200))
     elif tipo == "gol":
-        d.text((60, barra_y+54), times[ev.get("time",0)]["nome"], font=f_sub, fill=cor_l+(200,))
+        d.text((tx_j, barra_y+54), times[ev.get("time",0)]["nome"], font=f_sub, fill=cor_l+(200,))
     return img
 
 
@@ -1357,9 +1407,20 @@ def _cartela_lance_iss(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fals
     d.rectangle([40-2, lt_y-2, 680+2, lt_y+68+2], fill=COL_BRD)
     d.rectangle([40, lt_y, 680, lt_y+68], fill=(10,10,10,240))
     d.rectangle([40, lt_y, 48, lt_y+68], fill=cor_l+(255,))
-    d.text((60, lt_y+8), jogador, font=fonte(28,True), fill=COL_TXT)
+    t_idx_f = ev.get("time") if (ev.get("time") in (0, 1)) else (1 if (len(times) > 1 and _jogador_no_elenco(jogador, times[1].get("jogadores", []))) else 0)
+    av_j = obter_avatar_jogador(jogador, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(52, 52), cor_time=cor_l, time_idx=t_idx_f)
+    tx_j = 60
+    if av_j:
+        img.paste(av_j, (56, lt_y + 8), av_j)
+        tx_j = 118
+    d.text((tx_j, lt_y+8), jogador, font=fonte(28,True), fill=COL_TXT)
     if assist:
-        d.text((60, lt_y+42), f"ASSIST: {assist}", font=fonte(16,False), fill=COL_DIM)
+        av_a = obter_avatar_jogador(assist, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(22, 22), cor_time=cor_l, time_idx=t_idx_f)
+        ax_i = tx_j
+        if av_a:
+            img.paste(av_a, (ax_i, lt_y + 40), av_a)
+            ax_i += 28
+        d.text((ax_i, lt_y+42), f"ASSIST: {assist}", font=fonte(16,False), fill=COL_DIM)
     return img
 
 
@@ -1406,9 +1467,21 @@ def _cartela_lance_pes(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=Fals
     lt_h = 60 if assist else 44; lt_y = A - lt_h - 30
     d.rounded_rectangle([30, lt_y, 600, lt_y+lt_h], radius=4, fill=(10,10,10,160))
     d.rectangle([30, lt_y, 34, lt_y+lt_h], fill=cor_l+(220,))
-    d.text((48, lt_y+7), jogador, font=fonte(26, True), fill=(255,255,255,255))
+    t_idx_f = ev.get("time") if (ev.get("time") in (0, 1)) else (1 if (len(times) > 1 and _jogador_no_elenco(jogador, times[1].get("jogadores", []))) else 0)
+    av_sz = 46 if assist else 36
+    av_j = obter_avatar_jogador(jogador, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(av_sz, av_sz), cor_time=cor_l, time_idx=t_idx_f)
+    tx_j = 48
+    if av_j:
+        img.paste(av_j, (42, lt_y + (lt_h - av_sz) // 2), av_j)
+        tx_j = 48 + av_sz + 8
+    d.text((tx_j, lt_y+7), jogador, font=fonte(26, True), fill=(255,255,255,255))
     if assist:
-        d.text((48, lt_y+36), f"assist.  {assist}", font=fonte(15, False), fill=(200,200,200,200))
+        av_a = obter_avatar_jogador(assist, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(20, 20), cor_time=cor_l, time_idx=t_idx_f)
+        ax_p = tx_j
+        if av_a:
+            img.paste(av_a, (ax_p, lt_y + 35), av_a)
+            ax_p += 26
+        d.text((ax_p, lt_y+36), f"assist.  {assist}", font=fonte(15, False), fill=(200,200,200,200))
     return img
 
 
@@ -1448,16 +1521,28 @@ def _cartela_lance_tv(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False
     lt_y = A - 72
     d.rectangle([0, lt_y, L, lt_y+2], fill=cor_l+(200,))
     d.rectangle([0, lt_y+2, L, A], fill=(5,5,5,195))
-    d.text((36, lt_y+12), jogador, font=fonte(28,True), fill=(255,255,255,255))
+    t_idx_f = ev.get("time") if (ev.get("time") in (0, 1)) else (1 if (len(times) > 1 and _jogador_no_elenco(jogador, times[1].get("jogadores", []))) else 0)
+    av_j = obter_avatar_jogador(jogador, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(52, 52), cor_time=cor_l, time_idx=t_idx_f)
+    tx_j = 36
+    if av_j:
+        img.paste(av_j, (30, lt_y + 10), av_j)
+        tx_j = 92
+    d.text((tx_j, lt_y+12), jogador, font=fonte(28,True), fill=(255,255,255,255))
     if assist:
-        d.text((36, lt_y+44), f"assistência: {assist}", font=fonte(15,False), fill=(180,180,180,200))
+        av_a = obter_avatar_jogador(assist, times[t_idx_f] if t_idx_f < len(times) else times, tamanho=(22, 22), cor_time=cor_l, time_idx=t_idx_f)
+        ax_t = tx_j
+        if av_a:
+            img.paste(av_a, (ax_t, lt_y + 42), av_a)
+            ax_t += 28
+        d.text((ax_t, lt_y+44), f"assistência: {assist}", font=fonte(15,False), fill=(180,180,180,200))
     elif gol_neste_clipe:
-        d.text((36, lt_y+44), "GOOOOOL!", font=fonte(16,True), fill=cor_l+(220,))
+        d.text((tx_j, lt_y+44), "GOOOOOL!", font=fonte(16,True), fill=cor_l+(220,))
     return img
 
 
 def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, time_gol=None, d_=None):
     """Overlay de placar e identificação de lance em linguagem de transmissão."""
+    _anotar_indice_times(times)
     args = (ev, times, tipo, placar_a, placar_b, gol_neste_clipe, time_gol, d_)
     if TEMA == "fifa":
         return _cartela_lance_fifa(*args)
@@ -1575,8 +1660,9 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
                            radius=3, fill=cor_lance + (255,))
 
     avatar_size = 76 if tipo == "gol" else 66
-    avatar = obter_avatar_jogador(titulo, times[time_idx] if valido else times[0],
-                                  tamanho=(avatar_size, avatar_size), cor_time=cor_lance)
+    t_idx_foto = time_idx if valido else (1 if (len(times) > 1 and _jogador_no_elenco(titulo, times[1].get("jogadores", []))) else 0)
+    avatar = obter_avatar_jogador(titulo, times[t_idx_foto] if t_idx_foto < len(times) else times,
+                                  tamanho=(avatar_size, avatar_size), cor_time=cor_lance, time_idx=t_idx_foto)
     avatar_x, avatar_y = card_x + 24, card_y + (altura - avatar_size) // 2
     if avatar:
         img.paste(avatar, (avatar_x, avatar_y), avatar)
@@ -1589,11 +1675,11 @@ def cartela_lance(ev, times, tipo, placar_a, placar_b, gol_neste_clipe=False, ti
         draw.text((tx, card_y + 86), label, font=fonte(12, True), fill=PREMIUM_MUTED + (255,))
         bb_label = draw.textbbox((0, 0), label, font=fonte(12, True))
         ax = tx + bb_label[2] + 10
-        assist_avatar = obter_avatar_jogador(assist, times[time_idx] if valido else times[0],
-                                             tamanho=(22, 22), cor_time=cor_lance)
+        assist_avatar = obter_avatar_jogador(assist, times[t_idx_foto] if t_idx_foto < len(times) else times,
+                                             tamanho=(30, 30), cor_time=cor_lance, time_idx=t_idx_foto)
         if assist_avatar:
-            img.paste(assist_avatar, (ax, card_y + 84), assist_avatar)
-            ax += 30
+            img.paste(assist_avatar, (ax, card_y + 80), assist_avatar)
+            ax += 36
         draw.text((ax, card_y + 85), _texto_ajustado(draw, assist, fonte(14, True), 280),
                   font=fonte(14, True), fill=PREMIUM_TEXT + (255,))
     return img
@@ -1815,6 +1901,7 @@ def _cartela_fim_de_jogo_premium(d_, pagina=0):
 
 def cartela_fim_de_jogo(d_, pagina=0):
     """Placar final e lista de gols com hierarquia de leitura para TV."""
+    _anotar_indice_times(d_.get("times"))
     if TEMA != "atual":
         return _cartela_fim_de_jogo_tema(d_, pagina)
     return _cartela_fim_de_jogo_premium(d_, pagina)
@@ -1830,6 +1917,7 @@ def paginas_cronologia(d_):
 
 def cartela_cronologia(d_, pagina=0):
     """Linha do tempo dos gols em uma página limpa e fácil de acompanhar."""
+    _anotar_indice_times(d_.get("times"))
     eventos = sorted(d_.get("gols", []), key=_tempo_em_segundos)
     total_pag = paginas_cronologia(d_)
     inicio = pagina * CRONOLOGIA_POR_TELA
