@@ -440,12 +440,6 @@
       <select id="tipoCorteCompleto" style="max-width:235px">
         <option value="pendente" selected>⏳ Sem marcação (ver depois)</option>
         <option value="gol">⚽ Gol</option>
-        <option value="trave">🥅 Chute na trave</option>
-        <option value="defesaca">🧤 Defesaça</option>
-        <option value="quase_gol">🔥 Quase gol</option>
-        <option value="falta">⚠️ Falta</option>
-        <option value="gol_perdido">😱 Gol perdido</option>
-        <option value="bizarro">🤪 Bizarro</option>
         <option value="lance">🎬 Outro lance</option>
       </select>
       <div class="row" style="gap:8px; margin-left:auto; align-items:center">
@@ -893,6 +887,20 @@
     <label class="row"><input type="checkbox" id="semAbertura" style="width:auto"> Sem cartela de abertura</label>
     <label class="row"><input type="checkbox" id="semFechamento" style="width:auto"> Sem cartelas de fechamento</label>
     <label class="row"><input type="checkbox" id="semAudio" style="width:auto"> Silenciar os clipes</label>
+
+    <div style="margin:12px 0 14px; background:rgba(0,255,135,0.06); border:1px solid rgba(0,255,135,0.35); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px">
+      <div style="font-size:12px; font-weight:800; color:var(--accent); display:flex; align-items:center; gap:6px">
+        <span>📹</span> Repetição por Câmeras no Vídeo Final
+      </div>
+      <label class="row" style="margin:0; cursor:pointer; font-size:13px; font-weight:700; color:var(--txt)">
+        <input type="checkbox" id="golsTodasCameras" checked style="width:auto">
+        <span>⚽ Salvar todos os <b>GOLS</b> em todas as câmeras disponíveis (obrigatório no vídeo final)</span>
+      </label>
+      <label class="row" style="margin:0; cursor:pointer; font-size:13px; font-weight:700; color:var(--txt)">
+        <input type="checkbox" id="lancesTodasCameras" style="width:auto">
+        <span>🎬 Salvar todos os <b>LANCES</b> em todas as câmeras disponíveis</span>
+      </label>
+    </div>
 
     <div style="margin:14px 0 16px; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:14px 16px">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px">
@@ -1376,4 +1384,4 @@
   </div>
 </div>
 
-<script src="/web/assistente.js?v=20261108_v4" defer></script>
+<script src="/web/assistente.js?v=20261108_v5" defer></script>

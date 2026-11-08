@@ -20,15 +20,9 @@ let ESTADO = {
 let S = { meta:{data:'',comp:'',local:'',pelada:'Will Cup'},
   times:[{nome:'Time Amarelo',cor:'#eab308',jogadores:[],reservas:[]},{nome:'Time Azul',cor:'#2563eb',jogadores:[],reservas:[]}] };
 let rascunho = {tipo:null,time:null,autor:null,assist:null,lance:null,destaque:null};
-const TIPOS_LANCE = ['Defesaça', 'Chute na trave', 'Quase gol', 'Gol perdido', 'Falta', 'Bizarro', 'Drible', 'Bola perdida', 'Confusão', 'Engraçado'];
+const TIPOS_LANCE = ['Defesaça', 'Chute na trave', 'Quase gol', 'Gol perdido', 'Falta', 'Bizarro', 'Drible', 'Bola perdida', 'Confusão', 'Engraçado', 'Contusão', 'Substituição'];
 const TIPOS_CLIPE = [
   { id: 'gol', rotulo: 'Gol', icon: '⚽', cor: 'var(--accent)', bg: 'rgba(0,255,135,0.18)', border: '#00ff87', isGol: true, hotkey: 'g' },
-  { id: 'falta', rotulo: 'Falta', icon: '⚠️', cor: '#ef4444', bg: 'rgba(239,68,68,0.18)', border: '#ef4444', lanceNome: 'Falta', isGol: false, hotkey: 'f' },
-  { id: 'gol_perdido', rotulo: 'Gol perdido', icon: '😱', cor: '#f97316', bg: 'rgba(249,115,22,0.18)', border: '#f97316', lanceNome: 'Gol perdido', isGol: false, hotkey: 'p' },
-  { id: 'bizarro', rotulo: 'Bizarro', icon: '🤪', cor: '#ec4899', bg: 'rgba(236,72,153,0.18)', border: '#ec4899', lanceNome: 'Bizarro', isGol: false, hotkey: 'b' },
-  { id: 'trave', rotulo: 'Chute na trave', icon: '🥅', cor: '#fbbf24', bg: 'rgba(251,191,36,0.18)', border: '#fbbf24', lanceNome: 'Chute na trave', isGol: false, hotkey: 'c' },
-  { id: 'defesaca', rotulo: 'Defesaça', icon: '🧤', cor: '#38bdf8', bg: 'rgba(56,189,248,0.18)', border: '#38bdf8', lanceNome: 'Defesaça', isGol: false, hotkey: 'd' },
-  { id: 'quase_gol', rotulo: 'Quase gol', icon: '🔥', cor: '#fb923c', bg: 'rgba(251,146,60,0.18)', border: '#fb923c', lanceNome: 'Quase gol', isGol: false, hotkey: 'q' },
   { id: 'lance', rotulo: 'Outro lance', icon: '🎬', cor: '#00f0ff', bg: 'rgba(0,240,255,0.18)', border: '#00f0ff', lanceNome: 'Outro lance', isGol: false, hotkey: 'o' },
 ];
 
@@ -304,6 +298,22 @@ function obterInfoTipo(status, lance){
   if(s === 'engracado' || (s !== 'gol' && l === 'engracado')){
     return { id: 'engracado', rotulo: 'Engraçado', icon: '🤣', cor: '#f59e0b',
              bg: 'rgba(245,158,11,0.18)', border: '#f59e0b', lanceNome: 'Engraçado', isGol: false };
+  }
+  if(s === 'contusao' || (s !== 'gol' && l === 'contusao')){
+    return { id: 'contusao', rotulo: 'Contusão', icon: '🤕', cor: '#f43f5e',
+             bg: 'rgba(244,63,94,0.18)', border: '#f43f5e', lanceNome: 'Contusão', isGol: false };
+  }
+  if(s === 'substituicao' || (s !== 'gol' && l === 'substituicao')){
+    return { id: 'substituicao', rotulo: 'Substituição', icon: '🔄', cor: '#a3e635',
+             bg: 'rgba(163,230,53,0.18)', border: '#a3e635', lanceNome: 'Substituição', isGol: false };
+  }
+  const porLance = TIPOS_LANCE.find(n => {
+    const nn = normalizarTexto(n);
+    return nn === l || nn === s;
+  });
+  if(porLance){
+    return { id: normalizarTexto(porLance).replace(/\s+/g, '_'), rotulo: porLance, icon: '🎬', cor: '#00f0ff',
+             bg: 'rgba(0,240,255,0.18)', border: '#00f0ff', lanceNome: porLance, isGol: false };
   }
   if(s || l) return TIPOS_CLIPE.find(t => t.id === 'lance') || TIPOS_CLIPE[TIPOS_CLIPE.length - 1];
   return null;
@@ -994,6 +1004,19 @@ async function salvarPartida(){
     $$('.stSalvo').forEach(el=> el.textContent = 'salvo ' + new Date().toLocaleTimeString('pt-BR'));
   }catch(e){ $$('.stSalvo').forEach(el=> el.textContent = 'não consegui salvar'); }
 }
+function camerasEfetivasDoClipeFinal(g, ehGol){
+  const chkGols = $('#golsTodasCameras');
+  const chkLances = $('#lancesTodasCameras');
+  const golsTodas = chkGols ? chkGols.checked : (S.meta?.gols_todas_cameras !== false);
+  const lancesTodas = chkLances ? chkLances.checked : Boolean(S.meta?.lances_todas_cameras);
+  const disp = (typeof camerasCarregadas === 'function') ? camerasCarregadas() : [1];
+  const base = (Array.isArray(g.cameras_clipe) && g.cameras_clipe.length) ? g.cameras_clipe : [g.camera || 1];
+  if((ehGol && golsTodas) || (!ehGol && lancesTodas)){
+    return disp.length ? [...disp] : base;
+  }
+  return base;
+}
+
 function estadoParaPartida(){
   const v = [...validos()].sort((a, b) => {
     const tA = obterTempoSegundosClipe(a), tB = obterTempoSegundosClipe(b);
@@ -1008,10 +1031,17 @@ function estadoParaPartida(){
     return (tA !== -1 && tB !== -1) ? (tA - tB) : ((a.indice||0) - (b.indice||0));
   });
 
+  const chkGols = $('#golsTodasCameras');
+  const chkLances = $('#lancesTodasCameras');
+  const golsTodasCameras = chkGols ? chkGols.checked : (S.meta?.gols_todas_cameras !== false);
+  const lancesTodasCameras = chkLances ? chkLances.checked : Boolean(S.meta?.lances_todas_cameras);
+
   return {
     meta: Object.assign({}, S.meta, {video: ESTADO.video ? ESTADO.video.caminho : null,
       cameras: camerasSelecionadas().map(c => c ? ({nome:c.nome, caminho:c.caminho, duracao_s:c.duracao_s, inicio_jogo_s:Number(c.inicio_jogo_s)||0, preset:c.preset||null}) : null),
       camera_placar: ESTADO.cameraPlacar,
+      gols_todas_cameras: golsTodasCameras,
+      lances_todas_cameras: lancesTodasCameras,
       placar:[v.filter(g=>g.time===0).length, v.filter(g=>g.time===1).length]}),
     times: S.times.map((t, idx) => ({
       nome: t.nome,
@@ -1027,14 +1057,15 @@ function estadoParaPartida(){
       const tStr = (g.tempo && g.tempo !== '00:00' && g.tempo !== '--:--') ? g.tempo : (tS !== -1 ? fmtTempo(tS) : '00:00');
       const iniS = (g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) : (tS !== -1 ? Math.max(0, tS - 20) : null);
       const fimS = (g.fim_s != null && !isNaN(g.fim_s)) ? Number(g.fim_s) : (tS !== -1 ? tS + 4 : null);
+      const camsGol = camerasEfetivasDoClipeFinal(g, true);
       return {
         indice: g.indice,
         tempo: tStr,
         tempo_s: (tS !== -1) ? tS : null,
         inicio_s: iniS,
         fim_s: fimS,
-        camera: g.camera || 1,
-        cameras_clipe: g.cameras_clipe || [g.camera || 1],
+        camera: camsGol[0] || g.camera || 1,
+        cameras_clipe: camsGol,
         tipo: 'gol',
         status: 'gol',
         time: g.time,
@@ -1053,14 +1084,15 @@ function estadoParaPartida(){
       const tStr = (g.tempo && g.tempo !== '00:00' && g.tempo !== '--:--') ? g.tempo : (tS !== -1 ? fmtTempo(tS) : '00:00');
       const iniS = (g.inicio_s != null && !isNaN(g.inicio_s)) ? Number(g.inicio_s) : (tS !== -1 ? Math.max(0, tS - 20) : null);
       const fimS = (g.fim_s != null && !isNaN(g.fim_s)) ? Number(g.fim_s) : (tS !== -1 ? tS + 4 : null);
+      const camsLance = camerasEfetivasDoClipeFinal(g, false);
       return {
         indice: g.indice,
         tempo: tStr,
         tempo_s: (tS !== -1) ? tS : null,
         inicio_s: iniS,
         fim_s: fimS,
-        camera: g.camera || 1,
-        cameras_clipe: g.cameras_clipe || [g.camera || 1],
+        camera: camsLance[0] || g.camera || 1,
+        cameras_clipe: camsLance,
         tipo: 'lance',
         status: g.status || (inf ? inf.id : 'lance'),
         lance: g.lance || (inf ? inf.lanceNome : 'Lance'),
@@ -1710,6 +1742,10 @@ function escreverSetup(){
     const logoEl = $('#previewLogoCampeonato');
     if(logoEl) logoEl.src = S.meta.logo + '?t=' + Date.now();
   }
+  const chkGolsTodas = $('#golsTodasCameras');
+  if(chkGolsTodas) chkGolsTodas.checked = (S.meta && S.meta.gols_todas_cameras !== undefined) ? Boolean(S.meta.gols_todas_cameras) : true;
+  const chkLancesTodas = $('#lancesTodasCameras');
+  if(chkLancesTodas) chkLancesTodas.checked = Boolean(S.meta && S.meta.lances_todas_cameras);
   atualizarEstilosTimes();
   renderPosicoesElenco(0);
   renderPosicoesElenco(1);
@@ -4058,12 +4094,13 @@ function pickLances(){
     b.className = rascunho.lance === n ? 'sel' : '';
     b.onclick = () => {
       rascunho.lance = rascunho.lance === n ? null : n;
+      rascunho.tipo = 'lance';
       const inf = obterInfoTipo(null, rascunho.lance);
-      if(inf){
-        rascunho.status = inf.id;
-      }
+      rascunho.status = inf ? inf.id : 'lance';
+      if(!rascunho.lance) rascunho.lance = 'Outro lance';
       pickTipos();
       pickLances();
+      alternarCampos();
       aplicarCameraAutomatica();
     };
     el.appendChild(b);
@@ -4500,7 +4537,7 @@ function atualizarAnaliseGolsMarcacao(){
 $('#btnSalvar').onclick = ()=>{
   const g = ESTADO.gols.find(x => x.indice === ESTADO.indiceAtual) || ESTADO.gols[0];
   if(!g) return;
-  if(!rascunho.tipo){ alert('Escolha o tipo do clipe (Gol, Defesaça, etc).'); return; }
+  if(!rascunho.tipo){ alert('Escolha o tipo do clipe: Gol ou Outro lance.'); return; }
   const temTime = (rascunho.time !== null && rascunho.time !== undefined && S.times[rascunho.time]);
   const ehGol = rascunho.tipo === 'gol';
   if(ehGol && (!temTime || !rascunho.autor)){ alert('Escolha o time e o autor do gol.'); return; }
@@ -5567,14 +5604,17 @@ function atualizarPrevisaoDuracao(){
   // Inclui a tela final fixa de 30s que convida a assistir os outros vídeos.
   let durTotalMelhores = ab + fech + 30;
   totalClipes.forEach(c => {
+    const ehGol = c.tipo === 'gol' || c.status === 'gol';
+    const qtdCams = camerasEfetivasDoClipeFinal(c, ehGol).length || 1;
     let d = (c.fim_s != null && c.inicio_s != null && c.fim_s > c.inicio_s) ? (c.fim_s - c.inicio_s) : 24;
-    durTotalMelhores += d;
+    durTotalMelhores += d * qtdCams;
   });
 
   let durTotalGols = ab + fech + 30;
   todosGols.forEach(c => {
+    const qtdCams = camerasEfetivasDoClipeFinal(c, true).length || 1;
     let d = (c.fim_s != null && c.inicio_s != null && c.fim_s > c.inicio_s) ? (c.fim_s - c.inicio_s) : 24;
-    durTotalGols += d;
+    durTotalGols += d * qtdCams;
   });
 
   const mMelhores = Math.floor(durTotalMelhores / 60);
@@ -5649,7 +5689,7 @@ function gerarComentarioYoutube(apenasGols=false, jogador=null){
       descricao = `🎬 ${c.lance || 'Melhor momento'}${time ? ` — ${time}` : ''}${c.destaque ? ` · ${c.destaque}` : ''}`;
     }
     linhas.push(`${fmtTempoYoutube(tempoVideo)} ${descricao}`);
-    tempoVideo += duracaoDoClipeFinal(c) * ((Array.isArray(c.cameras_clipe) && c.cameras_clipe.length) || 1);
+    tempoVideo += duracaoDoClipeFinal(c) * (camerasEfetivasDoClipeFinal(c, ehGol).length || 1);
   });
   return linhas.join('\n');
 }
@@ -6338,6 +6378,21 @@ async function atualizarPreviaJogador(jogador){
 inicializarRenderJogador();
 inicializarRecorteVertical();
 
+$('#golsTodasCameras')?.addEventListener('change', () => {
+  S.meta = S.meta || {};
+  S.meta.gols_todas_cameras = $('#golsTodasCameras').checked;
+  atualizarPrevisaoDuracao();
+  atualizarDescricoesYoutube();
+  agendarSalvar();
+});
+$('#lancesTodasCameras')?.addEventListener('change', () => {
+  S.meta = S.meta || {};
+  S.meta.lances_todas_cameras = $('#lancesTodasCameras').checked;
+  atualizarPrevisaoDuracao();
+  atualizarDescricoesYoutube();
+  agendarSalvar();
+});
+
 $('#btnMontarJogador').onclick = async ()=>{
   const jogador = $('#selJogadorDestaques').value;
   const resultado = $('#resultadoJogador');
@@ -6356,6 +6411,8 @@ $('#btnMontarJogador').onclick = async ()=>{
     const r = await fetch('/api/montar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
       abertura: parseFloat($('#abertura').value)||7, fechamento: parseFloat($('#fechamento').value)||8,
       sem_audio: $('#semAudio').checked, sem_abertura: $('#semAbertura').checked, sem_fechamento: $('#semFechamento').checked,
+      gols_todas_cameras: $('#golsTodasCameras') ? $('#golsTodasCameras').checked : true,
+      lances_todas_cameras: $('#lancesTodasCameras') ? $('#lancesTodasCameras').checked : false,
       roteiro: itens.map(c=>c.indice), ...paramsRenderJogador(), video_jogador: true,
       nome_saida: `${(typeof obterTituloJogadorCompleto === 'function' ? obterTituloJogadorCompleto(jogador) : `${jogador} - Meus melhores momentos`)}.mp4`
     })});
@@ -6423,6 +6480,8 @@ $('#btnMontar').onclick = async ()=>{
     sem_audio: $('#semAudio').checked,
     sem_abertura: $('#semAbertura').checked,
     sem_fechamento: $('#semFechamento').checked,
+    gols_todas_cameras: $('#golsTodasCameras') ? $('#golsTodasCameras').checked : true,
+    lances_todas_cameras: $('#lancesTodasCameras') ? $('#lancesTodasCameras').checked : false,
     roteiro: roteiro.length ? roteiro : todos,
     crf: crf,
     codec: codec,

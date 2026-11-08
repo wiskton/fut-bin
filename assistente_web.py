@@ -2264,6 +2264,8 @@ class IniciarMontagem(BaseModel):
     saturacao: float | None = None
     contraste: float | None = None
     tema: str | None = None  # "atual", "fifa", "iss", "pes", "tv"
+    gols_todas_cameras: bool | None = None
+    lances_todas_cameras: bool | None = None
 
 
 @app.post("/api/montar/iniciar")
@@ -2303,6 +2305,10 @@ def api_iniciar_montagem(body: IniciarMontagem):
             cmd.extend(["--recorte", ",".join(f"{max(0.0, min(1.0, float(v))):.4f}" for v in body.recorte)])
     if body.tema and body.tema in ("atual", "fifa", "iss", "pes", "tv"):
         cmd.extend(["--tema", body.tema])
+    if body.gols_todas_cameras:
+        cmd.append("--gols_todas_cameras")
+    if body.lances_todas_cameras:
+        cmd.append("--lances_todas_cameras")
 
     fc = {}
     if os.path.exists(PARTIDA_JSON):

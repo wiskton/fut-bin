@@ -2484,8 +2484,27 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
     validar_duracao(saida, dur)
 
 
-def _cameras_do_lance(ev):
+def _cameras_disponiveis_partida(d, pasta_clipes):
+    """Lista todas as câmeras (1 a 3) disponíveis na partida (configuradas em meta.cameras ou com pasta de clipes)."""
+    disp = [1]
+    meta_cams = (d.get("meta") or {}).get("cameras") or []
+    base_dir = os.path.dirname(os.path.abspath(pasta_clipes))
+    for cam in (2, 3):
+        info = meta_cams[cam - 1] if isinstance(meta_cams, list) and len(meta_cams) >= cam else None
+        tem_video = isinstance(info, dict) and bool(info.get("caminho") or info.get("nome"))
+        pasta_cam = os.path.join(base_dir, f"clipes_cam{cam}")
+        tem_clipes = os.path.isdir(pasta_cam) and any(n.lower().endswith(".mp4") for n in os.listdir(pasta_cam))
+        if tem_video or tem_clipes:
+            disp.append(cam)
+    return disp
+
+
+def _cameras_do_lance(ev, forcar_todas=False, cameras_disponiveis=None):
     """Câmeras (1 a 3) marcadas para o lance, sem repetir e na ordem escolhida."""
+    if forcar_todas and cameras_disponiveis:
+        cams = [int(c) for c in cameras_disponiveis if 1 <= int(c) <= 3]
+        if cams:
+            return list(dict.fromkeys(cams))
     bruto = ev.get("cameras_clipe")
     if not isinstance(bruto, list) or not bruto:
         bruto = [ev.get("camera") or 1]
@@ -2603,6 +2622,10 @@ def main():
     ap.add_argument("--tema", default="atual",
                     choices=["atual", "fifa", "iss", "pes", "tv"],
                     help="Estilo visual das cartelas: atual, fifa, iss, pes, tv")
+    ap.add_argument("--gols_todas_cameras", action="store_true",
+                    help="Forca todos os gols a serem incluidos em todas as cameras disponiveis")
+    ap.add_argument("--lances_todas_cameras", action="store_true",
+                    help="Forca todos os lances a serem incluidos em todas as cameras disponiveis")
     args = ap.parse_args()
     global ALTURA_SAIDA, VERTICAL, RECORTE, TEMA
     TEMA = args.tema
@@ -2717,13 +2740,19 @@ def main():
                     time_b += 1
             return time_a, time_b
 
+        cameras_disp = _cameras_disponiveis_partida(d, args.clipes)
+        meta_dict = d.get("meta") if isinstance(d.get("meta"), dict) else {}
+        gols_todas_cams = bool(args.gols_todas_cameras or meta_dict.get("gols_todas_cameras"))
+        lances_todas_cams = bool(args.lances_todas_cameras or meta_dict.get("lances_todas_cameras"))
+
         for n, item in enumerate(roteiro, 1):
             idx = item["i"]
             if idx not in por_indice:
                 continue
             tipo, ev = por_indice[idx]
             # Câmeras marcadas para este lance: o lance é repetido, uma câmera depois da outra.
-            cams = _cameras_do_lance(ev)
+            forcar_todas = (tipo == "gol" and gols_todas_cams) or (tipo != "gol" and lances_todas_cams)
+            cams = _cameras_do_lance(ev, forcar_todas=forcar_todas, cameras_disponiveis=cameras_disp)
             fontes = []
             for cam in cams:
                 if cam == 1:
