@@ -3825,14 +3825,17 @@ function renderMarcacao(){
     let autorTexto = '';
     if(item.autor){
       const timeCor = (item.time !== null && S.times[item.time]) ? S.times[item.time].cor : 'var(--accent)';
-      autorTexto = `<span style="font-size:10px; font-weight:700; color:${timeCor}; margin-left:3px">(${item.autor})</span>`;
+      const temAssist = Boolean(item.assist && item.assist !== '—');
+      const assistHtml = temAssist ? ` <span style="opacity:0.88; font-weight:600">/ 👟 ${item.assist}</span>` : '';
+      autorTexto = `<span style="font-size:10px; font-weight:700; color:${timeCor}; margin-left:3px">(${item.autor}${assistHtml})</span>`;
     } else if(item.tipo === 'lance' && item.destaque){
       autorTexto = `<span style="font-size:10px; opacity:0.85; margin-left:3px">(${item.destaque})</span>`;
     }
     const segundosChip = obterTempoSegundosClipe(item);
     const tempoChip = item.tempo || (segundosChip !== -1 ? fmtTempo(segundosChip) : '');
+    const assistTitle = (item.assist && item.assist !== '—') ? ` · Passe: ${item.assist}` : '';
     b.innerHTML = `<span>${icone} #${rotulo}</span>${autorTexto}<span class="chip-tempo">${tempoChip}</span>`;
-    b.title = `Clipe #${item.indice} · ${inf ? inf.rotulo : (temTipo ? (ehGol ? 'Gol' : 'Lance') : 'Sem marcação')}` + (item.autor ? ` (${item.autor})` : '');
+    b.title = `Clipe #${item.indice} · ${inf ? inf.rotulo : (temTipo ? (ehGol ? 'Gol' : 'Lance') : 'Sem marcação')}` + (item.autor ? ` (${item.autor}${assistTitle})` : '');
     b.onclick = ()=>{ ESTADO.indiceAtual = item.indice; renderMarcacao(); };
     $('#golnav').appendChild(b);
   });
