@@ -1010,11 +1010,17 @@ function camerasEfetivasDoClipeFinal(g, ehGol){
   const golsTodas = chkGols ? chkGols.checked : (S.meta?.gols_todas_cameras !== false);
   const lancesTodas = chkLances ? chkLances.checked : Boolean(S.meta?.lances_todas_cameras);
   const disp = (typeof camerasCarregadas === 'function') ? camerasCarregadas() : [1];
-  const base = (Array.isArray(g.cameras_clipe) && g.cameras_clipe.length) ? g.cameras_clipe : [g.camera || 1];
+  const baseBruta = (Array.isArray(g.cameras_clipe) && g.cameras_clipe.length) ? g.cameras_clipe : [g.camera || 1];
+  const base = baseBruta.map(Number).filter((c, i, a) => c >= 1 && c <= 3 && a.indexOf(c) === i);
+  const baseValida = base.length ? base : [1];
   if((ehGol && golsTodas) || (!ehGol && lancesTodas)){
-    return disp.length ? [...disp] : base;
+    if(!disp.length) return baseValida;
+    // Mantém a câmera principal/de ataque do lance em 1º lugar e adiciona as demais câmeras disponíveis em seguida
+    const principaisDisponiveis = baseValida.filter(c => disp.includes(c));
+    const inicio = principaisDisponiveis.length ? principaisDisponiveis : [disp[0]];
+    return [...inicio, ...disp.filter(c => !inicio.includes(c))];
   }
-  return base;
+  return baseValida;
 }
 
 function estadoParaPartida(){
@@ -1064,8 +1070,8 @@ function estadoParaPartida(){
         tempo_s: (tS !== -1) ? tS : null,
         inicio_s: iniS,
         fim_s: fimS,
-        camera: camsGol[0] || g.camera || 1,
-        cameras_clipe: camsGol,
+        camera: g.camera || 1,
+        cameras_clipe: g.cameras_clipe || [g.camera || 1],
         tipo: 'gol',
         status: 'gol',
         time: g.time,
@@ -1091,8 +1097,8 @@ function estadoParaPartida(){
         tempo_s: (tS !== -1) ? tS : null,
         inicio_s: iniS,
         fim_s: fimS,
-        camera: camsLance[0] || g.camera || 1,
-        cameras_clipe: camsLance,
+        camera: g.camera || 1,
+        cameras_clipe: g.cameras_clipe || [g.camera || 1],
         tipo: 'lance',
         status: g.status || (inf ? inf.id : 'lance'),
         lance: g.lance || (inf ? inf.lanceNome : 'Lance'),
@@ -2640,6 +2646,22 @@ $('#btnVoltar10sSobreVideo').onclick = () => {
   vc.currentTime = Math.max(0, (vc.currentTime || 0) - 10);
   atualizarTempoVideoCompleto();
 };
+document.addEventListener('keydown', e => {
+  const cheia = document.fullscreenElement === $('#playerVideoCompleto');
+  if(!cheia) return;
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if(e.key === 'ArrowLeft'){
+    e.preventDefault();
+    $('#btnVoltar10sSobreVideo')?.click();
+  } else if(['1','2','3','4','5','6'].includes(e.key)){
+    e.preventDefault();
+    const btnVel = document.querySelector(`.btnVel[data-vel="${e.key}"]`);
+    if(btnVel) btnVel.click();
+  } else if(e.key === ' '){
+    e.preventDefault();
+    alternarPlayPauseVideoCompleto();
+  }
+});
 $('#btnCortar15sSobreVideo').onclick = () => {
   const vc = $('#videoCompleto');
   if(!ESTADO.video || !vc.readyState || vc.currentTime <= 0 || tempoJogoDoVideoCompleto() <= 0){
@@ -4975,6 +4997,7 @@ document.addEventListener('keydown', e=>{
   else if(e.key==='Enter') $('#btnSalvar').click();
   else if(k==='r') $('#btnRep').click();
   else if(k==='t') alternarModoTeatroMarcar();
+  else if(e.key==='Delete' || (e.ctrlKey && e.key==='Backspace')){ e.preventDefault(); excluirClipeAtualStep6(); }
   else {
     let match = TIPOS_CLIPE.find(t => t.hotkey === k);
     if(!match && (k === 'l' || k === 'o')){

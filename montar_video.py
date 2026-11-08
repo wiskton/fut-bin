@@ -2501,10 +2501,6 @@ def _cameras_disponiveis_partida(d, pasta_clipes):
 
 def _cameras_do_lance(ev, forcar_todas=False, cameras_disponiveis=None):
     """Câmeras (1 a 3) marcadas para o lance, sem repetir e na ordem escolhida."""
-    if forcar_todas and cameras_disponiveis:
-        cams = [int(c) for c in cameras_disponiveis if 1 <= int(c) <= 3]
-        if cams:
-            return list(dict.fromkeys(cams))
     bruto = ev.get("cameras_clipe")
     if not isinstance(bruto, list) or not bruto:
         bruto = [ev.get("camera") or 1]
@@ -2516,7 +2512,13 @@ def _cameras_do_lance(ev, forcar_todas=False, cameras_disponiveis=None):
             continue
         if 1 <= c <= 3 and c not in cams:
             cams.append(c)
-    return cams or [1]
+    cams = cams or [1]
+    if forcar_todas and cameras_disponiveis:
+        disp = [int(c) for c in cameras_disponiveis if 1 <= int(c) <= 3]
+        if disp:
+            principais = [c for c in cams if c in disp] or [disp[0]]
+            return principais + [c for c in disp if c not in principais]
+    return cams
 
 
 def clipe_da_camera_sincronizada(ev, cameras, pasta_tmp):

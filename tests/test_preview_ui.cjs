@@ -1,7 +1,7 @@
 const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert/strict');
-const html = fs.readFileSync(process.argv[2] || require('path').join(__dirname, '../web/assistente.html'), 'utf8');
+const html = fs.readFileSync(process.argv[2] || require('path').join(__dirname, '../web/assistente.js'), 'utf8');
 const source = html.slice(html.indexOf('let pedidoPreviaCompleto = 0;'), html.indexOf('function urlClipeDaCamera('));
 let camera = 1, nextResponse;
 const events = new Map();
