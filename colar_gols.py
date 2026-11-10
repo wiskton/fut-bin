@@ -57,6 +57,16 @@ def parse_texto_gols(texto: str) -> dict:
                 times.append(time_nome)
             time_idx = next(i for i, n in enumerate(times) if n.casefold() == chave)
             continue
+        segundos_soltos = _tempo_para_segundos(linha)
+        if secao is None and segundos_soltos is not None:
+            eventos.append({
+                "tipo": "gol",
+                "time": time_idx,
+                "time_nome": time_nome,
+                "tempo_jogo": linha,
+                "tempo_jogo_s": segundos_soltos,
+            })
+            continue
         if secao is None:
             placar_m = _PLACAR.match(linha)
             if placar_m:
@@ -90,17 +100,20 @@ def parse_texto_gols(texto: str) -> dict:
     }
 
 
-def montar_cortes(eventos: list, inicio_jogo_s: float, antes_s: float, depois_s: float) -> list:
+# O horário colado é o começo do gol. O clipe segue 20 segundos a partir dele.
+DURACAO_A_FRENTE_S = 20
+
+
+def montar_cortes(eventos: list, inicio_jogo_s: float, antes_s: float, depois_s: float = DURACAO_A_FRENTE_S, ja_incluso_s: float = 0) -> list:
     inicio_jogo_s = max(0.0, float(inicio_jogo_s or 0))
     antes_s = min(180.0, max(0.0, float(antes_s)))
-    depois_s = min(180.0, max(0.0, float(depois_s)))
     cortes = []
     for ev in eventos:
         tempo_video = float(ev["tempo_jogo_s"]) + inicio_jogo_s
         if tempo_video < 0:
             continue
         inicio = max(0.0, tempo_video - antes_s)
-        fim = tempo_video + depois_s
+        fim = tempo_video + DURACAO_A_FRENTE_S
         if fim <= inicio:
             fim = inicio + 1.0
         item = dict(ev)

@@ -90,6 +90,26 @@ CLIP_QUALITY_VERSION = "max-v3"
 CLIP_QUALITY_ARGS = obter_args_corte()
 
 
+def janela_no_arquivo(inicio_s: float, duracao_s: float, duracao_arquivo: float | None) -> float | None:
+    """Quanto do corte ainda cabe no arquivo.
+
+    None quando o lance começa depois que a gravação acabou. Se ela acaba no
+    meio do corte, devolve só o trecho que existe.
+    """
+    inicio_s = max(0.0, float(inicio_s))
+    duracao_s = float(duracao_s)
+    if duracao_s <= 0:
+        return None
+    if duracao_arquivo is None:
+        return duracao_s
+    if inicio_s >= float(duracao_arquivo) - 0.05:
+        return None
+    cabe = float(duracao_arquivo) - inicio_s
+    if cabe < 0.4:
+        return None
+    return min(duracao_s, cabe)
+
+
 def clip_command(video: str, inicio_s: float, duracao_s: float, saida: str, encoder: str = None) -> list[str]:
     """Corta do original com aceleração por GPU (se ativa) ou CPU multi-threads."""
     args = obter_args_corte(encoder)

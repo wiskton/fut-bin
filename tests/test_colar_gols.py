@@ -39,23 +39,30 @@ class ColarGolsTest(unittest.TestCase):
 
     def test_inicio_do_jogo_soma_e_o_corte_volta_os_segundos(self):
         dados = parse_texto_gols(TEXTO)
-        cortes = montar_cortes(dados["eventos"], inicio_jogo_s=180, antes_s=30, depois_s=8)
+        cortes = montar_cortes(dados["eventos"], inicio_jogo_s=180, antes_s=30)
         primeiro = next(c for c in cortes if c["tempo_jogo"] == "08:56")
-        # 08:56 do jogo + 3:00 de vídeo = 11:56; corte de 11:26 até 12:04
+        # 08:56 do jogo + 3:00 de vídeo = 11:56. O clipe vai 20s à frente, até 12:16.
         self.assertEqual(primeiro["tempo_s"], 716)
         self.assertEqual(primeiro["inicio_s"], 686)
-        self.assertEqual(primeiro["fim_s"], 724)
+        self.assertEqual(primeiro["fim_s"], 736)
         self.assertEqual(primeiro["tempo"], "08:56")
+
+    def test_lista_simples_comeca_no_horario_e_anda_20s(self):
+        dados = parse_texto_gols("07:41\n08:09\n")
+        self.assertEqual([e["tempo_jogo"] for e in dados["eventos"]], ["07:41", "08:09"])
+        corte = montar_cortes(dados["eventos"], inicio_jogo_s=5, antes_s=0)[0]
+        self.assertEqual(corte["inicio_s"], 466)
+        self.assertEqual(corte["fim_s"], 486)
 
     def test_sem_inicio_o_corte_comeca_30s_antes(self):
         dados = parse_texto_gols("GOLS - Time A\n02:50\n")
-        corte = montar_cortes(dados["eventos"], 0, 30, 8)[0]
+        corte = montar_cortes(dados["eventos"], 0, 30)[0]
         self.assertEqual(corte["tempo_s"], 170)
         self.assertEqual(corte["inicio_s"], 140)
-        self.assertEqual(corte["fim_s"], 178)
+        self.assertEqual(corte["fim_s"], 190)
 
     def test_inicio_nao_passa_do_zero_do_arquivo(self):
         dados = parse_texto_gols("GOLS - Time A\n00:10\n")
-        corte = montar_cortes(dados["eventos"], 0, 30, 8)[0]
+        corte = montar_cortes(dados["eventos"], 0, 30)[0]
         self.assertEqual(corte["inicio_s"], 0)
-        self.assertEqual(corte["fim_s"], 18)
+        self.assertEqual(corte["fim_s"], 30)

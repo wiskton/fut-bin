@@ -549,6 +549,42 @@ def api_buscar_videos(q: Optional[str] = None):
     return resultados
 
 
+class JuntarRenderBody(BaseModel):
+    partes: List[str]
+    inicio_s: float
+    fim_s: float
+    camera: int = 0
+
+
+@app.post("/api/juntar/render")
+def api_juntar_render(body: JuntarRenderBody):
+    """Junta os arquivos da câmera e grava só o intervalo marcado da partida."""
+    from juntar_videos import preparar
+
+    if not body.partes:
+        raise HTTPException(400, "Adicione pelo menos um arquivo da câmera.")
+    if len(body.partes) > 40:
+        raise HTTPException(400, "Use no máximo 40 arquivos por câmera.")
+    if body.camera not in (0, 1, 2):
+        raise HTTPException(400, "Escolha a câmera 1, 2 ou 3.")
+    try:
+        caminhos = [_resolver_video(p) for p in body.partes]
+        pasta = os.path.join(VIDEOS_DIR, "juntados")
+        os.makedirs(pasta, exist_ok=True)
+        nome = f"partida_camera{body.camera + 1}_{time.strftime('%Y%m%d_%H%M%S')}.mp4"
+        saida = os.path.join(pasta, nome)
+        cmd = preparar(caminhos, body.inicio_s, body.fim_s, saida)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    duracao = round(max(0.0, min(body.fim_s, 1e9) - body.inicio_s), 3)
+    return {
+        "job_id": _iniciar_job(cmd),
+        "video": {"nome": nome, "caminho": saida, "duracao_s": duracao, "camera": body.camera},
+    }
+
+
 @app.api_route("/video/completo", methods=["GET", "HEAD"])
 def video_completo(video: Optional[str] = None):
     """Stream do video completo com suporte a Range requests para visualizacao e corte no navegador."""
@@ -1041,7 +1077,7 @@ class ColarGolsBody(BaseModel):
 def _cortes_do_texto(body: ColarGolsBody) -> dict:
     from colar_gols import montar_cortes, parse_texto_gols
     dados = parse_texto_gols(body.texto or "")
-    cortes = montar_cortes(dados["eventos"], body.inicio_jogo_s, body.antes_s, body.depois_s)
+    cortes = montar_cortes(dados["eventos"], body.inicio_jogo_s, body.antes_s)
     return {
         "times": dados["times"],
         "placar": dados["placar"],
@@ -1903,24 +1939,41 @@ def _cameras_da_partida() -> list:
         return []
 
 
-def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: float) -> Optional[str]:
-    """Corta o mesmo trecho do clipe na câmera indicada, sincronizada por inicio_jogo_s.
+def _limpar_clipe_camera(saida: str) -> None:
+    for caminho in (saida, saida + ".corte", saida + ".part.mp4"):
+        try:
+            if os.path.isfile(caminho):
+                os.remove(caminho)
+        except OSError:
+            pass
 
-    O arquivo fica em gols/clipes_camN/gol_XX.mp4. Um arquivo .corte ao lado guarda os
-    parâmetros: se o corte ou a sincronia mudarem, o clipe é refeito.
+
+def _cortar_clipe_camera_resultado(indice: int, camera: int, inicio_ref: float, fim_ref: float):
+    """Corta o trecho na câmera pedida.
+
+    Devolve ("ok", caminho), ("sem", None) quando a gravação acaba antes do lance,
+    ou ("falha", None) quando o corte em si não sai. Um arquivo .corte ao lado
+    guarda os parâmetros: se o corte ou a sincronia mudarem, o clipe é refeito.
     """
+    from video_quality import janela_no_arquivo
+
     cameras = _cameras_da_partida()
     if camera < 2 or camera > 3 or len(cameras) < camera or not cameras[0] or not cameras[camera - 1]:
-        return None
+        return "falha", None
     ref, alt = cameras[0], cameras[camera - 1]
     origem = alt.get("caminho")
     if not origem or not os.path.isfile(origem) or fim_ref <= inicio_ref:
-        return None
+        return "falha", None
     inicio_cam = max(0.0, inicio_ref - float(ref.get("inicio_jogo_s") or 0) + float(alt.get("inicio_jogo_s") or 0))
-    duracao = fim_ref - inicio_ref
+    duracao_pedida = fim_ref - inicio_ref
     pasta = _pasta_clipes_camera(camera)
     os.makedirs(pasta, exist_ok=True)
     saida = os.path.join(pasta, f"gol_{indice:02d}.mp4")
+    duracao = janela_no_arquivo(inicio_cam, duracao_pedida, _ffprobe_duracao(origem))
+    if duracao is None:
+        with _CAM_LOCK:
+            _limpar_clipe_camera(saida)
+        return "sem", None
     marca = f"{CLIP_QUALITY_VERSION}|{inicio_cam:.2f}|{duracao:.2f}|{origem}"
     arq_marca = saida + ".corte"
     with _CAM_LOCK:
@@ -1928,7 +1981,7 @@ def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: f
             try:
                 with open(arq_marca, encoding="utf-8") as f:
                     if f.read() == marca:
-                        return saida
+                        return "ok", saida
             except OSError:
                 pass
         tmp = saida + ".part.mp4"
@@ -1936,12 +1989,22 @@ def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: f
             _comando_corte_qualidade_maxima(origem, float(f"{inicio_cam:.3f}"),
                                              float(f"{duracao:.3f}"), tmp),
             capture_output=True, text=True)
-        if r.returncode != 0 or not os.path.isfile(tmp):
-            return None
+        if r.returncode != 0 or not os.path.isfile(tmp) or os.path.getsize(tmp) < 1000:
+            try:
+                if os.path.isfile(tmp):
+                    os.remove(tmp)
+            except OSError:
+                pass
+            return "falha", None
         os.replace(tmp, saida)
         with open(arq_marca, "w", encoding="utf-8") as f:
             f.write(marca)
-    return saida
+    return "ok", saida
+
+
+def _cortar_clipe_camera(indice: int, camera: int, inicio_ref: float, fim_ref: float) -> Optional[str]:
+    _status, caminho = _cortar_clipe_camera_resultado(indice, camera, inicio_ref, fim_ref)
+    return caminho
 
 
 class CortarCameras(BaseModel):
@@ -1978,28 +2041,48 @@ def api_cortar_cameras(body: CortarCameras):
         try:
             total = len(eventos) * len(cams)
             feitos = 0
+            sem_filmagem = 0
             for cam in cams:
                 for ev in eventos:
                     if job["cancelar"]:
                         return
                     feitos += 1
+                    numero = int(ev["indice"])
                     with job["lock"]:
-                        job["linha_atual"] = f"camera {cam}: clipe #{int(ev['indice']):02d} ({feitos}/{total})"
+                        job["linha_atual"] = f"Câmera {cam}: clipe #{numero:02d} ({feitos}/{total})"
                     try:
-                        ok = _cortar_clipe_camera(int(ev["indice"]), cam, float(ev["inicio_s"]), float(ev["fim_s"]))
+                        status, _caminho = _cortar_clipe_camera_resultado(
+                            numero, cam, float(ev["inicio_s"]), float(ev["fim_s"]))
                     except Exception:
-                        ok = None
-                    if not ok:
+                        status = "falha"
+                    if status == "sem":
+                        sem_filmagem += 1
+                        with job["lock"]:
+                            job["log"].append(
+                                f"Câmera {cam}: clipe #{numero:02d} sem filmagem. A gravação acaba antes deste lance.")
+                    elif status != "ok":
                         falhas += 1
                         with job["lock"]:
-                            job["log"].append(f"camera {cam}: nao consegui cortar o clipe #{int(ev['indice']):02d}")
+                            job["log"].append(f"Câmera {cam}: não consegui cortar o clipe #{numero:02d}. Os outros continuam.")
             with job["lock"]:
                 if job["cancelar"]:
                     return
-                job["log"].append(f"cortados {total - falhas} de {total} clipes.")
+                cortados = total - sem_filmagem - falhas
+                if sem_filmagem and not falhas:
+                    resumo = (f"Cortados {cortados}. {sem_filmagem} clipe(s) sem filmagem: "
+                              "a câmera acaba antes desses lances. O corte das outras câmeras foi mantido.")
+                elif sem_filmagem or falhas:
+                    resumo = f"Cortados {cortados} de {total}."
+                    if sem_filmagem:
+                        resumo += f" {sem_filmagem} sem filmagem."
+                    if falhas:
+                        resumo += f" {falhas} não puderam ser cortados; os outros seguiram."
+                else:
+                    resumo = f"Cortados {total} de {total} clipes."
+                job["log"].append(resumo)
                 job["linha_atual"] = ""
-                job["returncode"] = 0 if falhas == 0 else 1
-                job["status"] = "done" if falhas == 0 else "error"
+                job["returncode"] = 0
+                job["status"] = "done"
         except Exception as exc:
             with job["lock"]:
                 job["log"].append(f"ERRO: {exc}")

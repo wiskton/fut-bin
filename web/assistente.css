@@ -107,6 +107,7 @@
   button.ghost,a.ghost{background:rgba(19,28,42,0.6);border:1px solid var(--line);color:var(--txt);
     padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;
     transition:all 0.2s ease}
+  button.ghost:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
   button.ghost:hover,a.ghost:hover{border-color:var(--accent);background:rgba(30,44,66,0.8);color:#fff;
     transform:translateY(-1px)}
 
@@ -702,6 +703,7 @@
     background:linear-gradient(150deg, #131c2a 0%, #0c1219 100%);
     display:flex;justify-content:space-between;align-items:center;transition:all 0.2s ease}
   .item-video:hover{border-color:var(--accent);background:rgba(0,255,135,0.06);transform:translateX(3px)}
+  .item-video.marcado{border-color:var(--accent);background:rgba(0,255,135,0.1);box-shadow:0 0 12px rgba(0,255,135,0.16)}
   .item-video b{display:block;font-size:13px;color:var(--txt)}
   .item-video .sub{font-size:11px;color:var(--dim);margin-top:2px}
 

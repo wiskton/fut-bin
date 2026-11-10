@@ -32,7 +32,7 @@ import subprocess
 import cv2
 import numpy as np
 from tqdm import tqdm
-from video_quality import clip_command
+from video_quality import clip_command, janela_no_arquivo
 from persistencia import gravar_json_atomico
 
 # --- amostragem ---
@@ -435,16 +435,36 @@ def ranking(tempos, dist, caminho, limiar, ruido):
         f.write("\n".join(linhas))
 
 
+def _duracao_arquivo(video_path):
+    try:
+        r = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", video_path],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+        return float(r.stdout.strip()) if r.stdout.strip() else None
+    except Exception:
+        return None
+
+
 def cortar(video_path, eventos, output_dir, encoder=None):
     destino = os.path.join(output_dir, "clipes")
     os.makedirs(destino, exist_ok=True)
+    duracao_arquivo = _duracao_arquivo(video_path)
+    sem_filmagem = 0
     for ev in tqdm(eventos, desc="cortando"):
         saida = os.path.join(destino, f"gol_{ev['indice']:02d}.mp4")
-        dur = ev["fim_s"] - ev["inicio_s"]
+        dur = janela_no_arquivo(ev["inicio_s"], ev["fim_s"] - ev["inicio_s"], duracao_arquivo)
+        if dur is None:
+            sem_filmagem += 1
+            print(f"clipe #{ev['indice']:02d} sem filmagem: a gravação acaba antes deste lance.")
+            continue
         subprocess.run(
             clip_command(video_path, ev["inicio_s"], dur, saida, encoder=encoder),
             check=False,
         )
+    if sem_filmagem:
+        print(f"{sem_filmagem} clipe(s) sem filmagem nesta câmera. Os demais foram cortados.")
     print(f"clipes em {os.path.abspath(destino)}")
 
 
@@ -474,6 +494,17 @@ def main():
         pick_placar(args.source_video_path, args.placar_file)
         return
 
+    # A lista colada já traz os horários. Cortar não depende da região do placar.
+    if args.cortar:
+        os.makedirs(args.output_dir, exist_ok=True)
+        caminho_json = os.path.join(args.output_dir, "gols.json")
+        if not os.path.exists(caminho_json):
+            print("gols.json nao encontrado. Rode a deteccao primeiro.")
+            return
+        with open(caminho_json, encoding="utf-8-sig") as f:
+            cortar(args.source_video_path, json.load(f)["gols"], args.output_dir, encoder=args.encoder)
+        return
+
     rect = load_placar(args.placar_file)
     if rect is None:
         print(f"{args.placar_file} nao encontrado. Rode antes com --pick_placar.")
@@ -481,14 +512,6 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
     caminho_json = os.path.join(args.output_dir, "gols.json")
-
-    if args.cortar:
-        if not os.path.exists(caminho_json):
-            print("gols.json nao encontrado. Rode a deteccao primeiro.")
-            return
-        with open(caminho_json, encoding="utf-8-sig") as f:
-            cortar(args.source_video_path, json.load(f)["gols"], args.output_dir, encoder=args.encoder)
-        return
 
     if args.fixo:
         print("modo fixo: usando a regiao marcada, sem rastreio")

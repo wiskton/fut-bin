@@ -2,12 +2,23 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 const PASSOS = [
-  ['s-inicio','Início'], ['s-jogadores','⚽ Jogadores'], ['s-video','1 · Vídeo'], ['s-placar','2 · Placar'], ['s-gols','3 · Detectar/Cortar'],
-  ['s-revisar','4 · Revisar cortes'], ['s-dados','5 · Dados da partida'], ['s-marcar','6 · Marcação'],
-  ['s-resumo','7 · Resumo'], ['s-final','8 · Vídeo final'], ['s-jogador','9 · Meus Melhores Momentos'],
+  ['s-inicio','Início'], ['s-jogadores','⚽ Jogadores'], ['s-juntar','1 · Juntar'], ['s-video','2 · Vídeo'], ['s-placar','3 · Placar'], ['s-gols','4 · Detectar/Cortar'],
+  ['s-revisar','5 · Revisar cortes'], ['s-dados','6 · Dados da partida'], ['s-marcar','7 · Marcação'],
+  ['s-resumo','8 · Resumo'], ['s-final','9 · Vídeo final'], ['s-jogador','10 · Meus Melhores Momentos'],
 ];
 let passoAtual = 's-video';
 
+function slotJuntarVazio(){
+  return { partes: [], inicio_s: null, fim_s: null, posicao: 0, renderizado: null };
+}
+let JUNTAR = {
+  camera: 0,
+  cameras: [slotJuntarVazio(), slotJuntarVazio(), slotJuntarVazio()],
+  jobIds: [],
+};
+function camJuntar(){
+  return JUNTAR.cameras[JUNTAR.camera] || JUNTAR.cameras[0];
+}
 let ESTADO = {
   video: null,           // {nome, caminho, duracao_s}
   cameras: [null, null, null], // vídeos sincronizados; a 1 é a referência do placar
@@ -787,7 +798,7 @@ async function confirmarCriarSessao(){
     ['futbin_partida_cache_v1', 'futbin_ultimo_passo'].forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
     solicitacaoCriarSessaoId = null;
     fecharModalNovaSessao();
-    location.href = location.pathname + '?passo=s-video';
+    location.href = location.pathname + '?passo=s-juntar';
   } catch(err) {
     if(st) st.textContent = 'Erro: ' + err.message;
     if(btn) btn.disabled = false;
@@ -895,7 +906,7 @@ async function excluirSessao(sessaoId, nomeEnc){
 function passoParaContinuar(){
   let salvo = null;
   try { salvo = localStorage.getItem('futbin_ultimo_passo'); } catch(e) {}
-  return (salvo && salvo !== 's-inicio' && $(`#${salvo}`)) ? salvo : 's-video';
+  return (salvo && salvo !== 's-inicio' && $(`#${salvo}`)) ? salvo : 's-juntar';
 }
 async function renderInicio(){
   const el = $('#inicioResumo'), btn = $('#btnInicioContinuar');
@@ -919,7 +930,7 @@ async function renderInicio(){
     if(e.final_ok || e.final_gols_ok) itens.push('vídeo final gerado');
     if(el) el.innerHTML = itens.length ? 'Status da sessão ativa: <strong>' + itens.join(' · ') + '.</strong>' : 'Nenhum vídeo/corte iniciado nesta sessão ainda.';
     if(btn){
-      btn.textContent = itens.length ? 'Continuar de onde parei →' : 'Começar → escolher o vídeo';
+      btn.textContent = itens.length ? 'Continuar de onde parei →' : 'Começar → juntar a gravação';
       btn.dataset.vazio = itens.length ? '' : '1';
     }
   } catch(err) {
@@ -929,7 +940,7 @@ async function renderInicio(){
 
 const btnContinuarInicio = $('#btnInicioContinuar');
 if(btnContinuarInicio){
-  btnContinuarInicio.onclick = () => irPara(btnContinuarInicio.dataset.vazio ? 's-video' : passoParaContinuar());
+  btnContinuarInicio.onclick = () => irPara(btnContinuarInicio.dataset.vazio ? 's-juntar' : passoParaContinuar());
 }
 
 const btnNovoInicio = $('#btnInicioNovo');
@@ -944,7 +955,7 @@ if(btnNovoInicio){
       const d = await r.json().catch(() => ({}));
       if(!r.ok) throw new Error(d.detail || 'Não foi possível limpar.');
       ['futbin_partida_cache_v1','futbin_ultimo_passo'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
-      location.href = location.pathname + '?passo=s-video';
+      location.href = location.pathname + '?passo=s-juntar';
     } catch(err) {
       if(st) st.textContent = err.message;
       btnNovoInicio.disabled = false;
@@ -971,6 +982,15 @@ function irPara(id){
     if(mainEl) mainEl.classList.remove('teatro-ativo');
   }
   if(id==='s-inicio') renderInicio();
+  if(id==='s-video') marcarVideosRenderizados();
+  if(id==='s-juntar'){
+    atualizarPainelJuntar();
+    if(!pastaJuntarAtual){
+      const primeiro = camJuntar().partes[0] && camJuntar().partes[0].caminho;
+      explorarJuntar(primeiro ? primeiro.replace(/[\\/][^\\/]+$/, '') : undefined);
+    }
+  }
+  else { const vj = $('#videoJuntar'); if(vj) vj.pause(); }
   if(id==='s-placar' || id==='s-gols') renderCameraPlacar();
   if(id==='s-gols'){ renderOpcoesCamerasCorte(); preencherInicioColar(); }
   if(id==='s-revisar') renderCameraVer();
@@ -1048,6 +1068,15 @@ function estadoParaPartida(){
       camera_placar: ESTADO.cameraPlacar,
       gols_todas_cameras: golsTodasCameras,
       lances_todas_cameras: lancesTodasCameras,
+      juntar: {
+        camera: JUNTAR.camera,
+        cameras: JUNTAR.cameras.map(c => ({
+          partes: c.partes.map(p => ({nome: p.nome, caminho: p.caminho, duracao_s: p.duracao_s})),
+          inicio_s: c.inicio_s,
+          fim_s: c.fim_s,
+          renderizado: c.renderizado || null,
+        })),
+      },
       placar:[v.filter(g=>g.time===0).length, v.filter(g=>g.time===1).length]}),
     times: S.times.map((t, idx) => ({
       nome: t.nome,
@@ -1132,7 +1161,7 @@ function contar(campo){
   return Object.entries(m).sort((a,b)=>b[1]-a[1]);
 }
 
-/* ------------------------------------------------------------ passo 1: video/partida */
+/* ------------------------------------------------------------ passo 2: video/partida */
 let buscaDebounce = null;
 async function buscarVideos(query = ''){
   const listaEl = $('#listaResultadosPesquisa');
@@ -1148,31 +1177,101 @@ async function buscarVideos(query = ''){
   }
 }
 
+let videosPesquisaAtuais = null;
+function normCaminho(p){
+  return String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+function cameraDoCaminho(caminho){
+  return camerasSelecionadas().findIndex(c => c && normCaminho(c.caminho) === normCaminho(caminho));
+}
+function videosComJaEscolhidos(videos){
+  const base = videos || [];
+  const extras = [];
+  camerasSelecionadas().forEach(c => {
+    if(!c || !c.caminho) return;
+    const ja = base.concat(extras).some(v => normCaminho(v.caminho) === normCaminho(c.caminho));
+    if(ja) return;
+    extras.push({
+      nome: c.nome || String(c.caminho).split(/[/\\]/).pop(),
+      caminho: c.caminho,
+      duracao_s: c.duracao_s,
+    });
+  });
+  const todos = extras.concat(base);
+  const marcados = [];
+  const resto = [];
+  todos.forEach(v => (cameraDoCaminho(v.caminho) >= 0 ? marcados : resto).push(v));
+  return marcados.concat(resto);
+}
 function renderResultadosPesquisa(videos){
   const listaEl = $('#listaResultadosPesquisa');
   if(!listaEl) return;
+  videosPesquisaAtuais = videos || [];
+  const lista = videosComJaEscolhidos(videosPesquisaAtuais);
   listaEl.innerHTML = '';
-  if(!videos || !videos.length){
+  if(!lista.length){
     listaEl.innerHTML = '<span class="hint">Nenhum vídeo encontrado. Digite outro termo ou use o explorador de pastas abaixo.</span>';
     return;
   }
-  videos.forEach(v => {
+  lista.forEach(v => {
     const item = document.createElement('div');
-    item.className = 'item-video';
+    const cam = cameraDoCaminho(v.caminho);
+    const marcado = cam >= 0;
+    item.className = marcado ? 'item-video marcado' : 'item-video';
     const durStr = v.duracao_s ? fmtTempo(v.duracao_s) : '';
+    const marca = marcado
+      ? `<input type="checkbox" checked disabled aria-label="Câmera ${cam + 1} já escolhida" style="margin-right:8px; width:auto">`
+      : '';
     item.innerHTML = `
+      ${marca}
       <div style="flex:1; min-width:0; padding-right:10px">
         <b>🎬 ${v.nome}</b>
-        <div class="sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${v.caminho}</div>
+        <div class="sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${marcado ? `✓ Já está na Câmera ${cam + 1}` : v.caminho}</div>
       </div>
       <div style="text-align:right; flex:0 0 auto">
         ${durStr ? `<span class="teamtag" style="background:var(--line); color:var(--txt)">${durStr}</span>` : ''}
-        <button type="button" class="ghost" style="margin-left:8px; padding:4px 10px; font-size:12px">Selecionar</button>
+        <button type="button" class="${marcado ? 'act' : 'ghost'}" style="margin-left:8px; padding:4px 10px; font-size:12px">${marcado ? `✓ Câmera ${cam + 1}` : 'Selecionar'}</button>
       </div>
     `;
     item.onclick = () => selecionarVideo(v);
     listaEl.appendChild(item);
   });
+}
+function atualizarMarcasVideos(){
+  if(videosPesquisaAtuais) renderResultadosPesquisa(videosPesquisaAtuais);
+}
+async function marcarVideosRenderizados(){
+  const prontas = [0, 1, 2].filter(i => {
+    const slot = JUNTAR.cameras[i];
+    return slot && slot.partes.length && slot.inicio_s != null && slot.fim_s != null && !camerasSelecionadas()[i];
+  });
+  if(!prontas.length){
+    atualizarMarcasVideos();
+    return;
+  }
+  let videos = [];
+  try {
+    const r = await fetch('/api/videos/buscar?q=' + encodeURIComponent('partida_camera'));
+    videos = await r.json();
+  } catch(e) {}
+  let mudou = false;
+  prontas.forEach(i => {
+    const guardado = JUNTAR.cameras[i].renderizado;
+    let escolhido = guardado && guardado.caminho ? guardado : null;
+    if(!escolhido){
+      const prefixo = 'partida_camera' + (i + 1) + '_';
+      const achados = (Array.isArray(videos) ? videos : []).filter(v => String(v.nome || '').toLowerCase().startsWith(prefixo));
+      achados.sort((a, b) => String(b.nome).localeCompare(String(a.nome)));
+      escolhido = achados[0] || null;
+    }
+    if(!escolhido) return;
+    JUNTAR.cameras[i].renderizado = {nome: escolhido.nome, caminho: escolhido.caminho, duracao_s: escolhido.duracao_s ?? null};
+    selecionarVideo(escolhido, i);
+    if(ESTADO.cameras[i]) ESTADO.cameras[i].inicio_jogo_s = 0;
+    mudou = true;
+  });
+  if(mudou) agendarSalvar();
+  else atualizarMarcasVideos();
 }
 
 function camerasSelecionadas(){
@@ -1452,6 +1551,7 @@ function selecionarVideo(v, cameraAlvo=null){
   ESTADO.cameras[alvo] = {...v, inicio_jogo_s: Number(ESTADO.cameras[alvo]?.inicio_jogo_s) || 0};
   if(alvo === 0) ESTADO.video = ESTADO.cameras[0];
   renderCamerasSelecionadas();
+  atualizarMarcasVideos();
   if(alvo !== 0){
     $('#selCameraAlvo').value = String(Math.min(2, alvo + 1));
     agendarSalvar();
@@ -1919,7 +2019,7 @@ document.addEventListener('click', e => {
   }
 });
 
-/* ------------------------------------------------------------ passo 2: placar + zonas-gatilho */
+/* ------------------------------------------------------------ passo 3: placar + zonas-gatilho */
 /* ------------------------------------------------------------ camera do placar */
 ESTADO.cameraPlacar = 0;   // índice (0..2) da câmera onde o placar é localizado e a análise roda
 function videoPlacar(){
@@ -1942,14 +2042,14 @@ function renderCameraPlacar(){
     b.style.cssText = 'font-size:12px; padding:4px 10px';
     b.disabled = !ok;
     b.textContent = `Câmera ${i+1}${i === 0 ? ' · principal' : ''}`;
-    if(!ok) b.title = 'Câmera não enviada no passo 1';
+    if(!ok) b.title = 'Câmera não enviada no passo 2';
     b.onclick = () => trocarCameraPlacar(i);
     pick.appendChild(b);
   });
   const dica = $('#dicaCameraPlacar');
   if(dica){
     dica.textContent = ESTADO.cameraPlacar === 0 ? '' :
-      'Os gols detectados nesta câmera são convertidos para o tempo da câmera 1 pela sincronização do passo 1 (' +
+      'Os gols detectados nesta câmera são convertidos para o tempo da câmera 1 pela sincronização do passo 2 (' +
       (offsetPlacarS() === 0 ? 'atenção: as câmeras estão sem diferença de início — sincronize antes' : 'diferença de ' + offsetPlacarS().toFixed(1) + ' s') + ').';
   }
   const info = $('#infoCameraPlacar3');
@@ -1976,7 +2076,7 @@ function prepararCanvas(){
   cv.width = img.clientWidth; cv.height = img.clientHeight;
 }
 async function carregarFrame(){
-  if(!videoPlacar()){ alert('Escolha um vídeo no passo 1.'); return; }
+  if(!videoPlacar()){ alert('Escolha um vídeo no passo 2.'); return; }
   const tempo_s = parseTempo($('#tempoFrame').value) || 0;
   const r = await fetch('/api/frame', {method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({video: videoPlacar().caminho, tempo_s})});
@@ -2057,7 +2157,7 @@ $('#btnAddZona').onclick = ()=>{
   $('#cardZonasDet').style.display = 'block';
 };
 $('#btnSalvarZonas').onclick = async ()=>{
-  if(!videoPlacar()){ alert('Escolha um vídeo no passo 1.'); return; }
+  if(!videoPlacar()){ alert('Escolha um vídeo no passo 2.'); return; }
   const r = await fetch('/api/zonas', {method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({video: videoPlacar().caminho, zonas: zonasSel})});
   if(!r.ok){ alert('Não consegui salvar as zonas.'); return; }
@@ -2145,6 +2245,9 @@ try { cameraVer = Number(localStorage.getItem('futbin_camera_ver')) || 1; } catc
 function camerasCarregadas(){ return [1,2,3].filter(n => Boolean(camerasSelecionadas()[n-1])); }
 function cameraVerValida(){
   return camerasCarregadas().includes(cameraVer) ? cameraVer : 1;
+}
+function textoSemFilmagem(cam){
+  return `Câmera ${cam} não tem este clipe. Não há filmagem deste lance.`;
 }
 function definirCameraVer(n){
   const antes = cameraVerValida();
@@ -2246,7 +2349,7 @@ async function aplicarQualidadeVideoCompleto(){
     status.textContent = 'Qualidade original.';
     return;
   }
-  if(!caminho){ status.textContent = 'Escolha o vídeo no passo 1 antes de preparar a versão leve.'; return; }
+  if(!caminho){ status.textContent = 'Escolha o vídeo no passo 2 antes de preparar a versão leve.'; return; }
   status.textContent = `Preparando ${qualidade}p… Você pode continuar usando o vídeo enquanto aguarda.`;
   try {
     const response = await fetch('/api/video/previa', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({video:caminho, altura:Number(qualidade)})});
@@ -2303,7 +2406,7 @@ function renderCameraVer(){
     b.style.cssText = 'font-size:12px; padding:4px 10px';
     b.disabled = !ok;
     b.textContent = `Câmera ${n}${n === 1 ? ' · principal' : ''}`;
-    if(!ok) b.title = 'Câmera não enviada no passo 1';
+    if(!ok) b.title = 'Câmera não enviada no passo 2';
     b.onclick = () => { definirCameraVer(n); renderCameraVer(); renderGradeClipes(clipesAtuais); };
     pick.appendChild(b);
   });
@@ -2354,16 +2457,14 @@ $('#btnCancelarCortarCameras').onclick = async () => {
   if(jobAtivoId) await fetch('/api/job/' + jobAtivoId + '/cancelar', {method:'POST'});
 };
 
-/* ------------------------------------------------------------ passo 3: colar lista e cortar */
+/* ------------------------------------------------------------ passo 4: colar lista e cortar */
 function corpoColarGols(){
   const inicio = parseTempo(($('#inicioJogoColar').value || '0').trim());
   const antes = parseFloat($('#segundosTrasColar').value);
-  const depois = parseFloat($('#segundosDepoisColar').value);
   return {
     texto: $('#textoGolsColar').value || '',
     inicio_jogo_s: (inicio == null || isNaN(inicio)) ? 0 : inicio,
-    antes_s: isNaN(antes) ? 30 : antes,
-    depois_s: isNaN(depois) ? 8 : depois,
+    antes_s: isNaN(antes) ? 0 : antes,
   };
 }
 
@@ -2374,8 +2475,18 @@ function preencherInicioColar(){
   if(cam && Number(cam.inicio_jogo_s) > 0) el.value = fmtTempo(cam.inicio_jogo_s);
 }
 
+function timePadrao(i){
+  return {nome: i === 0 ? 'Time Amarelo' : 'Time Azul', cor: i === 0 ? '#eab308' : '#2563eb', jogadores: [], reservas: [], posicoes: {}, fotos: {}, camera_ataque: 0};
+}
+function garantirTimes(){
+  if(!Array.isArray(S.times)) S.times = [];
+  for(let i = 0; i < 2; i++){
+    if(!S.times[i] || typeof S.times[i] !== 'object') S.times[i] = timePadrao(i);
+  }
+}
 function aplicarCabecalhoColado(info){
   if(info.times && info.times.length >= 2){
+    garantirTimes();
     S.times[0].nome = info.times[0];
     S.times[1].nome = info.times[1];
     if($('#tA')) $('#tA').value = info.times[0];
@@ -2409,14 +2520,15 @@ async function atualizarPreviewColar(){
     const r = await fetch('/api/gols/colar/preview', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
     const d = await r.json();
     if(!r.ok){ box.textContent = d.detail || 'Não consegui ler o texto.'; return; }
-    if(!d.total){ box.textContent = 'Nenhum horário encontrado. Use linhas MM:SS embaixo de GOLS - Nome do time.'; return; }
+    if(!d.total){ box.textContent = 'Nenhum horário encontrado. Coloque um horário MM:SS por linha.'; return; }
     const linhas = d.eventos.slice(0, 8).map(e => {
       const tipo = e.tipo === 'gol' ? 'Gol' : 'Lance';
-      return `${tipo} ${e.time_nome} ${e.tempo} → corta ${fmtTempo(e.inicio_s)}–${fmtTempo(e.fim_s)}`;
+      const time = e.time_nome ? ` ${e.time_nome}` : '';
+      return `${tipo}${time} ${e.tempo} → corta ${fmtTempo(e.inicio_s)}–${fmtTempo(e.fim_s)}`;
     });
     if(d.eventos.length > 8) linhas.push(`… e mais ${d.eventos.length - 8}`);
     let extra = '';
-    if(d.aviso_ajuste_s) extra = ` O texto diz que os horários já estão ${d.aviso_ajuste_s}s antes do lance; os segundos para trás são aplicados em cima desses horários.`;
+    extra = ' Cada clipe segue 20 segundos a partir do horário.';
     box.textContent = `${d.gols} gol(s) e ${d.lances} lance(s). ${linhas.join(' · ')}.${extra}`;
   }catch(e){
     box.textContent = '';
@@ -2431,7 +2543,6 @@ function agendarPreviewColar(){
 $('#textoGolsColar').addEventListener('input', agendarPreviewColar);
 $('#inicioJogoColar').addEventListener('input', ()=>{ $('#inicioJogoColar').dataset.tocado = '1'; agendarPreviewColar(); });
 $('#segundosTrasColar').addEventListener('input', agendarPreviewColar);
-$('#segundosDepoisColar').addEventListener('input', agendarPreviewColar);
 
 $('#btnColarGols').onclick = async ()=>{
   const logEl = $('#colarGolsLog');
@@ -2444,7 +2555,7 @@ $('#btnColarGols').onclick = async ()=>{
   }
   if(!ESTADO.video){
     logEl.style.display = 'block';
-    logEl.textContent = 'Escolha um vídeo no passo 1 antes de cortar.';
+    logEl.textContent = 'Escolha um vídeo no passo 2 antes de cortar.';
     return;
   }
   $('#btnColarGols').disabled = true;
@@ -2463,7 +2574,7 @@ $('#btnColarGols').onclick = async ()=>{
       logEl.textContent = 'Nenhum horário encontrado no texto.';
       return;
     }
-    aplicarCabecalhoColado(d);
+    try { aplicarCabecalhoColado(d); } catch(e) { console.warn('cabeçalho do texto', e); }
     const cams = camsCfg.length ? camsCfg : (d.cameras || [1]);
     logEl.textContent = `Lista do placar deixada de lado. Cortando ${d.gravados} horário(s) do texto na câmera 1…`;
     const encCorte = localStorage.getItem('futbin_render_encoder') || 'h264_nvenc';
@@ -2503,7 +2614,7 @@ $('#btnCancelarColarGols').onclick = async () => {
   if(jobAtivoId) await fetch('/api/job/' + jobAtivoId + '/cancelar', {method:'POST'});
 };
 
-/* ------------------------------------------------------------ passo 3: detectar e cortar */
+/* ------------------------------------------------------------ passo 4: detectar e cortar */
 $('#btnDetectar').onclick = async ()=>{
   const logEl = $('#detLog');
   const btnCanc = $('#btnCancelarDetectar');
@@ -2519,7 +2630,7 @@ $('#btnDetectar').onclick = async ()=>{
   }
   if(!ESTADO.video){
     logEl.style.display = 'block';
-    logEl.textContent = '⚠ Escolha um vídeo no passo 1 antes de detectar.';
+    logEl.textContent = '⚠ Escolha um vídeo no passo 2 antes de detectar.';
     return;
   }
 
@@ -2590,7 +2701,7 @@ $('#btnDetectarZonas').onclick = async ()=>{
   }
   if(!ESTADO.video){
     logEl.style.display = 'block';
-    logEl.textContent = '⚠ Escolha um vídeo no passo 1 antes de detectar.';
+    logEl.textContent = '⚠ Escolha um vídeo no passo 2 antes de detectar.';
     return;
   }
 
@@ -2638,7 +2749,7 @@ $('#btnDetectarZonas').onclick = async ()=>{
 };
 $('#btnIrRevisar').onclick = ()=>irPara('s-revisar');
 
-/* ------------------------------------------------------------ passo 4: revisar os cortes */
+/* ------------------------------------------------------------ passo 5: revisar os cortes */
 try {
   const qualidade = localStorage.getItem('futbin_qualidade_revisao');
   if(['original','360','480'].includes(qualidade)) $('#qualidadeVideoCompleto').value = qualidade;
@@ -2669,7 +2780,7 @@ $('#videoCompleto').addEventListener('durationchange', atualizarTempoVideoComple
 
 $('#videoCompleto').addEventListener('error', () => {
   const st = $('#statusVideoCompleto');
-  if(st) st.innerHTML = `<span class="bad">⚠ Não foi possível carregar o vídeo. Verifique se o arquivo existe ou escolha outro vídeo no <a href="javascript:void(0)" onclick="irPara('s-video')" style="color:var(--accent); font-weight:600">Passo 1</a>.</span>`;
+  if(st) st.innerHTML = `<span class="bad">⚠ Não foi possível carregar o vídeo. Verifique se o arquivo existe ou escolha outro vídeo no <a href="javascript:void(0)" onclick="irPara('s-video')" style="color:var(--accent); font-weight:600">Passo 2</a>.</span>`;
 });
 
 function pularParaTempoVideo(){
@@ -2923,7 +3034,7 @@ async function processarFilaCortes(){
 }
 
 $('#btnGerarClipeCompleto').onclick = () => {
-  if(!ESTADO.video){ alert('Selecione um vídeo primeiro no passo 1.'); return; }
+  if(!ESTADO.video){ alert('Selecione um vídeo primeiro no passo 2.'); return; }
   const t = tempoJogoDoVideoCompleto();
 
   // Evita duplo-clique acidental exato no mesmo segundo dentro de 350ms
@@ -3216,7 +3327,7 @@ function renderGradeClipes(clipes){
   if(!clipesVisiveis.length){
     grade.innerHTML = clipesAtuais.length
       ? '<span class="hint">🎉 Nenhum clipe pendente! Todos os cortes já foram classificados.</span>'
-      : '<span class="hint">Nenhum clipe ainda - volte ao passo 3 e rode a detecção ou gere clipes no player do vídeo completo abaixo.</span>';
+      : '<span class="hint">Nenhum clipe ainda - volte ao passo 4 e rode a detecção ou gere clipes no player do vídeo completo abaixo.</span>';
   }
   clipesVisiveis.forEach(c=>{
     const gItem = (ESTADO.gols || []).find(x => x.indice === c.indice);
@@ -3272,8 +3383,18 @@ function renderGradeClipes(clipes){
     `;
 
     const vid = div.querySelector('video');
+    const camGrade = cameraVerValida();
     vid.onerror = () => {
       const wrap = div.querySelector('.thumb-wrap');
+      if(camGrade > 1){
+        wrap.innerHTML = `
+          <div style="background:#1a1408; border:1px solid #a16207; border-radius:6px; padding:16px 8px; text-align:center">
+            <div style="color:#fbbf24; font-size:12px; font-weight:700">Câmera ${camGrade} não tem este clipe</div>
+            <div class="hint" style="margin-top:4px">Não há filmagem deste lance.</div>
+          </div>
+        `;
+        return;
+      }
       wrap.innerHTML = `
         <div style="background:#200d0d; border:1px solid #7f1d1d; border-radius:6px; padding:16px 8px; text-align:center">
           <div style="color:#f87171; font-size:12px; font-weight:600">⚠ Vídeo corrompido / preto</div>
@@ -3357,7 +3478,7 @@ function renderModalCameras(c){
     b.style.cssText = 'font-size:12px; padding:4px 10px';
     b.disabled = !ok;
     b.textContent = `Câmera ${n}${n === 1 ? ' · principal' : ''}`;
-    if(!ok) b.title = 'Câmera não enviada no passo 1';
+    if(!ok) b.title = 'Câmera não enviada no passo 2';
     b.onclick = () => {
       if(n === cameraVerValida()) return;
       const tempo = v.currentTime || 0, tocando = !v.paused;
@@ -3367,7 +3488,7 @@ function renderModalCameras(c){
       st.textContent = n > 1 ? `carregando a câmera ${n}…` : '';
       v.onloadedmetadata = () => { try { v.currentTime = Math.min(tempo, v.duration || tempo); } catch(e) {} };
       v.onloadeddata = () => { st.textContent = ''; if(tocando) v.play().catch(()=>{}); };
-      v.onerror = () => { st.textContent = `não consegui carregar a câmera ${n} neste clipe`; };
+      v.onerror = () => { st.textContent = textoSemFilmagem(n); };
       v.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
       v.load();
       box.querySelectorAll('button').forEach((x, i) => x.className = (i + 1) === n ? 'act' : 'ghost');
@@ -3469,6 +3590,10 @@ function abrirModalClipe(c){
   v.src = urlModal + (urlModal.includes('?') ? '&' : '?') + 't=' + Date.now();
   v.onloadedmetadata = v.onloadeddata = v.onerror = null;
   renderModalCameras(c);
+  v.onerror = () => {
+    const st = $('#modalCameraStatus');
+    if(st) st.textContent = textoSemFilmagem(cameraVerValida());
+  };
   $('#modalClipe').hidden = false;
   aplicarFiltroBrilho();
   v.play().catch(()=>{});
@@ -3936,7 +4061,7 @@ function configurarZoomMarcacao(g, cam = 1){
   const reset = $('#btnMarcacaoZoomReset');
   const clipe = clipesAtuais.find(item => item.indice === g.indice);
   // Sem marcação própria pra esta câmera ainda: herda uma vez o que já foi
-  // marcado na listagem de clipes (c), pra não perder ajuste feito no passo 4.
+  // marcado na listagem de clipes (c), pra não perder ajuste feito no passo 5.
   const jaTem = cam <= 1 ? (g.zoom != null) : Boolean((g.zoom_por_camera || {})[cam]);
   if(!jaTem && clipe){
     const doClipe = zoomDaCamera(clipe, cam);
@@ -4160,7 +4285,7 @@ function renderMarcacao(){
       const enviada = camerasDisponiveis.includes(cam);
       const wrap = document.createElement('span');
       wrap.style.cssText = 'display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:8px; border:1px solid ' + (cam === cameraVendo ? 'var(--accent)' : 'var(--line)') + '; background:var(--panel2)' + (enviada ? '' : '; opacity:.55');
-      if(!enviada) wrap.title = 'Câmera ' + cam + ' não enviada. Envie o vídeo dela no passo 1 (Vídeo) para poder usar aqui.';
+      if(!enviada) wrap.title = 'Câmera ' + cam + ' não enviada. Envie o vídeo dela no passo 2 (Vídeo) para poder usar aqui.';
       const lab = document.createElement('label');
       lab.style.cssText = 'display:inline-flex; align-items:center; gap:5px; margin:0; font-size:12px; font-weight:700; cursor:pointer';
       const chk = document.createElement('input');
@@ -4200,7 +4325,7 @@ function renderMarcacao(){
     if(!alvo) return;
     if(st) st.textContent = cam > 1 ? 'carregando a câmera ' + cam + '…' : '';
     vv.onloadeddata = () => { if(st) st.textContent = ''; vv.play().catch(()=>{}); };
-    vv.onerror = () => { if(st) st.textContent = 'não consegui carregar a câmera ' + cam; };
+    vv.onerror = () => { if(st) st.textContent = textoSemFilmagem(cam); };
     vv.src = alvo; vv.load();
   }
   if(blocoCam){
@@ -4640,7 +4765,7 @@ function atualizarAnaliseGolsMarcacao(){
             <span style="font-weight:700; color:${timeB.cor}">${timeB.nome}: ${golsB}</span>
           </div>
           <div style="font-size:12px; color:var(--dim)">
-            💡 <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Informe o placar final no Passo 5</a> para conferir quantos gols faltam.
+            💡 <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Informe o placar final no Passo 6</a> para conferir quantos gols faltam.
           </div>
         </div>
       `;
@@ -4648,7 +4773,7 @@ function atualizarAnaliseGolsMarcacao(){
     if(detalheEl){
       detalheEl.innerHTML = `
         <div style="padding:10px; background:var(--panel2); border:1px dashed var(--line); border-radius:6px; font-size:12px; color:var(--dim); line-height:1.5">
-          💡 Para o assistente analisar <b>quantos gols faltam</b> e de <b>qual time falta marcar</b>, informe o placar final do jogo no <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Passo 5 (Dados da partida)</a>.
+          💡 Para o assistente analisar <b>quantos gols faltam</b> e de <b>qual time falta marcar</b>, informe o placar final do jogo no <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Passo 6 (Dados da partida)</a>.
         </div>
       `;
     }
@@ -5434,7 +5559,7 @@ function renderGridCamerasFundo(){
 
     if(!cam){
       const msg=document.createElement('div'); msg.className='hint'; msg.style.cssText='font-size:11px;text-align:center;padding:18px 0';
-      msg.textContent='Adicione um vídeo no Passo 1 para configurar esta câmera.';
+      msg.textContent='Adicione um vídeo no Passo 2 para configurar esta câmera.';
       col.appendChild(msg); grid.appendChild(col); return;
     }
 
@@ -5703,7 +5828,7 @@ function renderResumo(){
 
       msgStatus = `<span style="color:var(--b); font-size:14px; font-weight:700">⚠ Placar informado: ${espA} × ${espB} (${totalEsp} gols). Marcados nos clipes: ${a} × ${b} (${totalAchados} gols).</span>
         <div style="margin-top:6px; font-size:13px; color:var(--txt)">${faltamMsg.join(' e ')}.</div>
-        <div class="hint" style="margin-top:4px">Dica: Volte ao <a href="javascript:void(0)" onclick="irPara('s-revisar')" style="color:var(--accent); font-weight:600">Passo 4 (Revisar cortes)</a> para assistir ao vídeo completo na velocidade que desejar e gerar os clipes faltantes.</div>`;
+        <div class="hint" style="margin-top:4px">Dica: Volte ao <a href="javascript:void(0)" onclick="irPara('s-revisar')" style="color:var(--accent); font-weight:600">Passo 5 (Revisar cortes)</a> para assistir ao vídeo completo na velocidade que desejar e gerar os clipes faltantes.</div>`;
     }
 
     cardComp.innerHTML = `
@@ -5716,7 +5841,7 @@ function renderResumo(){
   } else {
     cardComp.innerHTML = `
       <div class="card" style="border-left: 4px solid var(--line); padding:12px">
-        <div class="hint">💡 Você não informou o placar final do jogo no <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent)">Passo 5 (Dados da partida)</a>. Se preencher lá, o assistente confere quantos gols faltam encontrar no vídeo.</div>
+        <div class="hint">💡 Você não informou o placar final do jogo no <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent)">Passo 6 (Dados da partida)</a>. Se preencher lá, o assistente confere quantos gols faltam encontrar no vídeo.</div>
       </div>
     `;
     cardComp.style.display = 'block';
@@ -6355,6 +6480,7 @@ async function carregarMarcacoesSalvasParaTextos(){
   if(!partida) return;
   S.meta = partida.meta || S.meta;
   S.times = partida.times || S.times;
+  garantirTimes();
   // A cópia salva no momento da geração é a fonte dos capítulos, mesmo após recarregar a página.
   ESTADO.gols = partida._todosGols || [...(partida.gols || []), ...(partida.lances || [])];
 }
@@ -6778,6 +6904,507 @@ $('#btnMontar').onclick = async ()=>{
   }
 };
 
+/* ------------------------------------------------------------ juntar gravações da câmera */
+function partesSalvasJuntar(partes){
+  return Array.isArray(partes) ? partes.filter(p => p && p.caminho).map(p => ({
+    nome: p.nome || String(p.caminho).split(/[\\/]/).pop(),
+    caminho: p.caminho,
+    duracao_s: Number(p.duracao_s) || 0,
+  })) : [];
+}
+function restaurarJuntar(salvo){
+  if(!salvo || typeof salvo !== 'object') return;
+  JUNTAR.cameras = [0, 1, 2].map(() => slotJuntarVazio());
+  if(Array.isArray(salvo.cameras)){
+    salvo.cameras.slice(0, 3).forEach((c, i) => {
+      if(!c) return;
+      JUNTAR.cameras[i] = {
+        partes: partesSalvasJuntar(c.partes),
+        inicio_s: c.inicio_s == null ? null : Number(c.inicio_s),
+        fim_s: c.fim_s == null ? null : Number(c.fim_s),
+        posicao: 0,
+        renderizado: c.renderizado && c.renderizado.caminho ? c.renderizado : null,
+      };
+    });
+  } else {
+    const i = [0, 1, 2].includes(Number(salvo.camera)) ? Number(salvo.camera) : 0;
+    JUNTAR.cameras[i] = {
+      partes: partesSalvasJuntar(salvo.partes),
+      inicio_s: salvo.inicio_s == null ? null : Number(salvo.inicio_s),
+      fim_s: salvo.fim_s == null ? null : Number(salvo.fim_s),
+      posicao: 0,
+    };
+  }
+  JUNTAR.camera = [0, 1, 2].includes(Number(salvo.camera)) ? Number(salvo.camera) : 0;
+}
+
+function totalJuntar(){
+  return camJuntar().partes.reduce((acc, p) => acc + (Number(p.duracao_s) || 0), 0);
+}
+function offsetsJuntar(){
+  const offs = [];
+  let acc = 0;
+  camJuntar().partes.forEach(p => { offs.push(acc); acc += Number(p.duracao_s) || 0; });
+  return offs;
+}
+function indiceNoTempoJuntar(t){
+  const offs = offsetsJuntar();
+  for(let i = offs.length - 1; i >= 0; i--) if(t >= offs[i] - 0.001) return i;
+  return 0;
+}
+function textoJanelaJuntar(){
+  const el = $('#janelaJuntar');
+  if(!el) return;
+  if(camJuntar().inicio_s == null || camJuntar().fim_s == null){
+    el.textContent = `Marque o início e o fim da Câmera ${JUNTAR.camera + 1}. A renderização grava só esse intervalo.`;
+    return;
+  }
+  const dur = Math.max(0, camJuntar().fim_s - camJuntar().inicio_s);
+  el.textContent = `Câmera ${JUNTAR.camera + 1}: ${tempoCamera(camJuntar().inicio_s)} → ${tempoCamera(camJuntar().fim_s)} (${tempoCamera(dur)}).`;
+}
+
+function desenharPartesJuntar(){
+  const el = $('#listaPartesJuntar');
+  if(!el) return;
+  el.innerHTML = '';
+  if(!camJuntar().partes.length){
+    el.innerHTML = `<p class="hint">Nenhum arquivo na Câmera ${JUNTAR.camera + 1}. Abra a pasta e adicione os vídeos selecionados.</p>`;
+  }
+  camJuntar().partes.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line)';
+    const offs = offsetsJuntar();
+    row.innerHTML = `
+      <b style="width:28px; color:var(--accent)">${i + 1}</b>
+      <div style="flex:1; min-width:0">
+        <div style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${p.nome}</div>
+        <div class="hint" style="font-size:11px">entra em ${tempoCamera(offs[i])} · duração ${p.duracao_s ? tempoCamera(p.duracao_s) : '…'}</div>
+      </div>
+      <button type="button" class="ghost" data-subir="${i}" style="padding:3px 8px">↑</button>
+      <button type="button" class="ghost" data-descer="${i}" style="padding:3px 8px">↓</button>
+      <button type="button" class="ghost" data-tirar="${i}" style="padding:3px 8px">×</button>`;
+    el.appendChild(row);
+  });
+  el.querySelectorAll('[data-subir]').forEach(b => b.onclick = () => moverParteJuntar(Number(b.dataset.subir), -1));
+  el.querySelectorAll('[data-descer]').forEach(b => b.onclick = () => moverParteJuntar(Number(b.dataset.descer), 1));
+  el.querySelectorAll('[data-tirar]').forEach(b => b.onclick = () => {
+    camJuntar().partes.splice(Number(b.dataset.tirar), 1);
+    const total = totalJuntar();
+    if(camJuntar().inicio_s != null && camJuntar().inicio_s >= total) camJuntar().inicio_s = null;
+    if(camJuntar().fim_s != null && camJuntar().fim_s > total + 1) camJuntar().fim_s = null;
+    const video = $('#videoJuntar');
+    if(video){ video.removeAttribute('src'); video.dataset.caminho = ''; video.load(); }
+    atualizarPainelJuntar();
+    agendarSalvar();
+  });
+  const tot = $('#totalJuntar');
+  if(tot) tot.textContent = camJuntar().partes.length
+    ? `Câmera ${JUNTAR.camera + 1} · ${camJuntar().partes.length} arquivo(s) · gravação completa ${tempoCamera(totalJuntar())}`
+    : '';
+}
+
+function desenharLinhaJuntar(){
+  const linha = $('#linhaJuntar');
+  if(!linha) return;
+  const total = totalJuntar();
+  linha.innerHTML = '';
+  if(total <= 0) return;
+  const faixa = document.createElement('div');
+  camJuntar().partes.forEach((p, i) => {
+    const pedaco = document.createElement('div');
+    pedaco.title = p.nome;
+    pedaco.style.cssText = `width:${((Number(p.duracao_s) || 0) / total) * 100}%; height:100%; background:${i % 2 ? '#16324f' : '#1d4ed8'}`;
+    faixa.appendChild(pedaco);
+  });
+  faixa.style.cssText = 'display:flex; height:100%';
+  linha.appendChild(faixa);
+  if(camJuntar().inicio_s != null && camJuntar().fim_s != null && camJuntar().fim_s > camJuntar().inicio_s){
+    const sel = document.createElement('div');
+    const esq = Math.max(0, camJuntar().inicio_s) / total * 100;
+    const larg = Math.max(0, camJuntar().fim_s - camJuntar().inicio_s) / total * 100;
+    sel.style.cssText = `position:absolute; top:0; bottom:0; left:${esq}%; width:${larg}%; background:rgba(0,255,135,.35); pointer-events:none`;
+    linha.appendChild(sel);
+  }
+  const head = document.createElement('div');
+  const x = Math.max(0, Math.min(camJuntar().posicao, total)) / total * 100;
+  head.style.cssText = `position:absolute; top:0; bottom:0; left:${x}%; width:2px; background:#fff; pointer-events:none`;
+  linha.appendChild(head);
+}
+
+function atualizarTempoJuntar(){
+  const el = $('#tempoJuntar');
+  if(!el) return;
+  if(!camJuntar().partes.length){
+    el.textContent = 'Adicione os arquivos para assistir a gravação inteira.';
+    return;
+  }
+  const i = indiceNoTempoJuntar(camJuntar().posicao);
+  const parte = camJuntar().partes[i];
+  el.textContent = `Posição na gravação: ${tempoCamera(camJuntar().posicao)} / ${tempoCamera(totalJuntar())} · arquivo ${i + 1} de ${camJuntar().partes.length} (${parte ? parte.nome : ''})`;
+  desenharLinhaJuntar();
+}
+
+function seekJuntar(t){
+  if(!camJuntar().partes.length) return false;
+  const total = totalJuntar();
+  if(!Number.isFinite(t) || t < 0) return false;
+  t = total ? Math.min(t, Math.max(0, total - 0.05)) : 0;
+  camJuntar().posicao = t;
+  const i = indiceNoTempoJuntar(t);
+  const parte = camJuntar().partes[i];
+  const local = Math.max(0, t - offsetsJuntar()[i]);
+  const video = $('#videoJuntar');
+  if(video && parte){
+    const url = '/video/completo?video=' + encodeURIComponent(parte.caminho);
+    if(video.dataset.caminho !== parte.caminho){
+      video.dataset.caminho = parte.caminho;
+      video.dataset.pendente = String(local);
+      video.src = url;
+    } else if(video.readyState >= 1){
+      video.currentTime = local;
+    } else {
+      video.dataset.pendente = String(local);
+    }
+  }
+  atualizarTempoJuntar();
+  return true;
+}
+
+function moverParteJuntar(i, dir){
+  const j = i + dir;
+  if(j < 0 || j >= camJuntar().partes.length) return;
+  const [item] = camJuntar().partes.splice(i, 1);
+  camJuntar().partes.splice(j, 0, item);
+  const video = $('#videoJuntar');
+  if(video){ video.removeAttribute('src'); video.dataset.caminho = ''; video.load(); }
+  atualizarPainelJuntar();
+  agendarSalvar();
+}
+
+function caminhoJuntar(caminho){
+  return String(caminho || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+function parteJaAdicionada(caminho){
+  const alvo = caminhoJuntar(caminho);
+  return camJuntar().partes.some(p => caminhoJuntar(p.caminho) === alvo);
+}
+function adicionarPartesJuntar(videos){
+  let mudou = false;
+  (videos || []).forEach(v => {
+    if(!v || !v.caminho || parteJaAdicionada(v.caminho)) return;
+    camJuntar().partes.push({nome: v.nome, caminho: v.caminho, duracao_s: Number(v.duracao_s) || 0});
+    mudou = true;
+  });
+  if(!mudou) return;
+  atualizarPainelJuntar();
+  agendarSalvar();
+}
+let pastaJuntarAtual = null;
+function desenharPastaJuntar(){
+  const pastaEl = $('#pastaJuntar');
+  const pastasEl = $('#pastasJuntar');
+  const lista = $('#listaArquivosJuntar');
+  const btnAdd = $('#btnAdicionarPastaJuntar');
+  const btnTodos = $('#btnMarcarTodosJuntar');
+  const btnSubir = $('#btnSubirPastaJuntar');
+  if(!lista || !pastaJuntarAtual) return;
+  if(pastaEl) pastaEl.textContent = pastaJuntarAtual.atual + (pastaJuntarAtual.erro ? ' — ' + pastaJuntarAtual.erro : '');
+  if(btnSubir) btnSubir.disabled = !pastaJuntarAtual.pai;
+  if(pastasEl){
+    pastasEl.innerHTML = '';
+    (pastaJuntarAtual.pastas || []).forEach(p => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ghost';
+      b.style.cssText = 'padding:4px 10px; font-size:12px';
+      b.textContent = '📁 ' + p.nome;
+      b.onclick = () => explorarJuntar(p.caminho);
+      pastasEl.appendChild(b);
+    });
+  }
+  lista.innerHTML = '';
+  const videos = pastaJuntarAtual.videos || [];
+  if(!videos.length){
+    lista.innerHTML = '<span class="hint">Esta pasta não tem vídeo.</span>';
+  }
+  videos.forEach((v, i) => {
+    const ja = parteJaAdicionada(v.caminho);
+    const item = document.createElement('label');
+    item.className = 'item-video';
+    item.style.cursor = ja ? 'default' : 'pointer';
+    const dur = v.duracao_s ? tempoCamera(v.duracao_s) : '';
+    item.innerHTML = `<input type="checkbox" data-arquivo-juntar="${i}" ${ja ? 'disabled' : 'checked'} style="margin-right:8px"><div style="flex:1; min-width:0"><b>${v.nome}</b> ${dur ? `<span class="hint">${dur}</span>` : ''}<div class="sub" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${ja ? 'Já está na lista' : v.caminho}</div></div>`;
+    lista.appendChild(item);
+  });
+  const livres = lista.querySelectorAll('input[data-arquivo-juntar]:not(:disabled)');
+  if(btnAdd){
+    btnAdd.disabled = !livres.length;
+    btnAdd.textContent = livres.length ? `Adicionar na Câmera ${JUNTAR.camera + 1} (${livres.length})` : 'Já estão na lista';
+  }
+  if(btnTodos) btnTodos.disabled = !livres.length;
+}
+async function explorarJuntar(caminho){
+  const lista = $('#listaArquivosJuntar');
+  if(lista) lista.innerHTML = '<span class="hint"><span class="spinner"></span>Lendo a pasta…</span>';
+  try {
+    const r = await fetch('/api/explorar' + (caminho ? ('?caminho=' + encodeURIComponent(caminho)) : ''));
+    pastaJuntarAtual = await r.json();
+    desenharPastaJuntar();
+  } catch(e){
+    if(lista) lista.innerHTML = '<span class="hint bad">Não consegui ler esta pasta.</span>';
+  }
+}
+function adicionarSelecionadosJuntar(){
+  if(!pastaJuntarAtual) return;
+  const escolhidos = [];
+  document.querySelectorAll('#listaArquivosJuntar input[data-arquivo-juntar]:checked').forEach(inp => {
+    const v = (pastaJuntarAtual.videos || [])[Number(inp.dataset.arquivoJuntar)];
+    if(v) escolhidos.push(v);
+  });
+  if(!escolhidos.length){ alert('Marque os vídeos desta pasta.'); return; }
+  adicionarPartesJuntar(escolhidos);
+}
+
+function marcarJuntar(qual){
+  if(!camJuntar().partes.length) return;
+  camJuntar()[qual] = Math.round(camJuntar().posicao * 1000) / 1000;
+  const inp = $(qual === 'inicio_s' ? '#inicioJuntar' : '#fimJuntar');
+  if(inp) inp.value = tempoCamera(camJuntar()[qual]);
+  textoJanelaJuntar();
+  desenharLinhaJuntar();
+  desenharCamerasJuntar();
+  agendarSalvar();
+}
+
+function aplicarTempoDigitadoJuntar(qual, inp){
+  const t = parseTempo(String(inp.value || '').replace(',', '.'));
+  if(!Number.isFinite(t) || t < 0){
+    inp.setCustomValidity('Informe um tempo válido, como 01:23.500.');
+    inp.reportValidity();
+    return;
+  }
+  inp.setCustomValidity('');
+  camJuntar()[qual] = Math.round(t * 1000) / 1000;
+  inp.value = tempoCamera(camJuntar()[qual]);
+  textoJanelaJuntar();
+  desenharLinhaJuntar();
+  desenharCamerasJuntar();
+  agendarSalvar();
+}
+
+function rotuloCameraJuntar(i){
+  const c = JUNTAR.cameras[i];
+  const n = c.partes.length;
+  const pronta = n && c.inicio_s != null && c.fim_s != null && c.fim_s > c.inicio_s;
+  let txt = `Câmera ${i + 1}`;
+  if(n) txt += ` · ${n} arquivo${n === 1 ? '' : 's'}`;
+  if(pronta) txt += ' · marcada';
+  return txt;
+}
+function desenharCamerasJuntar(){
+  document.querySelectorAll('#camsJuntar [data-cam-juntar]').forEach(b => {
+    const i = Number(b.dataset.camJuntar);
+    b.textContent = rotuloCameraJuntar(i);
+    b.className = i === JUNTAR.camera ? 'act' : 'ghost';
+  });
+  const prontas = JUNTAR.cameras.filter(c => c.partes.length && c.inicio_s != null && c.fim_s != null && c.fim_s > c.inicio_s).length;
+  const btn = $('#btnRenderJuntar');
+  if(btn && !btn.disabled) btn.textContent = prontas > 1 ? `Renderizar ${prontas} câmeras ao mesmo tempo` : 'Renderizar a câmera';
+}
+function usarCameraJuntar(i){
+  i = Number(i);
+  if(![0, 1, 2].includes(i)) return;
+  if(i !== JUNTAR.camera){
+    JUNTAR.camera = i;
+    const video = $('#videoJuntar');
+    if(video){ video.pause(); video.removeAttribute('src'); video.dataset.caminho = ''; video.load(); }
+    const primeiro = camJuntar().partes[0];
+    if(primeiro && primeiro.caminho){
+      const pasta = primeiro.caminho.replace(/[\\/][^\\/]+$/, '');
+      if(!pastaJuntarAtual || caminhoJuntar(pastaJuntarAtual.atual) !== caminhoJuntar(pasta)) explorarJuntar(pasta);
+    }
+    agendarSalvar();
+  }
+  atualizarPainelJuntar();
+}
+
+function atualizarPainelJuntar(){
+  desenharCamerasJuntar();
+  const ini = $('#inicioJuntar');
+  const fim = $('#fimJuntar');
+  if(ini && document.activeElement !== ini) ini.value = camJuntar().inicio_s == null ? '' : tempoCamera(camJuntar().inicio_s);
+  if(fim && document.activeElement !== fim) fim.value = camJuntar().fim_s == null ? '' : tempoCamera(camJuntar().fim_s);
+  desenharPartesJuntar();
+  desenharLinhaJuntar();
+  atualizarTempoJuntar();
+  textoJanelaJuntar();
+  const video = $('#videoJuntar');
+  if(video && camJuntar().partes.length && video.dataset.caminho !== (camJuntar().partes[indiceNoTempoJuntar(camJuntar().posicao)] || {}).caminho){
+    seekJuntar(camJuntar().posicao || 0);
+  }
+  desenharPastaJuntar();
+}
+
+function progressoFfmpeg(texto){
+  const marcas = [...String(texto || '').matchAll(/out_time=(\d+):(\d+):(\d+(?:\.\d+)?)/g)];
+  if(!marcas.length) return null;
+  const u = marcas[marcas.length - 1];
+  return Number(u[1]) * 3600 + Number(u[2]) * 60 + Number(u[3]);
+}
+
+function textoErroJuntar(data){
+  return data && typeof data.detail === 'string' ? data.detail : 'Não consegui iniciar a renderização.';
+}
+async function renderizarJuntar(){
+  const alvos = JUNTAR.cameras.map((c, i) => ({c, i})).filter(x => x.c.partes.length);
+  if(!alvos.length){ alert('Adicione os arquivos de pelo menos uma câmera.'); return; }
+  const incompletas = alvos.filter(x => x.c.inicio_s == null || x.c.fim_s == null || x.c.fim_s <= x.c.inicio_s);
+  if(incompletas.length){
+    alert('Marque o início e o fim da partida em ' + incompletas.map(x => 'Câmera ' + (x.i + 1)).join(' e ') + '.');
+    return;
+  }
+  const btn = $('#btnRenderJuntar');
+  const cancelar = $('#btnCancelarJuntar');
+  const status = $('#statusJuntar');
+  const logEl = $('#logJuntar');
+  btn.disabled = true;
+  cancelar.hidden = false;
+  logEl.style.display = 'none';
+  status.textContent = alvos.length > 1 ? `Preparando ${alvos.length} câmeras…` : 'Preparando a partida…';
+  try {
+    const respostas = await Promise.all(alvos.map(async ({c, i}) => {
+      const r = await fetch('/api/juntar/render', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          partes: c.partes.map(p => p.caminho),
+          inicio_s: c.inicio_s,
+          fim_s: c.fim_s,
+          camera: i,
+        }),
+      });
+      const data = await r.json();
+      return {i, ok: r.ok, data, duracao: c.fim_s - c.inicio_s};
+    }));
+    const falhas = respostas.filter(x => !x.ok);
+    if(falhas.length){
+      await Promise.all(respostas.filter(x => x.ok && x.data.job_id).map(x =>
+        fetch('/api/job/' + x.data.job_id + '/cancelar', {method:'POST'})));
+      status.textContent = falhas.map(x => `Câmera ${x.i + 1}: ${textoErroJuntar(x.data)}`).join(' ');
+      return;
+    }
+    const jobs = respostas.map(x => ({
+      i: x.i, jobId: x.data.job_id, video: x.data.video, duracao: x.duracao, status: 'running', pct: 0, log: [],
+    }));
+    JUNTAR.jobIds = jobs.map(j => j.jobId);
+    while(JUNTAR.jobIds.length && jobs.some(j => j.status === 'running')){
+      await Promise.all(jobs.filter(j => j.status === 'running').map(async j => {
+        const jr = await fetch('/api/job/' + j.jobId);
+        const info = await jr.json();
+        if(!jr.ok){ j.status = 'error'; return; }
+        const texto = (info.log || []).join('\n') + '\n' + (info.linha_atual || '');
+        const t = progressoFfmpeg(texto);
+        if(t != null && j.duracao > 0) j.pct = Math.min(99, Math.round(t / j.duracao * 100));
+        if(info.status === 'done' || info.status === 'canceled' || info.status === 'error'){
+          j.status = info.status;
+          j.log = info.log || [];
+        }
+      }));
+      status.textContent = 'Renderizando ' + jobs.map(j => `Câmera ${j.i + 1} ${j.status === 'done' ? 'pronta' : j.pct + '%'}`).join(' · ');
+      if(JUNTAR.jobIds.length && jobs.some(j => j.status === 'running')) await new Promise(res => setTimeout(res, 1000));
+    }
+    if(!JUNTAR.jobIds.length) return;
+    const erros = jobs.filter(j => j.status === 'error');
+    const cancelados = jobs.filter(j => j.status === 'canceled');
+    const prontos = jobs.filter(j => j.status === 'done' && j.video);
+    prontos.forEach(j => {
+      const video = {nome: j.video.nome, caminho: j.video.caminho, duracao_s: j.video.duracao_s};
+      JUNTAR.cameras[j.i].renderizado = video;
+      selecionarVideo(video, j.i);
+      if(ESTADO.cameras[j.i]) ESTADO.cameras[j.i].inicio_jogo_s = 0;
+    });
+    if(prontos.length){
+      renderCamerasSelecionadas();
+      agendarSalvar();
+      buscarVideos(($('#campoPesquisaVideo').value || '').trim());
+    }
+    if(erros.length){
+      logEl.style.display = 'block';
+      logEl.textContent = erros.map(j => `Câmera ${j.i + 1}\n` + (j.log || []).slice(-12).join('\n')).join('\n\n');
+      status.textContent = erros.map(j => `Câmera ${j.i + 1} parou antes de terminar.`).join(' ');
+    } else if(cancelados.length && !prontos.length){
+      status.textContent = 'Renderização cancelada.';
+    } else if(cancelados.length){
+      status.textContent = 'Parte da renderização foi cancelada. ' + prontos.map(j => `Câmera ${j.i + 1} pronta`).join(' · ') + '.';
+    } else {
+      const nomes = prontos.map(j => `Câmera ${j.i + 1}`).join(' e ');
+      status.textContent = `${nomes} ${prontos.length > 1 ? 'prontas' : 'pronta'}. Já entraram no próximo passo.`;
+    }
+  } catch(e){
+    status.textContent = 'Não consegui renderizar as câmeras.';
+  } finally {
+    btn.disabled = false;
+    cancelar.hidden = true;
+    JUNTAR.jobIds = [];
+    desenharCamerasJuntar();
+  }
+}
+
+function ligarTelaJuntar(){
+  const raiz = $('#s-juntar');
+  if(!raiz || raiz.dataset.ligado) return;
+  raiz.dataset.ligado = '1';
+  $('#btnSubirPastaJuntar').onclick = () => { if(pastaJuntarAtual && pastaJuntarAtual.pai) explorarJuntar(pastaJuntarAtual.pai); };
+  $('#btnMarcarTodosJuntar').onclick = () => {
+    const caixas = [...document.querySelectorAll('#listaArquivosJuntar input[data-arquivo-juntar]:not(:disabled)')];
+    const marcar = caixas.some(c => !c.checked);
+    caixas.forEach(c => { c.checked = marcar; });
+  };
+  $('#btnAdicionarPastaJuntar').onclick = () => adicionarSelecionadosJuntar();
+  document.querySelectorAll('#camsJuntar [data-cam-juntar]').forEach(b => {
+    b.onclick = () => usarCameraJuntar(b.dataset.camJuntar);
+  });
+  $('#linhaJuntar').onclick = ev => {
+    const total = totalJuntar();
+    if(total <= 0) return;
+    const rect = ev.currentTarget.getBoundingClientRect();
+    seekJuntar(((ev.clientX - rect.left) / rect.width) * total);
+  };
+  $('#btnJuntarMenos').onclick = () => seekJuntar(Math.max(0, camJuntar().posicao - 10));
+  $('#btnJuntarMais').onclick = () => seekJuntar(camJuntar().posicao + 10);
+  $('#btnMarcarInicioJuntar').onclick = () => marcarJuntar('inicio_s');
+  $('#btnMarcarFimJuntar').onclick = () => marcarJuntar('fim_s');
+  $('#inicioJuntar').onchange = e => aplicarTempoDigitadoJuntar('inicio_s', e.target);
+  $('#fimJuntar').onchange = e => aplicarTempoDigitadoJuntar('fim_s', e.target);
+  $('#btnRenderJuntar').onclick = () => renderizarJuntar();
+  $('#btnCancelarJuntar').onclick = async () => {
+    const ids = JUNTAR.jobIds.slice();
+    JUNTAR.jobIds = [];
+    const status = $('#statusJuntar');
+    if(status) status.textContent = 'Renderização cancelada.';
+    await Promise.all(ids.map(id => fetch('/api/job/' + id + '/cancelar', {method:'POST'})));
+  };
+  $('#btnJuntarParaVideo').onclick = () => { salvarPartida(); irPara('s-video'); };
+  const video = $('#videoJuntar');
+  video.onloadedmetadata = () => {
+    if(video.dataset.pendente){
+      const t = Number(video.dataset.pendente);
+      video.dataset.pendente = '';
+      if(Number.isFinite(t)) video.currentTime = t;
+    }
+  };
+  video.ontimeupdate = () => {
+    const i = camJuntar().partes.findIndex(p => p.caminho === video.dataset.caminho);
+    if(i < 0) return;
+    camJuntar().posicao = offsetsJuntar()[i] + video.currentTime;
+    atualizarTempoJuntar();
+  };
+  video.onended = () => {
+    const i = camJuntar().partes.findIndex(p => p.caminho === video.dataset.caminho);
+    if(i >= 0 && i < camJuntar().partes.length - 1) seekJuntar(offsetsJuntar()[i + 1] + 0.01);
+  };
+}
+ligarTelaJuntar();
+
 /* ------------------------------------------------------------ boot */
 (async ()=>{
   const urlParams = new URLSearchParams(window.location.search);
@@ -6808,14 +7435,28 @@ $('#btnMontar').onclick = async ()=>{
     const rpart = await fetch('/api/partida');
     partida = rpart.status===200 ? await rpart.json() : null;
   } catch(e) { console.warn('não consegui ler /api/partida', e); }
-  // Sem dados no servidor (arquivo apagado/vazio): recupera a última cópia guardada neste navegador.
-  if(!partida || !partida.times || !partida.times.length){
+  // Sem arquivo no servidor: recupera a última cópia deste navegador.
+  // Uma sessão nova tem times vazios de propósito; o cache de outra partida não pode substituí-la.
+  const juntarSalvo = partida && partida.meta && partida.meta.juntar;
+  const juntarTemArquivo = !!(juntarSalvo && (
+    (juntarSalvo.partes || []).length ||
+    (juntarSalvo.cameras || []).some(c => c && c.partes && c.partes.length)
+  ));
+  const servidorTemPartida = !!(partida && (
+    (partida.times && partida.times.length) ||
+    (partida.gols && partida.gols.length) ||
+    (partida.meta && partida.meta.video) ||
+    juntarTemArquivo
+  ));
+  if(!servidorTemPartida){
     const guardado = lerCachePartida();
     if(guardado) partida = guardado;
   }
   if(partida){
     S.meta = partida.meta || S.meta; S.times = partida.times || S.times;
+    garantirTimes();
     if(partida.meta && [0,1,2].includes(partida.meta.camera_placar)) ESTADO.cameraPlacar = partida.meta.camera_placar;
+    if(partida.meta && partida.meta.juntar) restaurarJuntar(partida.meta.juntar);
     if(partida.meta && Array.isArray(partida.meta.cameras) && partida.meta.cameras.length){
       ESTADO.cameras = [null, null, null];
       partida.meta.cameras.slice(0,3).forEach((cam, i) => {
@@ -6828,6 +7469,7 @@ $('#btnMontar').onclick = async ()=>{
     } else if(partida.meta && partida.meta.video){
       selecionarVideo({nome: partida.meta.video.split(/[\\/]/).pop(), caminho: partida.meta.video, duracao_s: null}, 0);
     }
+    await marcarVideosRenderizados();
     if(partida._todosGols && partida._todosGols.length){
       ESTADO.gols = partida._todosGols;
     } else if(partida.gols || partida.lances) {

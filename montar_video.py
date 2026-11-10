@@ -2636,9 +2636,12 @@ def clipe_da_camera_sincronizada(ev, cameras, pasta_tmp):
     except (TypeError, ValueError):
         return None
     inicio_cam = max(0, inicio_ref - inicio_jogo_ref + inicio_jogo_cam)
-    duracao = fim_ref - inicio_ref
     saida = os.path.join(pasta_tmp, f"cam{camera}_{int(ev.get('indice', 0)):02d}.mp4")
     try:
+        from video_quality import janela_no_arquivo
+        duracao = janela_no_arquivo(inicio_cam, fim_ref - inicio_ref, duracao_video(origem))
+        if duracao is None:
+            return None
         roda(clip_command(origem, float(f"{inicio_cam:.3f}"),
                           float(f"{duracao:.3f}"), saida))
         return saida if os.path.exists(saida) else None

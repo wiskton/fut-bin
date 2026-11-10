@@ -3,7 +3,7 @@
 <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
 <link rel="icon" type="image/png" sizes="64x64" href="/web/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/web/assistente.css?v=20261108_v2">
+<link rel="stylesheet" href="/web/assistente.css?v=20261110_juntar7">
 
 <header>
   <div class="fut-brand">
@@ -101,7 +101,7 @@
     </div>
   </div>
   <div class="row">
-    <button class="act" onclick="irPara('s-video')">Continuar → Carregar Vídeo</button>
+    <button class="act" onclick="irPara('s-juntar')">Continuar → Juntar gravações</button>
   </div>
 </section>
 
@@ -250,6 +250,62 @@
   </div>
 </section>
 
+<!-- ================= 1b. JUNTAR GRAVAÇÕES ================= -->
+<section id="s-juntar">
+  <div class="card">
+    <h2>Juntar a gravação da câmera</h2>
+    <p class="hint">Escolha a câmera, abra a pasta dela e adicione os arquivos de uma vez. Eles entram na ordem do nome. Marque o apito inicial e o final nessa câmera, depois repita na próxima. O render junta todas as câmeras prontas ao mesmo tempo.</p>
+    <div class="row" id="camsJuntar" style="gap:8px; flex-wrap:wrap">
+      <button type="button" class="ghost" data-cam-juntar="0">Câmera 1</button>
+      <button type="button" class="ghost" data-cam-juntar="1">Câmera 2</button>
+      <button type="button" class="ghost" data-cam-juntar="2">Câmera 3</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button type="button" class="ghost" id="btnSubirPastaJuntar">⬆ subir</button>
+      <span id="pastaJuntar" class="hint" style="flex:1; word-break:break-all"></span>
+    </div>
+    <div id="pastasJuntar" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px"></div>
+    <div id="listaArquivosJuntar" style="margin-top:8px; max-height:260px; overflow-y:auto"></div>
+    <div class="row" style="margin-top:8px">
+      <button type="button" class="ghost" id="btnMarcarTodosJuntar">Marcar todos</button>
+      <button type="button" class="act" id="btnAdicionarPastaJuntar">Adicionar selecionados</button>
+    </div>
+    <div id="listaPartesJuntar" style="margin-top:12px"></div>
+    <p class="hint" id="totalJuntar" style="margin-top:8px"></p>
+  </div>
+
+  <div class="card">
+    <h2>Marcar o começo e o fim da partida</h2>
+    <video id="videoJuntar" controls playsinline preload="metadata" style="display:block; width:100%; max-height:420px; background:#000; border-radius:8px"></video>
+    <p class="hint" id="tempoJuntar" style="margin-top:8px">Adicione os arquivos para assistir a gravação inteira.</p>
+    <div id="linhaJuntar" style="position:relative; height:36px; margin-top:6px; background:#0b1220; border:1px solid var(--line); border-radius:8px; overflow:hidden; cursor:pointer"></div>
+    <div class="row" style="margin-top:10px">
+      <button type="button" class="ghost" id="btnJuntarMenos">−10 s</button>
+      <button type="button" class="ghost" id="btnJuntarMais">+10 s</button>
+      <button type="button" class="act" id="btnMarcarInicioJuntar">Marcar início</button>
+      <button type="button" class="act" id="btnMarcarFimJuntar">Marcar fim</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label style="flex:1">Início da partida <input id="inicioJuntar" placeholder="00:00.000"></label>
+      <label style="flex:1">Fim da partida <input id="fimJuntar" placeholder="00:00.000"></label>
+    </div>
+    <p class="hint" id="janelaJuntar"></p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button type="button" class="act" id="btnRenderJuntar">Renderizar as câmeras</button>
+      <button type="button" class="ghost" id="btnCancelarJuntar" hidden>Cancelar</button>
+    </div>
+    <p class="hint" id="statusJuntar" role="status" aria-live="polite" style="margin-top:8px"></p>
+    <div id="logJuntar" class="log" style="display:none"></div>
+  </div>
+  <div class="row">
+    <button type="button" class="act" id="btnJuntarParaVideo">Continuar → escolher as câmeras</button>
+    <span class="stSalvo hint"></span>
+  </div>
+</section>
+
 <!-- ================= 2. PLACAR ================= -->
 <section id="s-placar">
   <div class="card">
@@ -304,7 +360,7 @@
   <div class="card">
     <h2>Zonas-gatilho (opcional)</h2>
     <p class="hint">Marque quantas áreas quiser no mesmo quadro acima (ex.: a boca de cada gol) -
-      arraste um retângulo e clique em "+ adicionar zona". No passo 3 dá pra detectar jogadas
+      arraste um retângulo e clique em "+ adicionar zona". No passo 4 dá pra detectar jogadas
       automaticamente pelo movimento dentro dessas áreas (além da detecção pelo placar).</p>
     <div class="row">
       <button class="ghost" id="btnAddZona">+ adicionar esta seleção como zona</button>
@@ -322,9 +378,9 @@
 <section id="s-gols">
   <div class="card" id="cardColarGols">
     <h2>Colar a lista e cortar</h2>
-    <p class="hint">Cole o texto com os gols (e os outros lances) de cada time. A lista do texto <b>substitui</b> os cortes achados pelo placar. Cada horário vira um clipe, nas câmeras configuradas no passo 1, começando os segundos indicados <b>antes</b> dele. O início do jogo alinha o relógio do texto com o arquivo: se a gravação só começa a valer aos 3:00, um gol em 08:56 é cortado em 11:56.</p>
+    <p class="hint">Cole um horário por linha. Esse horário é o começo do gol, e o clipe segue 20 segundos. A lista <b>substitui</b> os cortes achados pelo placar. O início do jogo soma esse atraso ao arquivo: com início 0:05, o gol 07:41 começa em 07:46.</p>
     <label>Texto dos gols</label>
-    <textarea id="textoGolsColar" placeholder="Time A 7 x 8 Time B&#10;GOLS - Time A&#10;08:56&#10;09:24&#10;&#10;GOLS - Time B&#10;02:50"></textarea>
+    <textarea id="textoGolsColar" placeholder="07:41&#10;08:09&#10;34:40"></textarea>
     <div class="grid2" style="margin-top:10px">
       <div>
         <label>Início do jogo no vídeo</label>
@@ -332,16 +388,10 @@
       </div>
       <div>
         <label>Segundos para trás</label>
-        <input id="segundosTrasColar" type="number" min="0" max="180" value="30">
+        <input id="segundosTrasColar" type="number" min="0" max="180" value="0">
       </div>
     </div>
-    <div class="grid2">
-      <div>
-        <label>Segundos depois do tempo</label>
-        <input id="segundosDepoisColar" type="number" min="0" max="180" value="8">
-      </div>
-    </div>
-    <p class="hint">Exemplo: início 3:00, gol 08:56 e 30s para trás corta de 11:26 até 12:04. Deixe 0:00 se o vídeo começa no apito inicial.</p>
+    <p class="hint">O clipe começa no horário (menos os segundos para trás) e dura 20 segundos. Deixe o início em 0:00 se o vídeo começa no apito.</p>
     <div id="colarGolsPreview" class="hint" style="margin-top:8px"></div>
     <div class="row" style="margin-top:10px; gap:10px">
       <button class="act" id="btnColarGols" type="button">Cortar os gols do texto</button>
@@ -409,7 +459,7 @@
 
   <div class="card" id="cardCamerasCorte" style="display:none">
     <h2>Câmeras dos clipes</h2>
-    <p class="hint">A câmera 1 (a do placar) é sempre cortada. Marque as outras câmeras que também devem ser cortadas — o mesmo instante, alinhado pelo início do jogo do passo 1 — para poder escolher qual ver nos clipes. Sem marcar, elas só são cortadas quando você abre o clipe.</p>
+    <p class="hint">A câmera 1 (a do placar) é sempre cortada. Marque as outras câmeras que também devem ser cortadas — o mesmo instante, alinhado pelo início do jogo do passo 2 — para poder escolher qual ver nos clipes. Sem marcar, elas só são cortadas quando você abre o clipe.</p>
     <div id="opcoesCamerasCorte" class="row" style="gap:14px; flex-wrap:wrap; margin:8px 0"></div>
     <div class="row" style="gap:10px">
       <button class="ghost" id="btnCortarCameras">Cortar câmeras marcadas agora</button>
@@ -420,7 +470,7 @@
 
   <div class="card" id="cardZonasDet" style="display:none">
     <h2>Detectar jogadas pelas zonas-gatilho (opcional)</h2>
-    <p class="hint">Usa as zonas marcadas no passo 2 - acrescenta os lances achados aos gols já
+    <p class="hint">Usa as zonas marcadas no passo 3 - acrescenta os lances achados aos gols já
       detectados (não apaga nada). Movimento numa zona erra mais que o placar, então revise cada
       corte no próximo passo.</p>
     <div class="grid2">
@@ -836,7 +886,7 @@
       <img id="previewLogoStep7" src="/web/logo_campeonato.png" alt="Logo Campeonato" style="height:60px; width:auto; filter:drop-shadow(0 0 10px rgba(255,215,0,0.6))" onerror="this.src='/web/icon.png'">
       <div>
         <div style="font-weight:900; font-size:14px; color:#ffd700; letter-spacing:0.8px; text-transform:uppercase">Copa Fut-Bin Championship · Logo Oficial Ativada</div>
-        <div class="hint" style="margin:4px 0 0; font-size:12px; line-height:1.4">Esta logo será renderizada com destaque na <b>cartela de abertura</b>, como <b>marca d'água de transmissão ao vivo</b> no canto superior dos clipes e na <b>cartela final de estatísticas e placar pós-jogo</b>. <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Trocar logo no Passo 5</a>.</div>
+        <div class="hint" style="margin:4px 0 0; font-size:12px; line-height:1.4">Esta logo será renderizada com destaque na <b>cartela de abertura</b>, como <b>marca d'água de transmissão ao vivo</b> no canto superior dos clipes e na <b>cartela final de estatísticas e placar pós-jogo</b>. <a href="javascript:void(0)" onclick="irPara('s-dados')" style="color:var(--accent); font-weight:600">Trocar logo no Passo 6</a>.</div>
       </div>
     </div>
   </div>
@@ -1429,4 +1479,4 @@
   </div>
 </div>
 
-<script src="/web/assistente.js?v=20261110_colar2" defer></script>
+<script src="/web/assistente.js?v=20261110_vinte1" defer></script>
