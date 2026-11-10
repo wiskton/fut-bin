@@ -972,7 +972,7 @@ function irPara(id){
   }
   if(id==='s-inicio') renderInicio();
   if(id==='s-placar' || id==='s-gols') renderCameraPlacar();
-  if(id==='s-gols') renderOpcoesCamerasCorte();
+  if(id==='s-gols'){ renderOpcoesCamerasCorte(); preencherInicioColar(); }
   if(id==='s-revisar') renderCameraVer();
   if(id==='s-resumo') renderResumo();
   if(id==='s-final'){ renderResumo(); }   // renderResumo inicia o card de fundo e a previsão de duração
@@ -2351,6 +2351,155 @@ $('#btnCortarCameras').onclick = async () => {
   finally { renderOpcoesCamerasCorte(); }
 };
 $('#btnCancelarCortarCameras').onclick = async () => {
+  if(jobAtivoId) await fetch('/api/job/' + jobAtivoId + '/cancelar', {method:'POST'});
+};
+
+/* ------------------------------------------------------------ passo 3: colar lista e cortar */
+function corpoColarGols(){
+  const inicio = parseTempo(($('#inicioJogoColar').value || '0').trim());
+  const antes = parseFloat($('#segundosTrasColar').value);
+  const depois = parseFloat($('#segundosDepoisColar').value);
+  return {
+    texto: $('#textoGolsColar').value || '',
+    inicio_jogo_s: (inicio == null || isNaN(inicio)) ? 0 : inicio,
+    antes_s: isNaN(antes) ? 30 : antes,
+    depois_s: isNaN(depois) ? 8 : depois,
+  };
+}
+
+function preencherInicioColar(){
+  const el = $('#inicioJogoColar');
+  if(!el || el.dataset.tocado) return;
+  const cam = camerasSelecionadas()[0];
+  if(cam && Number(cam.inicio_jogo_s) > 0) el.value = fmtTempo(cam.inicio_jogo_s);
+}
+
+function aplicarCabecalhoColado(info){
+  if(info.times && info.times.length >= 2){
+    S.times[0].nome = info.times[0];
+    S.times[1].nome = info.times[1];
+    if($('#tA')) $('#tA').value = info.times[0];
+    if($('#tB')) $('#tB').value = info.times[1];
+    if(typeof atualizarEstilosTimes === 'function') atualizarEstilosTimes();
+    if(typeof atualizarLabelsPlacar === 'function') atualizarLabelsPlacar();
+  }
+  if(info.placar && info.placar.length === 2 && info.placar[0] != null && info.placar[1] != null){
+    S.meta = Object.assign({}, S.meta, {placar_jogo: info.placar});
+    if($('#placarJogoA')) $('#placarJogoA').value = info.placar[0];
+    if($('#placarJogoB')) $('#placarJogoB').value = info.placar[1];
+    const tot = $('#golsTotais');
+    if(tot && !tot.value) tot.value = String(info.placar[0] + info.placar[1]);
+  }
+  const cams = camerasSelecionadas();
+  const ini = corpoColarGols().inicio_jogo_s;
+  if(cams[0]){
+    cams[0].inicio_jogo_s = ini;
+    const inp = document.querySelector('[data-inicio-camera="0"]');
+    if(inp) inp.value = tempoCamera(ini);
+  }
+}
+
+let colarPreviewTimer = null;
+async function atualizarPreviewColar(){
+  const box = $('#colarGolsPreview');
+  if(!box) return;
+  const body = corpoColarGols();
+  if(!body.texto.trim()){ box.textContent = ''; return; }
+  try{
+    const r = await fetch('/api/gols/colar/preview', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if(!r.ok){ box.textContent = d.detail || 'Não consegui ler o texto.'; return; }
+    if(!d.total){ box.textContent = 'Nenhum horário encontrado. Use linhas MM:SS embaixo de GOLS - Nome do time.'; return; }
+    const linhas = d.eventos.slice(0, 8).map(e => {
+      const tipo = e.tipo === 'gol' ? 'Gol' : 'Lance';
+      return `${tipo} ${e.time_nome} ${e.tempo} → corta ${fmtTempo(e.inicio_s)}–${fmtTempo(e.fim_s)}`;
+    });
+    if(d.eventos.length > 8) linhas.push(`… e mais ${d.eventos.length - 8}`);
+    let extra = '';
+    if(d.aviso_ajuste_s) extra = ` O texto diz que os horários já estão ${d.aviso_ajuste_s}s antes do lance; os segundos para trás são aplicados em cima desses horários.`;
+    box.textContent = `${d.gols} gol(s) e ${d.lances} lance(s). ${linhas.join(' · ')}.${extra}`;
+  }catch(e){
+    box.textContent = '';
+  }
+}
+
+function agendarPreviewColar(){
+  clearTimeout(colarPreviewTimer);
+  colarPreviewTimer = setTimeout(atualizarPreviewColar, 250);
+}
+
+$('#textoGolsColar').addEventListener('input', agendarPreviewColar);
+$('#inicioJogoColar').addEventListener('input', ()=>{ $('#inicioJogoColar').dataset.tocado = '1'; agendarPreviewColar(); });
+$('#segundosTrasColar').addEventListener('input', agendarPreviewColar);
+$('#segundosDepoisColar').addEventListener('input', agendarPreviewColar);
+
+$('#btnColarGols').onclick = async ()=>{
+  const logEl = $('#colarGolsLog');
+  const btnCanc = $('#btnCancelarColarGols');
+  const body = corpoColarGols();
+  if(!body.texto.trim()){
+    logEl.style.display = 'block';
+    logEl.textContent = 'Cole o texto com os horários dos gols.';
+    return;
+  }
+  if(!ESTADO.video){
+    logEl.style.display = 'block';
+    logEl.textContent = 'Escolha um vídeo no passo 1 antes de cortar.';
+    return;
+  }
+  $('#btnColarGols').disabled = true;
+  logEl.style.display = 'block';
+  logEl.textContent = 'Lendo os horários…';
+  try{
+    const camsCfg = camerasCarregadas();
+    const r = await fetch('/api/gols/colar', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({video: ESTADO.video.caminho, cameras: camsCfg}, body))});
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok){
+      logEl.textContent = d.detail || 'Não consegui gravar os horários.';
+      return;
+    }
+    if(!d.gravados){
+      logEl.textContent = 'Nenhum horário encontrado no texto.';
+      return;
+    }
+    aplicarCabecalhoColado(d);
+    const cams = camsCfg.length ? camsCfg : (d.cameras || [1]);
+    logEl.textContent = `Lista do placar deixada de lado. Cortando ${d.gravados} horário(s) do texto na câmera 1…`;
+    const encCorte = localStorage.getItem('futbin_render_encoder') || 'h264_nvenc';
+    const rc = await fetch('/api/cortar/iniciar', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({video: ESTADO.video.caminho, encoder: encCorte})});
+    if(!rc.ok){
+      logEl.textContent = 'Os horários foram salvos, mas não consegui iniciar o corte.';
+      return;
+    }
+    const {job_id} = await rc.json();
+    if(!await acompanharJob(job_id, logEl, btnCanc)) return;
+    const extras = cams.filter(n => n > 1);
+    if(extras.length){
+      logEl.textContent += '\n\nCortando as outras câmeras configuradas...';
+      const rx = await fetch('/api/cameras/cortar', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({cameras: extras})});
+      if(!rx.ok){
+        const err = await rx.json().catch(() => ({}));
+        logEl.textContent += '\n' + (err.detail || 'Não consegui cortar as outras câmeras.');
+      } else {
+        const jobCam = await rx.json();
+        if(!await acompanharJob(jobCam.job_id, logEl, btnCanc)) return;
+      }
+    }
+    ESTADO.gols = [];
+    await carregarClipes();
+    await salvarPartida();
+    $('#btnIrRevisar').disabled = ESTADO.gols.length===0;
+  }catch(e){
+    logEl.style.display = 'block';
+    logEl.textContent = 'Erro: ' + e;
+  }finally{
+    $('#btnColarGols').disabled = false;
+    btnCanc.style.display = 'none';
+  }
+};
+$('#btnCancelarColarGols').onclick = async () => {
   if(jobAtivoId) await fetch('/api/job/' + jobAtivoId + '/cancelar', {method:'POST'});
 };
 

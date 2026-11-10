@@ -320,6 +320,36 @@
 
 <!-- ================= 3. DETECTAR E CORTAR ================= -->
 <section id="s-gols">
+  <div class="card" id="cardColarGols">
+    <h2>Colar a lista e cortar</h2>
+    <p class="hint">Cole o texto com os gols (e os outros lances) de cada time. A lista do texto <b>substitui</b> os cortes achados pelo placar. Cada horário vira um clipe, nas câmeras configuradas no passo 1, começando os segundos indicados <b>antes</b> dele. O início do jogo alinha o relógio do texto com o arquivo: se a gravação só começa a valer aos 3:00, um gol em 08:56 é cortado em 11:56.</p>
+    <label>Texto dos gols</label>
+    <textarea id="textoGolsColar" placeholder="Time A 7 x 8 Time B&#10;GOLS - Time A&#10;08:56&#10;09:24&#10;&#10;GOLS - Time B&#10;02:50"></textarea>
+    <div class="grid2" style="margin-top:10px">
+      <div>
+        <label>Início do jogo no vídeo</label>
+        <input id="inicioJogoColar" placeholder="0:00 ou 3:00" value="0:00">
+      </div>
+      <div>
+        <label>Segundos para trás</label>
+        <input id="segundosTrasColar" type="number" min="0" max="180" value="30">
+      </div>
+    </div>
+    <div class="grid2">
+      <div>
+        <label>Segundos depois do tempo</label>
+        <input id="segundosDepoisColar" type="number" min="0" max="180" value="8">
+      </div>
+    </div>
+    <p class="hint">Exemplo: início 3:00, gol 08:56 e 30s para trás corta de 11:26 até 12:04. Deixe 0:00 se o vídeo começa no apito inicial.</p>
+    <div id="colarGolsPreview" class="hint" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:10px; gap:10px">
+      <button class="act" id="btnColarGols" type="button">Cortar os gols do texto</button>
+      <button class="warnb" id="btnCancelarColarGols" type="button" style="display:none; padding:10px 18px; font-weight:600">✕ Cancelar processamento</button>
+    </div>
+    <div id="colarGolsLog" class="log" style="display:none;margin-top:10px"></div>
+  </div>
+
   <div class="card">
     <h2>Detectar e cortar os gols</h2>
     <p class="hint">Roda a detecção automática do placar e já corta os clipes em seguida - sem
@@ -1399,4 +1429,4 @@
   </div>
 </div>
 
-<script src="/web/assistente.js?v=20261108_v8" defer></script>
+<script src="/web/assistente.js?v=20261110_colar2" defer></script>

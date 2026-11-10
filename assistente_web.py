@@ -1029,6 +1029,163 @@ def api_confirmar_gols(body: ConfirmarGols):
     return {"ok": True, "total": len(finais)}
 
 
+class ColarGolsBody(BaseModel):
+    texto: str
+    video: Optional[str] = None
+    inicio_jogo_s: float = 0
+    antes_s: float = 30
+    depois_s: float = 8
+    cameras: Optional[List[int]] = None
+
+
+def _cortes_do_texto(body: ColarGolsBody) -> dict:
+    from colar_gols import montar_cortes, parse_texto_gols
+    dados = parse_texto_gols(body.texto or "")
+    cortes = montar_cortes(dados["eventos"], body.inicio_jogo_s, body.antes_s, body.depois_s)
+    return {
+        "times": dados["times"],
+        "placar": dados["placar"],
+        "duracao": dados["duracao"],
+        "aviso_ajuste_s": dados["aviso_ajuste_s"],
+        "total": len(cortes),
+        "gols": sum(1 for c in cortes if c["tipo"] == "gol"),
+        "lances": sum(1 for c in cortes if c["tipo"] != "gol"),
+        "eventos": cortes,
+    }
+
+
+@app.post("/api/gols/colar/preview")
+def api_colar_gols_preview(body: ColarGolsBody):
+    return _cortes_do_texto(body)
+
+
+def _cameras_configuradas() -> list:
+    """Câmeras do passo 1 que têm arquivo. A 1 entra sempre que existir."""
+    cams = []
+    for i, cam in enumerate(_cameras_da_partida(), 1):
+        if isinstance(cam, dict) and cam.get("caminho") and i not in cams:
+            cams.append(i)
+    return cams or [1]
+
+
+def _esvaziar_pastas_de_clipes() -> None:
+    """Apaga os mp4 já cortados (placar, zona ou lista anterior) em todas as câmeras."""
+    pastas = [CLIPES_DIR]
+    if os.path.isdir(GOLS_DIR):
+        pastas.extend(
+            os.path.join(GOLS_DIR, nome)
+            for nome in os.listdir(GOLS_DIR)
+            if re.fullmatch(r"clipes_cam\d+", nome, re.IGNORECASE)
+        )
+    for pasta in pastas:
+        if not os.path.isdir(pasta):
+            continue
+        for nome in os.listdir(pasta):
+            baixo = nome.lower()
+            if not nome.startswith("gol_"):
+                continue
+            if baixo.endswith(".mp4") or baixo.endswith(".corte"):
+                _remover_arquivo_seguro(os.path.join(pasta, nome))
+
+
+@app.post("/api/gols/colar")
+def api_colar_gols(body: ColarGolsBody):
+    """Troca a lista de cortes pela do texto e apaga os clipes do placar.
+
+    Os horários colados passam a ser a lista inteira. tempo continua o relógio
+    do jogo; tempo_s, inicio_s e fim_s ficam no arquivo da câmera 1, somado o
+    início do jogo. O corte em si é o /api/cortar/iniciar e /api/cameras/cortar.
+    """
+    resumo = _cortes_do_texto(body)
+    if not resumo["eventos"]:
+        raise HTTPException(400, "nenhum horário encontrado no texto")
+    video = _resolver_video(body.video)
+    pedidas = []
+    for cam in body.cameras or []:
+        try:
+            cam = int(cam)
+        except (TypeError, ValueError):
+            continue
+        if cam in (1, 2, 3) and cam not in pedidas:
+            pedidas.append(cam)
+    cameras = pedidas or _cameras_configuradas()
+    if 1 not in cameras:
+        cameras.insert(0, 1)
+
+    novos = []
+    for i, corte in enumerate(resumo["eventos"], 1):
+        novos.append({
+            "indice": i,
+            "tempo_s": corte["tempo_s"],
+            "tempo": corte["tempo"],
+            "inicio_s": corte["inicio_s"],
+            "fim_s": corte["fim_s"],
+            "fonte": "texto",
+            "status": "gol" if corte["tipo"] == "gol" else "lance",
+            "lance": None if corte["tipo"] == "gol" else "Lance",
+            "time": corte["time"],
+            "time_nome": corte["time_nome"],
+            "camera": 1,
+            "cameras_clipe": list(cameras),
+        })
+
+    with GOLS_LOCK:
+        _esvaziar_pastas_de_clipes()
+        _gravar_excluidos(set())
+        os.makedirs(GOLS_DIR, exist_ok=True)
+        _salvar_json(GOLS_JSON, {
+            "video": os.path.basename(video),
+            "fonte": "texto",
+            "gols": novos,
+        })
+
+    if os.path.exists(PARTIDA_JSON):
+        try:
+            with open(PARTIDA_JSON, encoding="utf-8-sig") as f:
+                partida = json.load(f)
+            itens = []
+            for ev in novos:
+                item = dict(ev)
+                item["tipo"] = "gol" if ev["status"] == "gol" else "lance"
+                item["descartado"] = False
+                item["autor"] = None
+                item["assist"] = None
+                item["destaque"] = None
+                itens.append(item)
+            partida["_todosGols"] = itens
+            partida["gols"] = []
+            partida["lances"] = []
+            partida["roteiro"] = []
+            partida["descartados"] = []
+            partida["artilheiros"] = []
+            partida["garcons"] = []
+            times = partida.get("times") if isinstance(partida.get("times"), list) else []
+            while len(times) < 2:
+                times.append({})
+            for i, nome in enumerate((resumo.get("times") or [])[:2]):
+                if nome and isinstance(times[i], dict):
+                    times[i]["nome"] = nome
+            partida["times"] = times
+            meta = partida.get("meta") if isinstance(partida.get("meta"), dict) else {}
+            if resumo.get("placar"):
+                meta["placar_jogo"] = resumo["placar"]
+            cams_meta = meta.get("cameras")
+            if isinstance(cams_meta, list) and cams_meta and isinstance(cams_meta[0], dict):
+                cams_meta[0]["inicio_jogo_s"] = round(max(0.0, float(body.inicio_jogo_s or 0)), 3)
+            partida["meta"] = meta
+            _salvar_json(PARTIDA_JSON, partida)
+        except Exception:
+            pass
+
+    return {
+        "ok": True,
+        "gravados": len(novos),
+        "cameras": cameras,
+        "substituiu_placar": True,
+        **{k: resumo[k] for k in ("times", "placar", "gols", "lances")},
+    }
+
+
 # --------------------------------------------------------------- corte dos clipes
 
 class IniciarCorte(BaseModel):
