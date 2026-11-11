@@ -452,10 +452,20 @@ function mostrarAlertaFilaAdicionada(posicaoFila, job){
 }
 
 /* ================= ALERTA DE RENDERIZAÇÃO CONCLUÍDA ================= */
+let audioVitoria = null;
+function prepararSomVitoria(){
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return;
+    if(!audioVitoria) audioVitoria = new Ctx();
+    if(audioVitoria.state === 'suspended') audioVitoria.resume();
+  } catch(e){}
+}
 function tocarSomVitoria(){
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if(ctx.state === 'suspended') ctx.resume();
+    prepararSomVitoria();
+    const ctx = audioVitoria;
+    if(!ctx) return;
     const notas = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 (Acorde de vitória)
     notas.forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -474,8 +484,8 @@ function tocarSomVitoria(){
   }
 }
 
-function dispararConfetes(){
-  const wrap = document.getElementById('renderConfettiWrap');
+function dispararConfetes(id){
+  const wrap = document.getElementById(id || 'renderConfettiWrap');
   if(!wrap) return;
   wrap.innerHTML = '';
   const cores = ['#00ff87', '#00f0ff', '#ffd700', '#ff3366', '#ffffff'];
@@ -592,6 +602,101 @@ function mostrarAlertaRenderizacaoConcluida(){
   }
 
   mostrarAlertaHUDVideoFinal();
+}
+
+function fecharModalJuntar(){
+  const m = document.getElementById('modalJuntarConcluido');
+  if(m) m.hidden = true;
+}
+
+function continuarDepoisDeJuntar(){
+  fecharModalJuntar();
+  const btn = document.getElementById('btnJuntarParaVideo');
+  if(btn) btn.classList.remove('pulso-pronto');
+  salvarPartida();
+  irPara('s-video');
+}
+
+function piscarTituloPronto(texto){
+  const original = document.title;
+  let n = 0;
+  const id = setInterval(() => {
+    document.title = (n % 2) ? original : texto;
+    n += 1;
+    if(n > 8){
+      clearInterval(id);
+      document.title = original;
+    }
+  }, 900);
+}
+
+function mostrarAlertaJuntarConcluido(frase){
+  tocarSomVitoria();
+  piscarTituloPronto('✓ Câmeras prontas');
+
+  try {
+    if('Notification' in window && Notification.permission === 'granted'){
+      const aviso = new Notification('⚽ Câmeras prontas — fut-bin', {
+        body: frase + ' Pode continuar e escolher as câmeras.',
+      });
+      aviso.onclick = () => {
+        window.focus();
+        continuarDepoisDeJuntar();
+        aviso.close();
+      };
+    }
+  } catch(e){}
+
+  const texto = document.getElementById('juntarConcluidoTexto');
+  if(texto) texto.textContent = frase;
+  const modal = document.getElementById('modalJuntarConcluido');
+  if(modal){
+    modal.hidden = false;
+    dispararConfetes('juntarConfettiWrap');
+  }
+
+  const seguir = document.getElementById('btnJuntarParaVideo');
+  if(seguir){
+    seguir.classList.add('pulso-pronto');
+    seguir.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  let container = document.getElementById('hudToastContainer');
+  if(!container){
+    container = document.createElement('div');
+    container.id = 'hudToastContainer';
+    container.className = 'hud-toast-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'hud-toast';
+  toast.style.borderColor = 'var(--accent)';
+  toast.style.boxShadow = '0 16px 40px rgba(0,0,0,0.85), 0 0 28px rgba(0,255,135,0.45)';
+  toast.innerHTML = `
+    <div class="hud-toast-icon-wrap" style="border-color:var(--gold); background:radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%)">
+      <span>🎬</span>
+      <div class="hud-toast-check" style="background:var(--accent); color:#04140a">✓</div>
+    </div>
+    <div class="hud-toast-body">
+      <div class="hud-toast-tag" style="color:var(--accent)">Juntar concluído</div>
+      <div class="hud-toast-title">Câmeras prontas</div>
+      <div class="hud-toast-time"><span>▶</span> ${frase}</div>
+    </div>
+    <div class="hud-toast-actions">
+      <button type="button" class="hud-toast-btn-ver" style="background:var(--accent); color:#04140a; border:none; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer">Continuar</button>
+      <button type="button" class="hud-toast-btn-close" title="Fechar alerta">✕</button>
+    </div>
+    <div class="hud-toast-timer-bar" style="background:linear-gradient(90deg, var(--accent) 0%, var(--gold) 100%); animation-duration:12s"></div>
+  `;
+  const fechar = () => {
+    if(toast.classList.contains('saindo')) return;
+    toast.classList.add('saindo');
+    setTimeout(() => { toast.remove(); }, 350);
+  };
+  toast.querySelector('.hud-toast-btn-close').onclick = fechar;
+  toast.querySelector('.hud-toast-btn-ver').onclick = () => { fechar(); continuarDepoisDeJuntar(); };
+  container.appendChild(toast);
+  setTimeout(fechar, 12000);
 }
 
 /* ------------------------------------------------------------ navegacao */
@@ -2468,11 +2573,12 @@ $('#btnCancelarCortarCameras').onclick = async () => {
 /* ------------------------------------------------------------ passo 4: colar lista e cortar */
 function corpoColarGols(){
   const inicio = parseTempo(($('#inicioJogoColar').value || '0').trim());
-  const antes = parseFloat($('#segundosTrasColar').value);
+  const antesInput = $('#segundosTrasColar') ? $('#segundosTrasColar').value.trim() : '';
+  const antes = antesInput === '' ? 20 : parseFloat(antesInput);
   return {
     texto: $('#textoGolsColar').value || '',
     inicio_jogo_s: (inicio == null || isNaN(inicio)) ? 0 : inicio,
-    antes_s: isNaN(antes) ? 0 : antes,
+    antes_s: isNaN(antes) ? 20 : Math.max(0, antes),
   };
 }
 
@@ -2536,7 +2642,7 @@ async function atualizarPreviewColar(){
     });
     if(d.eventos.length > 8) linhas.push(`… e mais ${d.eventos.length - 8}`);
     let extra = '';
-    extra = ' Cada clipe segue 20 segundos a partir do horário.';
+    extra = ' Cada clipe tem 20 segundos de duração.';
     box.textContent = `${d.gols} gol(s) e ${d.lances} lance(s). ${linhas.join(' · ')}.${extra}`;
   }catch(e){
     box.textContent = '';
@@ -7342,6 +7448,10 @@ async function renderizarJuntar(){
   const cancelar = $('#btnCancelarJuntar');
   const status = $('#statusJuntar');
   const logEl = $('#logJuntar');
+  if('Notification' in window && Notification.permission === 'default'){
+    try { Notification.requestPermission(); } catch(e){}
+  }
+  prepararSomVitoria();
   btn.disabled = true;
   cancelar.hidden = false;
   logEl.style.display = 'none';
@@ -7412,7 +7522,9 @@ async function renderizarJuntar(){
       status.textContent = 'Parte da renderização foi cancelada. ' + prontos.map(j => `Câmera ${j.i + 1} pronta`).join(' · ') + '.';
     } else {
       const nomes = prontos.map(j => `Câmera ${j.i + 1}`).join(' e ');
-      status.textContent = `${nomes} ${prontos.length > 1 ? 'prontas' : 'pronta'}. Já entraram no próximo passo.`;
+      const frase = `${nomes} ${prontos.length > 1 ? 'prontas' : 'pronta'}. Os vídeos já foram juntados e entraram no próximo passo.`;
+      status.textContent = frase;
+      mostrarAlertaJuntarConcluido(frase);
     }
   } catch(e){
     status.textContent = 'Não consegui renderizar as câmeras.';

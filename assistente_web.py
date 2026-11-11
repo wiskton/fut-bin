@@ -1069,8 +1069,8 @@ class ColarGolsBody(BaseModel):
     texto: str
     video: Optional[str] = None
     inicio_jogo_s: float = 0
-    antes_s: float = 30
-    depois_s: float = 8
+    antes_s: float = 20
+    depois_s: float = 0
     cameras: Optional[List[int]] = None
 
 

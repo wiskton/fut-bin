@@ -3,7 +3,7 @@
 <link rel="icon" type="image/svg+xml" href="/web/favicon.svg">
 <link rel="icon" type="image/png" sizes="64x64" href="/web/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/web/assistente.css?v=20261110_juntar7">
+<link rel="stylesheet" href="/web/assistente.css?v=20261110_juntar8">
 
 <header>
   <div class="fut-brand">
@@ -378,7 +378,7 @@
 <section id="s-gols">
   <div class="card" id="cardColarGols">
     <h2>Colar a lista e cortar</h2>
-    <p class="hint">Cole um horário por linha. Esse horário é o começo do gol, e o clipe segue 20 segundos. A lista <b>substitui</b> os cortes achados pelo placar. O início do jogo soma esse atraso ao arquivo: com início 0:05, o gol 07:41 começa em 07:46.</p>
+    <p class="hint">Cole um horário por linha. Esse horário é o momento do gol; cada cena terá 20 segundos de duração, voltando 20 segundos por padrão para pegar a jogada completa. A lista <b>substitui</b> os cortes achados pelo placar. O início do jogo soma esse atraso ao arquivo: com início 0:05, o gol 07:41 fica em 07:46 no vídeo.</p>
     <label>Texto dos gols</label>
     <textarea id="textoGolsColar" placeholder="07:41&#10;08:09&#10;34:40"></textarea>
     <div class="grid2" style="margin-top:10px">
@@ -388,10 +388,10 @@
       </div>
       <div>
         <label>Segundos para trás</label>
-        <input id="segundosTrasColar" type="number" min="0" max="180" value="0">
+        <input id="segundosTrasColar" type="number" min="0" max="180" value="20">
       </div>
     </div>
-    <p class="hint">O clipe começa no horário (menos os segundos para trás) e dura 20 segundos. Deixe o início em 0:00 se o vídeo começa no apito.</p>
+    <p class="hint">O clipe volta os segundos para trás a partir do horário e dura 20 segundos no total. Deixe o início em 0:00 se o vídeo começa no apito.</p>
     <div id="colarGolsPreview" class="hint" style="margin-top:8px"></div>
     <div class="row" style="margin-top:10px; gap:10px">
       <button class="act" id="btnColarGols" type="button">Cortar os gols do texto</button>
@@ -1411,6 +1411,27 @@
   </div>
 </div>
 
+<!-- Modal: câmeras juntadas, pronto para continuar -->
+<div class="modal-overlay" id="modalJuntarConcluido" hidden>
+  <div class="modal-box modal-render-sucesso">
+    <div class="render-confetti-wrap" id="juntarConfettiWrap"></div>
+    <div style="position:relative; z-index:2">
+      <div class="render-sucesso-trofeu-wrap">
+        <div class="render-sucesso-trofeu-glow"></div>
+        <div class="render-sucesso-trofeu-icon">🎬</div>
+        <div class="render-sucesso-trofeu-badge">✓</div>
+      </div>
+      <div class="render-sucesso-tag">Juntar concluído</div>
+      <h2 class="render-sucesso-titulo">As câmeras foram juntadas</h2>
+      <p class="render-sucesso-sub" id="juntarConcluidoTexto">Os vídeos da partida estão prontos. Pode continuar o processo.</p>
+      <div class="render-sucesso-footer">
+        <button type="button" class="act" onclick="continuarDepoisDeJuntar()">Continuar → escolher as câmeras</button>
+        <button type="button" class="btn-fechar-sucesso" onclick="fecharModalJuntar()">Ficar nesta tela</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Notificação de Renderização Concluída -->
 <div class="modal-overlay" id="modalRenderConcluido" hidden>
   <div class="modal-box modal-render-sucesso">
@@ -1523,4 +1544,4 @@
   </div>
 </div>
 
-<script src="/web/assistente.js?v=20261110_vinte1" defer></script>
+<script src="/web/assistente.js?v=20261110_juntar8" defer></script>

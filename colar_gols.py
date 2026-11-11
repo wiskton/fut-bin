@@ -2,7 +2,8 @@
 
 Os tempos do texto são o relógio do jogo. inicio_jogo_s é o instante do arquivo
 em que esse relógio está em 0:00 (a gravação pode começar aos 3 minutos).
-O clipe começa antes_s antes do horário já convertido e termina depois_s depois.
+Cada cena cortada dura 20 segundos por padrão, voltando 20 segundos a partir do
+horário enviado (para pegar a jogada que culminou no gol).
 """
 
 from __future__ import annotations
@@ -100,22 +101,22 @@ def parse_texto_gols(texto: str) -> dict:
     }
 
 
-# O horário colado é o começo do gol. O clipe segue 20 segundos a partir dele.
-DURACAO_A_FRENTE_S = 20
+# Cada cena tem 20 segundos de duração. Por padrão volta 20s para pegar a jogada que culminou no gol.
+DURACAO_CENA_S = 20.0
+PADRAO_VOLTAR_S = 20.0
 
 
-def montar_cortes(eventos: list, inicio_jogo_s: float, antes_s: float, depois_s: float = DURACAO_A_FRENTE_S, ja_incluso_s: float = 0) -> list:
+def montar_cortes(eventos: list, inicio_jogo_s: float = 0, antes_s: float = PADRAO_VOLTAR_S, duracao_s: float = DURACAO_CENA_S, ja_incluso_s: float = 0) -> list:
     inicio_jogo_s = max(0.0, float(inicio_jogo_s or 0))
-    antes_s = min(180.0, max(0.0, float(antes_s)))
+    antes_s = PADRAO_VOLTAR_S if antes_s is None else min(180.0, max(0.0, float(antes_s)))
+    duracao_s = max(1.0, float(duracao_s or DURACAO_CENA_S))
     cortes = []
     for ev in eventos:
         tempo_video = float(ev["tempo_jogo_s"]) + inicio_jogo_s
         if tempo_video < 0:
             continue
         inicio = max(0.0, tempo_video - antes_s)
-        fim = tempo_video + DURACAO_A_FRENTE_S
-        if fim <= inicio:
-            fim = inicio + 1.0
+        fim = inicio + duracao_s
         item = dict(ev)
         item.update({
             "tempo_s": round(tempo_video, 2),
