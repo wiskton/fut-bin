@@ -5431,6 +5431,7 @@ let tempoFundoSegundos = 150;
 
 /* ===== CONFIG POR CÂMERA (tela final) ============================= */
 const _camPresetValues = {
+  anti_estouro:{b:100,s:140,c:100,d:0,v:0},
   claro_vivido:{b:125,s:145,c:112,d:0,v:0},
   super_claro: {b:145,s:135,c:115,d:0,v:0},
   fifa:        {b:118,s:165,c:120,d:0,v:0},
@@ -5438,8 +5439,8 @@ const _camPresetValues = {
   cinema:      {b:105,s:90, c:125,d:0,v:15},
   original:    {b:100,s:100,c:100,d:0,v:0},
 };
-const _camPresetNomes = {claro_vivido:'🌟 Claro & Vívido',super_claro:'☀️ Super Iluminado',fifa:'🎮 FIFA/Game',tv:'📺 Transmissão TV',cinema:'🎥 Cinema',original:'🔄 Original'};
-const _camPresetCores = {claro_vivido:'var(--accent)',super_claro:'#fde047',fifa:'#38bdf8',tv:'#4ade80',cinema:'#a78bfa',original:'var(--dim)'};
+const _camPresetNomes = {anti_estouro:'✨ Anti-Estouro (Refletores)',claro_vivido:'🌟 Claro & Vívido',super_claro:'☀️ Super Iluminado',fifa:'🎮 FIFA/Game',tv:'📺 Transmissão TV',cinema:'🎥 Cinema',original:'🔄 Original'};
+const _camPresetCores = {anti_estouro:'#00f0ff',claro_vivido:'var(--accent)',super_claro:'#fde047',fifa:'#38bdf8',tv:'#4ade80',cinema:'#a78bfa',original:'var(--dim)'};
 const _camCorLabel    = ['var(--accent)','#00f0ff','#a78bfa'];
 
 function _cfgCamDef(){ return {brilho:125,saturacao:145,contraste:112,desfoque:0,vinheta:0,tempo_s:150,aplicar_clipes:true,_preset:null}; }
@@ -5476,6 +5477,11 @@ async function aplicarPresetCam(ci, pid){
   const vals=_camPresetValues[pid]; if(!vals) return;
   const cfg=_cfgCam(ci);
   cfg._preset=pid; cfg.brilho=vals.b; cfg.saturacao=vals.s; cfg.contraste=vals.c; cfg.desfoque=vals.d; cfg.vinheta=vals.v;
+  cfg.corrigir_luzes=(pid==='anti_estouro');
+  if(pid==='anti_estouro'){
+    const c1=$('#chkCorrigirLuzesFinal'); if(c1) c1.checked=true;
+    const c2=$('#chkCorrigirLuzesJogador'); if(c2) c2.checked=true;
+  }
   const pfxs={camBrilho:'brilho',camSat:'saturacao',camContraste:'contraste',camDesfoque:'desfoque',camVinheta:'vinheta'};
   Object.entries(pfxs).forEach(([pfx,key])=>{
     const v=cfg[key], el=$(`#${pfx}${ci}`); if(el) el.value=v;
@@ -5545,7 +5551,7 @@ function renderGridCamerasFundo(){
   grid.querySelectorAll('video').forEach(v=>{v.pause();v.removeAttribute('src');v.load();});
   grid.innerHTML='';
   const cameras=camerasSelecionadas();
-  const PIDS=['claro_vivido','super_claro','fifa','tv','cinema','original'];
+  const PIDS=['anti_estouro','claro_vivido','super_claro','fifa','tv','cinema','original'];
 
   [0,1,2].forEach(ci=>{
     const cam=cameras[ci], cfg=_cfgCam(ci), cor=_camCorLabel[ci];
@@ -5589,9 +5595,10 @@ function renderGridCamerasFundo(){
     const pg=document.createElement('div'); pg.id=`presetsGridCam${ci}`; pg.style.cssText='display:grid;grid-template-columns:repeat(2,1fr);gap:4px';
     PIDS.forEach(pid=>{
       const isAt=cfg._preset===pid, cp=_camPresetCores[pid]||'var(--dim)';
+      const isDestaque = pid === 'anti_estouro';
       const btn=document.createElement('button'); btn.type='button'; btn.dataset.preset=pid; btn.className='ghost';
-      btn.style.cssText=`text-align:left;padding:5px 8px;font-size:10px;display:flex;flex-direction:column;gap:1px;border-color:${isAt?cp:'var(--line)'};${isAt?`background:${cp}22`:''}`;
-      btn.innerHTML=`<span style="font-weight:700;color:${cp}">${_camPresetNomes[pid]}</span>`;
+      btn.style.cssText=`text-align:left;padding:6px 8px;font-size:10px;display:flex;flex-direction:column;gap:2px;border-color:${isAt?cp:(isDestaque?'rgba(0,240,255,0.45)':'var(--line)')};${isAt?`background:${cp}22`:''};${isDestaque?'grid-column:span 2;background:rgba(0,240,255,0.06);':''}`;
+      btn.innerHTML=`<span style="font-weight:700;color:${cp}">${_camPresetNomes[pid]}</span>${isDestaque?'<span style="font-size:9px;color:var(--dim)">Corrige brilho estourado de refletores e dá vida às cores</span>':''}`;
       btn.onclick=()=>aplicarPresetCam(ci,pid);
       pg.appendChild(btn);
     });
@@ -5683,6 +5690,7 @@ async function salvarFundoCartela(silencioso = false){
       desfoque:   cfg.desfoque  ?? 0,
       vinheta:    cfg.vinheta   ?? 0,
       aplicar_video_clipes: cfg.aplicar_clipes !== false,
+      corrigir_luzes: !!cfg.corrigir_luzes,
     };
     const r = await fetch('/api/cartelas/fundo/salvar', {
       method: 'POST',
@@ -6653,6 +6661,7 @@ function paramsRenderJogador(){
     resolucao: parseInt($('#resolucaoJogador').value, 10) || 1080,
     ...(formatoJogadorVertical() ? {formato: '9:16', recorte: [recorteV.x, recorteV.y, recorteV.h]} : {}),
     brilho: v('#jgBrilho'), contraste: v('#jgContraste'), saturacao: v('#jgSaturacao'),
+    corrigir_luzes: $('#chkCorrigirLuzesJogador') ? $('#chkCorrigirLuzesJogador').checked : false,
   };
 }
 function inicializarRenderJogador(){
@@ -6695,12 +6704,16 @@ function inicializarRenderJogador(){
   ['mouseup', 'mouseleave', 'touchend'].forEach(ev => bc.addEventListener(ev, () => comparar(false)));
   $('#selClipePreviaJogador').onchange = carregarClipePreviaJogador;
   $('#tempoFramePrevia').oninput = buscarFramePrevia;
+  if($('#chkCorrigirLuzesJogador')) $('#chkCorrigirLuzesJogador').onchange = () => aplicarFiltroPreviaJogador();
   atualizar();
 }
 
 // Aproxima o filtro eq do ffmpeg: brilho é somado (b-1), o CSS multiplica — próximo o bastante para prévia.
 function filtroCssJogador(){
   const p = paramsRenderJogador();
+  if(p.corrigir_luzes){
+    return `brightness(${p.brilho * 1.01}) contrast(${p.contraste}) saturate(${p.saturacao * 1.4})`;
+  }
   return `brightness(${p.brilho}) contrast(${p.contraste}) saturate(${p.saturacao})`;
 }
 function aplicarFiltroPreviaJogador(){
@@ -6875,6 +6888,7 @@ $('#btnMontar').onclick = async ()=>{
     codec: codec,
     resolucao: parseInt($('#resolucaoFinal').value, 10) || 1080,
     tema: tema,
+    corrigir_luzes: $('#chkCorrigirLuzesFinal') ? $('#chkCorrigirLuzesFinal').checked : false,
   };
   // Ajustes de cor configurados no card do fundo valem para os clipes quando "aplicar aos clipes" está marcado.
   if($('#chkAplicarClipes').checked){

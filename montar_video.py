@@ -2517,17 +2517,34 @@ def seg_de_clipe(clipe, overlay_png, saida, sem_audio, fade=0.4, ajuste_cor=None
     filtro_cor = ""
     if ajuste_cor and isinstance(ajuste_cor, dict):
         eq_items = []
-        if ajuste_cor.get("brilho") is not None:
-            b = float(ajuste_cor["brilho"]) - 1.0
-            eq_items.append(f"brightness={b:.2f}")
-        if ajuste_cor.get("contraste") is not None:
-            c = float(ajuste_cor["contraste"])
-            eq_items.append(f"contrast={c:.2f}")
-        if ajuste_cor.get("saturacao") is not None:
-            s = float(ajuste_cor["saturacao"])
-            eq_items.append(f"saturation={s:.2f}")
+        corrigir = bool(ajuste_cor.get("corrigir_luzes"))
+        b_base = 0.0
+        c_base = 1.0
+        s_base = 1.40 if corrigir else 1.0
+        gamma_base = 1.0
+
+        b_user = float(ajuste_cor["brilho"]) - 1.0 if ajuste_cor.get("brilho") is not None else 0.0
+        c_user = float(ajuste_cor["contraste"]) if ajuste_cor.get("contraste") is not None else 1.0
+        s_user = float(ajuste_cor["saturacao"]) if ajuste_cor.get("saturacao") is not None else 1.0
+
+        b_final = b_base + b_user
+        c_final = c_base * c_user
+        s_final = s_base * s_user
+
+        if abs(b_final) > 0.001 or abs(c_final - 1.0) > 0.001 or abs(s_final - 1.0) > 0.001 or gamma_base != 1.0 or corrigir:
+            eq_items.append(f"contrast={c_final:.2f}")
+            eq_items.append(f"brightness={b_final:.2f}")
+            eq_items.append(f"saturation={s_final:.2f}")
+            if gamma_base != 1.0:
+                eq_items.append(f"gamma={gamma_base:.2f}")
+
+        curva_str = ""
+        if corrigir:
+            curva_str = ",curves=all='0/0 0.25/0.26 0.6/0.62 0.85/0.82 1/0.92'"
         if eq_items:
-            filtro_cor = ",eq=" + ":".join(eq_items)
+            filtro_cor = curva_str + ",eq=" + ":".join(eq_items)
+        elif curva_str:
+            filtro_cor = curva_str
 
     try:
         zoom = min(2.2, max(1.0, float(zoom)))
@@ -2703,6 +2720,7 @@ def main():
     ap.add_argument("--brilho", type=float, default=None, help="Ajuste de brilho dos clipes (1.0 = normal)")
     ap.add_argument("--saturacao", type=float, default=None, help="Ajuste de saturacao dos clipes (1.0 = normal)")
     ap.add_argument("--contraste", type=float, default=None, help="Ajuste de contraste dos clipes (1.0 = normal)")
+    ap.add_argument("--corrigir_luzes", action="store_true", help="Filtro anti-estouro para luzes fortes e cores vivas nos clipes")
     ap.add_argument("--crf", type=int, default=24, help="Nível de compressão CRF (20=original/pesado, 24=otimizado/recomendado, 27=compacto, 29=ultraleve)")
     ap.add_argument("--preset", default="medium", help="Preset do encoder (ultrafast, fast, medium, slow)")
     ap.add_argument("--codec", default="h264_nvenc", help="Codec de vídeo (h264_nvenc para GPU rápido, libx264 para CPU)")
@@ -2741,11 +2759,12 @@ def main():
 
     ajuste_cor = None
     fc = d.get("meta", {}).get("fundo_config", {}) if isinstance(d.get("meta"), dict) else {}
-    if fc.get("aplicar_video_clipes") or args.brilho is not None or args.saturacao is not None or args.contraste is not None:
+    if fc.get("aplicar_video_clipes") or args.brilho is not None or args.saturacao is not None or args.contraste is not None or args.corrigir_luzes or fc.get("corrigir_luzes"):
         ajuste_cor = {
             "brilho": args.brilho if args.brilho is not None else fc.get("brilho", 1.0),
             "saturacao": args.saturacao if args.saturacao is not None else fc.get("saturacao", 1.0),
             "contraste": args.contraste if args.contraste is not None else fc.get("contraste", 1.0),
+            "corrigir_luzes": bool(args.corrigir_luzes or fc.get("corrigir_luzes")),
         }
 
     por_indice = {g["indice"]: ("gol", g) for g in d.get("gols", [])}

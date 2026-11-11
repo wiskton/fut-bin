@@ -22,6 +22,31 @@ def probe(path):
 
 
 class PreviewCacheTest(unittest.TestCase):
+    def test_light_correction_preserves_midtone_brightness(self):
+        with patch.object(montar_video, 'duracao_video', return_value=3), \
+             patch.object(montar_video, 'roda') as roda:
+            montar_video.seg_de_clipe(
+                'clip.mp4', 'overlay.png', 'output.mp4', True,
+                ajuste_cor={
+                    'corrigir_luzes': True,
+                    'brilho': 1.0,
+                    'contraste': 1.0,
+                    'saturacao': 1.0,
+                },
+            )
+
+        comando = roda.call_args.args[0]
+        filtro = comando[comando.index('-filter_complex') + 1]
+        self.assertIn(
+            "curves=all='0/0 0.25/0.26 0.6/0.62 0.85/0.82 1/0.92'",
+            filtro,
+        )
+        self.assertIn(
+            'eq=contrast=1.00:brightness=0.00:saturation=1.40',
+            filtro,
+        )
+        self.assertNotIn('gamma=', filtro)
+
     def test_short_clip_uses_original_at_maximum_quality(self):
         command = api._comando_corte_qualidade_maxima(
             r"C:\videos\original-4k.mp4", 12.5, 15, r"C:\clips\gol.mp4")

@@ -2351,6 +2351,7 @@ class AjustarFundoPayload(BaseModel):
     desfoque: float = 0.0
     vinheta: float = 0.0
     aplicar_video_clipes: bool = False
+    corrigir_luzes: bool = False
 
 
 @app.post("/api/cartelas/fundo/salvar")
@@ -2506,6 +2507,7 @@ class IniciarMontagem(BaseModel):
     tema: str | None = None  # "atual", "fifa", "iss", "pes", "tv"
     gols_todas_cameras: bool | None = None
     lances_todas_cameras: bool | None = None
+    corrigir_luzes: bool = False
 
 
 @app.post("/api/montar/iniciar")
@@ -2549,6 +2551,8 @@ def api_iniciar_montagem(body: IniciarMontagem):
         cmd.append("--gols_todas_cameras")
     if body.lances_todas_cameras:
         cmd.append("--lances_todas_cameras")
+    if body.corrigir_luzes:
+        cmd.append("--corrigir_luzes")
 
     fc = {}
     if os.path.exists(PARTIDA_JSON):
