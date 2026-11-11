@@ -7,6 +7,7 @@ const PASSOS = [
   ['s-resumo','8 · Resumo'], ['s-final','9 · Vídeo final'], ['s-jogador','10 · Meus Melhores Momentos'],
 ];
 let passoAtual = 's-video';
+let opcoesVideosFinais = {melhores: true, gols: true};
 
 function slotJuntarVazio(){
   return { partes: [], inicio_s: null, fim_s: null, posicao: 0, renderizado: null };
@@ -515,6 +516,10 @@ function fecharModalRenderEAssistir(qual){
 }
 
 function mostrarAlertaHUDVideoFinal(){
+  const nomesVideos = [
+    opcoesVideosFinais.melhores ? 'Melhores Momentos' : null,
+    opcoesVideosFinais.gols ? 'Apenas Gols' : null,
+  ].filter(Boolean);
   let container = document.getElementById('hudToastContainer');
   if(!container){
     container = document.createElement('div');
@@ -535,8 +540,8 @@ function mostrarAlertaHUDVideoFinal(){
     </div>
     <div class="hud-toast-body">
       <div class="hud-toast-tag" style="color:var(--accent)">Processo Finalizado · Full HD</div>
-      <div class="hud-toast-title">Vídeos Finais Prontos!</div>
-      <div class="hud-toast-time"><span>🎬</span> Melhores Momentos e Apenas Gols gerados</div>
+      <div class="hud-toast-title">Vídeo${nomesVideos.length > 1 ? 's' : ''} Final${nomesVideos.length > 1 ? 'is' : ''} Pronto${nomesVideos.length > 1 ? 's' : ''}!</div>
+      <div class="hud-toast-time"><span>🎬</span> ${nomesVideos.join(' e ')}</div>
     </div>
     <div class="hud-toast-actions">
       <button type="button" class="hud-toast-btn-ver" style="background:var(--accent); color:#04140a; border:none; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer" title="Ver vídeos gerados">👁️ Ver</button>
@@ -557,7 +562,7 @@ function mostrarAlertaHUDVideoFinal(){
   if(btnVer){
     btnVer.onclick = () => {
       fechar();
-      fecharModalRenderEAssistir('melhores');
+      fecharModalRenderEAssistir(opcoesVideosFinais.melhores ? 'melhores' : 'gols');
     };
   }
 
@@ -571,7 +576,10 @@ function mostrarAlertaRenderizacaoConcluida(){
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('⚽ Vídeos Prontos! — fut-bin', {
-        body: 'A renderização dos melhores momentos e dos gols foi concluída com sucesso!',
+        body: `Renderização concluída: ${[
+          opcoesVideosFinais.melhores ? 'melhores momentos' : null,
+          opcoesVideosFinais.gols ? 'apenas gols' : null,
+        ].filter(Boolean).join(' e ')}.`,
         icon: '/web/icon.png'
       });
     }
@@ -6123,17 +6131,51 @@ function atualizarDescricoesYoutube(){
   }
 }
 
-function renderResultadosVideosFinais(){
+function atualizarVisibilidadeVideosFinais(opcoes){
+  const nomesVideos = [
+    opcoes.melhores ? 'Melhores Momentos' : null,
+    opcoes.gols ? 'Apenas Gols' : null,
+  ].filter(Boolean);
+  const visibilidade = {
+    modalCardMelhores: opcoes.melhores,
+    modalCardGols: opcoes.gols,
+    resultadoCardMelhores: opcoes.melhores,
+    resultadoCardGols: opcoes.gols,
+    resultadoTextoMelhores: opcoes.melhores,
+    resultadoTextoGols: opcoes.gols,
+  };
+  Object.entries(visibilidade).forEach(([id, visivel]) => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = visivel ? '' : 'none';
+  });
+  ['gridModalVideosFinais', 'resultadoVideosGrid', 'resultadoDescricoesGrid'].forEach(id => {
+    const grid = document.getElementById(id);
+    if(grid) grid.style.gridTemplateColumns = opcoes.melhores && opcoes.gols ? '1fr 1fr' : '1fr';
+  });
+  const titulo = document.getElementById('modalRenderTitulo');
+  if(titulo) titulo.textContent = nomesVideos.length > 1
+    ? 'Renderização Concluída com Sucesso!'
+    : `Vídeo de ${nomesVideos[0]} pronto!`;
+  const descricao = document.getElementById('modalRenderDescricao');
+  if(descricao) descricao.textContent = `${nomesVideos.length > 1 ? 'Os vídeos de' : 'O vídeo de'} ${nomesVideos.join(' e ')} ${nomesVideos.length > 1 ? 'foram montados' : 'foi montado'} com todas as cartelas, placares e transições oficiais.`;
+}
+
+function renderResultadosVideosFinais(opcoes = opcoesVideosFinais){
+  const ambos = opcoes.melhores && opcoes.gols;
+  const nomesVideos = [
+    opcoes.melhores ? 'Melhores Momentos' : null,
+    opcoes.gols ? 'Apenas Gols' : null,
+  ].filter(Boolean);
   $('#resultadoFinal').innerHTML = `
     <div style="background:linear-gradient(135deg, rgba(0,255,135,0.12) 0%, rgba(14,23,36,0.95) 100%); border:1.5px solid var(--accent); border-radius:12px; padding:16px 20px; margin-top:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; box-shadow:0 0 25px rgba(0,255,135,0.2)">
       <div style="display:flex; align-items:center; gap:14px">
         <span style="font-size:32px; filter:drop-shadow(0 2px 8px rgba(0,255,135,0.5))">🏆</span>
         <div>
           <div style="display:flex; align-items:center; gap:8px">
-            <span style="font-size:16px; font-weight:800; color:var(--accent)">Vídeos Finais Prontos em Full HD!</span>
+            <span style="font-size:16px; font-weight:800; color:var(--accent)">${nomesVideos.length > 1 ? 'Vídeos Finais' : 'Vídeo Final'} Pronto${nomesVideos.length > 1 ? 's' : ''} em Full HD!</span>
             <span style="background:var(--accent); color:#04140a; font-size:10px; font-weight:900; padding:2px 8px; border-radius:10px">1080p Broadcast</span>
           </div>
-          <div style="font-size:12px; color:var(--dim); margin-top:2px">Melhores Momentos e Apenas Gols gerados com sucesso. Assista ou baixe abaixo:</div>
+          <div style="font-size:12px; color:var(--dim); margin-top:2px">${ambos ? 'Os vídeos foram gerados:' : 'O vídeo foi gerado:'} ${nomesVideos.join(' e ')}. Assista ou baixe abaixo:</div>
         </div>
       </div>
       <button type="button" class="act" onclick="mostrarAlertaRenderizacaoConcluida()" style="font-size:12px; padding:8px 16px; border-radius:8px; display:flex; align-items:center; gap:6px; font-weight:800" title="Reabrir alerta de comemoração e opções de download">
@@ -6144,8 +6186,8 @@ function renderResultadosVideosFinais(){
     <div style="display:flex; justify-content:flex-end; margin-top:14px">
       <button type="button" id="btnAtualizarDescricoesYoutube" class="ghost" style="font-size:12px; padding:8px 12px">↻ Atualizar textos do YouTube</button>
     </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:8px">
-      <div class="card" style="margin:0; background:var(--panel2); border:1px solid var(--line-bright)">
+    <div id="resultadoVideosGrid" style="display:grid; grid-template-columns:${ambos ? '1fr 1fr' : '1fr'}; gap:14px; margin-top:8px">
+      <div id="resultadoCardMelhores" class="card" style="margin:0; background:var(--panel2); border:1px solid var(--line-bright); display:${opcoes.melhores ? '' : 'none'}">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
           <h3 style="margin:0; font-size:14px; color:var(--accent); display:flex; align-items:center; gap:6px">
             <span>🎬</span> Melhores Momentos (Gols + Lances)
@@ -6157,7 +6199,7 @@ function renderResultadosVideosFinais(){
           <a class="act" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; text-align:center; font-size:13px; padding:10px 14px; border-radius:8px" href="/video/final" download>⬇ Baixar melhores_momentos.mp4</a>
         </div>
       </div>
-      <div class="card" style="margin:0; background:var(--panel2); border:1px solid var(--line-bright)">
+      <div id="resultadoCardGols" class="card" style="margin:0; background:var(--panel2); border:1px solid var(--line-bright); display:${opcoes.gols ? '' : 'none'}">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
           <h3 style="margin:0; font-size:14px; color:var(--accent); display:flex; align-items:center; gap:6px">
             <span>⚽</span> Apenas Gols
@@ -6171,8 +6213,8 @@ function renderResultadosVideosFinais(){
       </div>
     </div>
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px">
-      <div class="card" style="margin:0; border:1px solid rgba(0,255,135,0.45); background:linear-gradient(135deg, rgba(0,255,135,0.08), var(--panel2))">
+    <div id="resultadoDescricoesGrid" style="display:grid; grid-template-columns:${ambos ? '1fr 1fr' : '1fr'}; gap:14px; margin-top:14px">
+      <div id="resultadoTextoMelhores" class="card" style="margin:0; border:1px solid rgba(0,255,135,0.45); background:linear-gradient(135deg, rgba(0,255,135,0.08), var(--panel2)); display:${opcoes.melhores ? '' : 'none'}">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px">
           <div>
             <h3 style="margin:0; font-size:15px; color:var(--accent)">🎬 Descrição · Melhores Momentos</h3>
@@ -6182,7 +6224,7 @@ function renderResultadosVideosFinais(){
         </div>
         <textarea id="textoMelhoresYoutube" readonly aria-label="Descrição dos melhores momentos para YouTube" style="width:100%; min-height:220px; resize:vertical; box-sizing:border-box; background:#070d16; color:#edf7ff; border:1px solid var(--line-bright); border-radius:8px; padding:11px; font:13px/1.55 monospace"></textarea>
       </div>
-      <div class="card" style="margin:0; border:1px solid rgba(255,215,0,0.45); background:linear-gradient(135deg, rgba(255,215,0,0.08), var(--panel2))">
+      <div id="resultadoTextoGols" class="card" style="margin:0; border:1px solid rgba(255,215,0,0.45); background:linear-gradient(135deg, rgba(255,215,0,0.08), var(--panel2)); display:${opcoes.gols ? '' : 'none'}">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px">
           <div>
             <h3 style="margin:0; font-size:15px; color:var(--gold-light)">⚽ Descrição · Apenas Gols</h3>
@@ -6196,6 +6238,7 @@ function renderResultadosVideosFinais(){
     <div id="arquivosFinaisExtras" style="margin-top:14px"></div>
   `;
 
+  atualizarVisibilidadeVideosFinais(opcoes);
   atualizarDescricoesYoutube();
   const btnAtualizarDescricoes = $('#btnAtualizarDescricoesYoutube');
   if(btnAtualizarDescricoes) btnAtualizarDescricoes.onclick = () => {
@@ -6835,6 +6878,16 @@ $('#btnMontarJogador').onclick = async ()=>{
 $('#btnCancelarMontarJogador').onclick = cancelarJobAtivo;
 
 $('#btnMontar').onclick = async ()=>{
+  const renderizarMelhores = $('#renderizarMelhoresMomentos').checked;
+  const renderizarGols = $('#renderizarApenasGols').checked;
+  if(!renderizarMelhores && !renderizarGols){
+    alert('Selecione ao menos um tipo de vídeo para renderizar.');
+    return;
+  }
+  if(renderizarGols && !validos().length){
+    alert('Não há gols confirmados para renderizar. Marque ao menos um gol ou desmarque “Apenas gols”.');
+    return;
+  }
   if ('Notification' in window && Notification.permission === 'default') {
     try { await Notification.requestPermission(); } catch(e){}
   }
@@ -6881,6 +6934,8 @@ $('#btnMontar').onclick = async ()=>{
     sem_audio: $('#semAudio').checked,
     sem_abertura: $('#semAbertura').checked,
     sem_fechamento: $('#semFechamento').checked,
+    renderizar_melhores_momentos: renderizarMelhores,
+    renderizar_apenas_gols: renderizarGols,
     gols_todas_cameras: $('#golsTodasCameras') ? $('#golsTodasCameras').checked : true,
     lances_todas_cameras: $('#lancesTodasCameras') ? $('#lancesTodasCameras').checked : false,
     roteiro: roteiro.length ? roteiro : todos,
@@ -6900,10 +6955,15 @@ $('#btnMontar').onclick = async ()=>{
 
   // Mantém a ordem e a abertura usadas nesta renderização para os capítulos do YouTube.
   ESTADO.roteiroFinal = [...body.roteiro];
-  ESTADO.opcoesMontagemFinal = { abertura: body.abertura, sem_abertura: body.sem_abertura };
+  ESTADO.opcoesMontagemFinal = {
+    abertura: body.abertura,
+    sem_abertura: body.sem_abertura,
+    renderizar_melhores_momentos: renderizarMelhores,
+    renderizar_apenas_gols: renderizarGols,
+  };
   S.meta = S.meta || {};
   S.meta.roteiro_final = [...body.roteiro];
-  S.meta.opcoes_montagem_final = { abertura: body.abertura, sem_abertura: body.sem_abertura };
+  S.meta.opcoes_montagem_final = {...ESTADO.opcoesMontagemFinal};
   await salvarPartida();
 
   const btnCanc = $('#btnCancelarMontar');
@@ -6913,7 +6973,8 @@ $('#btnMontar').onclick = async ()=>{
   const ok = await acompanharJob(job_id, $('#montarLog'), btnCanc);
   $('#btnMontar').disabled = false;
   if(ok){
-    renderResultadosVideosFinais();
+    opcoesVideosFinais = {melhores: renderizarMelhores, gols: renderizarGols};
+    renderResultadosVideosFinais(opcoesVideosFinais);
     mostrarAlertaRenderizacaoConcluida();
   }
 };

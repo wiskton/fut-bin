@@ -22,6 +22,52 @@ def probe(path):
 
 
 class PreviewCacheTest(unittest.TestCase):
+    def test_selects_only_requested_final_video_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            partida = Path(tmp) / 'partida.json'
+            partida.write_text('{"meta": {}}', encoding='utf-8')
+            cases = [
+                (True, False, False, '/video/final'),
+                (False, True, True, '/video/final/gols'),
+                (True, True, False, '/video/final'),
+            ]
+            for melhores, gols, somente_gols, video_url in cases:
+                with self.subTest(melhores=melhores, gols=gols), \
+                     patch.multiple(api, PARTIDA_JSON=str(partida), PROJECT_DIR=tmp), \
+                     patch.object(api, '_iniciar_job', return_value='job') as iniciar:
+                    resposta = api.api_iniciar_montagem(api.IniciarMontagem(
+                        codec='libx264',
+                        renderizar_melhores_momentos=melhores,
+                        renderizar_apenas_gols=gols,
+                    ))
+                    comando = iniciar.call_args.args[0]
+                    self.assertEqual(resposta['video_url'], video_url)
+                    self.assertEqual('--somente_gols' in comando, somente_gols)
+                    self.assertEqual(
+                        comando[comando.index('--saida_gols') + 1],
+                        'final/apenas_gols.mp4' if melhores and gols else '',
+                    )
+                    saida = Path(comando[comando.index('--saida') + 1]).as_posix()
+                    self.assertEqual(
+                        saida,
+                        'final/apenas_gols.mp4' if somente_gols else 'final/melhores_momentos.mp4',
+                    )
+
+        with self.assertRaises(api.HTTPException):
+            api.api_iniciar_montagem(api.IniciarMontagem(
+                renderizar_melhores_momentos=False,
+                renderizar_apenas_gols=False,
+            ))
+
+    def test_goal_only_roteiro_excludes_highlight_clips(self):
+        roteiro = [{'i': 1}, {'i': 2}, {'i': 3}]
+        por_indice = {1: ('gol', {}), 2: ('lance', {}), 3: ('gol', {})}
+
+        self.assertEqual(
+            montar_video._roteiro_apenas_gols(roteiro, por_indice),
+            [{'i': 1}, {'i': 3}],
+        )
+
     def test_light_correction_preserves_midtone_brightness(self):
         with patch.object(montar_video, 'duracao_video', return_value=3), \
              patch.object(montar_video, 'roda') as roda:

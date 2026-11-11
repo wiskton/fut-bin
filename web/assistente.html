@@ -975,6 +975,18 @@
 
   <div class="card">
     <h2>Montar vídeo final</h2>
+    <div style="margin:10px 0 14px; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px">
+      <div style="font-size:13px; font-weight:800; color:var(--txt)">Vídeos para renderizar</div>
+      <label class="row" style="margin:0; cursor:pointer">
+        <input type="checkbox" id="renderizarMelhoresMomentos" checked style="width:auto">
+        <span>🎬 Melhores momentos (gols + lances)</span>
+      </label>
+      <label class="row" style="margin:0; cursor:pointer">
+        <input type="checkbox" id="renderizarApenasGols" checked style="width:auto">
+        <span>⚽ Apenas gols (sem os outros lances)</span>
+      </label>
+      <div class="hint">Marque um ou os dois vídeos que deseja gerar.</div>
+    </div>
     <div class="grid2">
       <div><label>Cartela de abertura (s)</label><input id="abertura" type="number" value="7"></div>
       <div><label>Cartelas de fechamento (s)</label><input id="fechamento" type="number" value="8"></div>
@@ -1412,13 +1424,13 @@
       </div>
 
       <div class="render-sucesso-tag">Processo Concluído · Full HD 1080p</div>
-      <h2 class="render-sucesso-titulo">Renderização Concluída com Sucesso!</h2>
-      <p class="render-sucesso-sub">
+      <h2 class="render-sucesso-titulo" id="modalRenderTitulo">Renderização Concluída com Sucesso!</h2>
+      <p class="render-sucesso-sub" id="modalRenderDescricao">
         Os vídeos finais da sua pelada foram montados com todas as cartelas, placares e transições oficiais.
       </p>
 
-      <div class="render-sucesso-grid">
-        <div class="render-sucesso-card">
+      <div class="render-sucesso-grid" id="gridModalVideosFinais">
+        <div class="render-sucesso-card" id="modalCardMelhores">
           <div>
             <div class="render-card-icon">🎬</div>
             <div class="render-card-tipo">Vídeo Oficial Completo</div>
@@ -1431,7 +1443,7 @@
           </div>
         </div>
 
-        <div class="render-sucesso-card">
+        <div class="render-sucesso-card" id="modalCardGols">
           <div>
             <div class="render-card-icon">⚽</div>
             <div class="render-card-tipo">Versão Resumo</div>

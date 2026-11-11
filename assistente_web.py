@@ -2508,22 +2508,45 @@ class IniciarMontagem(BaseModel):
     gols_todas_cameras: bool | None = None
     lances_todas_cameras: bool | None = None
     corrigir_luzes: bool = False
+    renderizar_melhores_momentos: bool = True
+    renderizar_apenas_gols: bool = True
 
 
 @app.post("/api/montar/iniciar")
 def api_iniciar_montagem(body: IniciarMontagem):
     if not os.path.exists(PARTIDA_JSON):
         raise HTTPException(400, "marque autor/assistencia antes de montar")
+    if not body.video_jogador and not (
+        body.renderizar_melhores_momentos or body.renderizar_apenas_gols
+    ):
+        raise HTTPException(400, "selecione ao menos um vídeo para renderizar")
     nome_saida = os.path.basename(body.nome_saida or "melhores_momentos.mp4")
     nome_saida = re.sub(r"[^a-zA-Z0-9À-ÿ ._-]+", "_", nome_saida)
     if not nome_saida.lower().endswith(".mp4"):
         nome_saida += ".mp4"
     eh_video_jogador = body.video_jogador
     pasta_saida = "videos_jogadores" if eh_video_jogador else "final"
+    somente_gols = (
+        not eh_video_jogador
+        and not body.renderizar_melhores_momentos
+        and body.renderizar_apenas_gols
+    )
+    saida = (
+        os.path.join("final", "apenas_gols.mp4")
+        if somente_gols
+        else os.path.join(pasta_saida, nome_saida)
+    )
+    gerar_saida_gols = (
+        not eh_video_jogador
+        and body.renderizar_melhores_momentos
+        and body.renderizar_apenas_gols
+    )
     cmd = [PYTHON_EXEC, os.path.join(PROJECT_DIR, "montar_video.py"), "--partida", "partida.json",
-           "--clipes", "gols/clipes", "--saida", os.path.join(pasta_saida, nome_saida),
-           "--saida_gols", "" if eh_video_jogador else "final/apenas_gols.mp4",
+           "--clipes", "gols/clipes", "--saida", saida,
+           "--saida_gols", "final/apenas_gols.mp4" if gerar_saida_gols else "",
            "--abertura", str(body.abertura), "--fechamento", str(body.fechamento)]
+    if somente_gols:
+        cmd.append("--somente_gols")
     if body.roteiro:
         cmd.extend(["--roteiro", ",".join(str(i) for i in body.roteiro)])
     if body.sem_audio:
@@ -2574,7 +2597,12 @@ def api_iniciar_montagem(body: IniciarMontagem):
         if valor is not None:
             cmd.extend([f"--{nome_arg}", str(max(0.1, min(3.0, float(valor))))])
 
-    return {"job_id": _iniciar_job(cmd), "video_url": f"/video/jogador/{nome_saida}" if eh_video_jogador else "/video/final"}
+    video_url = (
+        f"/video/jogador/{nome_saida}"
+        if eh_video_jogador
+        else "/video/final/gols" if somente_gols else "/video/final"
+    )
+    return {"job_id": _iniciar_job(cmd), "video_url": video_url}
 
 
 @app.api_route("/video/final", methods=["GET", "HEAD"])

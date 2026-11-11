@@ -2704,12 +2704,21 @@ def _normaliza_roteiro(raw_roteiro, por_indice):
     return [{"i": idx} for idx in unicos_ordenados]
 
 
+def _roteiro_apenas_gols(roteiro, por_indice):
+    return [
+        item for item in roteiro
+        if item["i"] in por_indice and por_indice[item["i"]][0] == "gol"
+    ]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--partida", default="partida.json")
     ap.add_argument("--clipes", default="gols/clipes")
     ap.add_argument("--saida", default="final/melhores_momentos.mp4")
     ap.add_argument("--saida_gols", default="final/apenas_gols.mp4")
+    ap.add_argument("--somente_gols", action="store_true",
+                    help="Renderiza somente os gols do roteiro no vídeo principal")
     ap.add_argument("--abertura", type=float, default=7.0)
     ap.add_argument("--fechamento", type=float, default=8.0)
     ap.add_argument("--roteiro", help="Indices dos clipes em ordem, ex.: 2,5,9")
@@ -2802,7 +2811,11 @@ def main():
         raw_roteiro = d.get("roteiro")
 
     roteiro = _normaliza_roteiro(raw_roteiro, por_indice)
+    if args.somente_gols:
+        roteiro = _roteiro_apenas_gols(roteiro, por_indice)
     if not roteiro:
+        if args.somente_gols:
+            raise SystemExit("nao ha gols no roteiro para renderizar.")
         print("nada para montar: o partida.json nao tem gols nem lances.")
         return
 
@@ -2947,17 +2960,19 @@ def main():
         partes_gols.append(s)
 
         lista = os.path.join(tmp, "lista.txt")
-        print("\njuntando vídeo completo (todos os clipes)...")
-        concatenar_segmentos(partes, lista, args.saida,
+        partes_saida = partes if not args.somente_gols else partes_gols
+        descricao_saida = "só gols" if args.somente_gols else "todos os clipes"
+        print(f"\njuntando vídeo ({descricao_saida})...")
+        concatenar_segmentos(partes_saida, lista, args.saida,
                              crf=args.crf, preset=args.preset, codec=args.codec)
 
         dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                               "format=duration", "-of", "csv=p=0", args.saida],
                              capture_output=True, text=True).stdout.strip()
-        print(f"\npronto (todos os clipes): {os.path.abspath(args.saida)}")
+        print(f"\npronto ({descricao_saida}): {os.path.abspath(args.saida)}")
         if dur:
             t = float(dur)
-            print(f"duracao: {int(t // 60)}min {int(t % 60)}s | {len(partes)} segmentos")
+            print(f"duracao: {int(t // 60)}min {int(t % 60)}s | {len(partes_saida)} segmentos")
 
         if args.saida_gols and any(item["i"] in por_indice and por_indice[item["i"]][0] == "gol" for item in roteiro):
             lista_gols = os.path.join(tmp, "lista_gols.txt")
